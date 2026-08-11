@@ -43,6 +43,9 @@ Le partage des responsabilités qui en découle :
   deux champs donne « ATELIER ATELIER » partout où PrestaShop affiche
   « prénom nom ». La raison sociale complète, elle, reste dans le champ
   *Société*.
+- **Reprise du carnet d'adresses** — les adresses du tiers deviennent des
+  adresses du compte boutique, avec un intitulé lisible plutôt qu'un code
+  technique. L'opération est idempotente : un second import ne duplique rien.
 - **Sonde de support** — pour une adresse e-mail donnée : le tiers E-KO
   correspondant, le tarif qui s'applique et le nombre de documents à son nom.
 
@@ -50,14 +53,14 @@ Le partage des responsabilités qui en découle :
 
 - PrestaShop **9.0** ou supérieur
 - PHP **8.1** ou supérieur, avec l'extension cURL
-
-> Le module exige PHP 8.1 (propriétés promues en lecture seule). PrestaShop 9
-> l'impose déjà ; annoncer PrestaShop 8, qui tourne encore sur PHP 7.2,
-> laisserait un marchand déposer le module puis perdre son back-office sur une
-> erreur fatale — les fichiers sont chargés avant qu'un garde puisse
-> s'exécuter.
 - Une instance **E-KO** exposant son API v1, avec le module *Gestion Imprimerie*
 - Un **jeton d'API** dédié à ce module, aux portées minimales
+
+> Pourquoi PrestaShop 9 et pas 8 : le module exige PHP 8.1 (propriétés promues
+> en lecture seule), que PrestaShop 9 impose déjà. Annoncer PrestaShop 8, qui
+> tourne encore sur PHP 7.2, laisserait un marchand déposer le module puis
+> perdre son back-office sur une erreur fatale — les fichiers sont chargés avant
+> qu'un garde puisse s'exécuter.
 
 ## Installation
 
@@ -150,11 +153,15 @@ Annoncé pour éviter toute mauvaise surprise :
 - pas de configurateur de prix côté boutique ;
 - pas de synchronisation du catalogue ni des documents dans le compte client ;
 - pas de téléversement de fichiers, ni de contrôle avant impression ;
-- **pas de synchronisation des adresses** : l'API de l'ERP ne les expose pas
-  encore. PrestaShop gère pourtant le multi-adresse, comme l'ERP — le jour où
-  un point d'entrée existe, la reprise est immédiate ;
+- **la reprise des adresses va dans un seul sens** : de l'ERP vers la
+  boutique. Une adresse créée par le client sur le site n'est pas remontée ;
 - **un seul contact par compte** : PrestaShop n'attache qu'un état civil à un
   compte client. Le multi-contact viendra.
+
+Une adresse sans voie ou sans ville est **refusée et signalée** plutôt que
+créée amputée : PrestaShop exige les deux, et un bon de livraison incomplet ne
+vaut rien. Un pays absent de la boutique est refusé de la même façon ; un pays
+présent mais non activé passe, avec un avertissement.
 
 Le montant d'encours et le délai de paiement (mode B2B de PrestaShop) restent à
 zéro tant que l'API E-KO ne les expose pas : zéro signifie « aucun crédit

@@ -67,7 +67,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.1.0';
+        $this->version = '0.2.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -129,6 +129,7 @@ class Ekosyncimprimerie extends Module
         // desinstallation, c'est laisser une donnee personnelle qu'aucune
         // procedure de la boutique ne connait.
         Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_tier`');
+        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_address`');
 
         return parent::uninstall();
     }

@@ -121,16 +121,18 @@ class ImportTiers
         if ($existant > 0) {
             $this->lier($existant, $tierId);
             $deplace = $this->classer($existant, $tier);
+            $adresses = $this->importerAdresses($tierCode, $existant, $tier);
 
             return [
                 'ok' => true,
                 'cree' => false,
                 'id_customer' => $existant,
                 'message' => sprintf(
-                    'Un compte existait déjà pour %s : il a été rattaché au tiers %d.%s',
+                    'Un compte existait déjà pour %s : il a été rattaché au tiers %d.%s%s',
                     $email,
                     $tierId,
-                    $deplace === '' ? '' : ' ' . $deplace
+                    $deplace === '' ? '' : ' ' . $deplace,
+                    $this->resumeAdresses($adresses)
                 ),
             ];
         }
@@ -196,16 +198,18 @@ class ImportTiers
         }
 
         $this->lier((int) $client->id, $tierId);
+        $adresses = $this->importerAdresses($tierCode, (int) $client->id, $tier);
 
         return [
             'ok' => true,
             'cree' => true,
             'id_customer' => (int) $client->id,
             'message' => sprintf(
-                'Compte créé pour %s (%s), groupe %s. Le client définira son mot de passe par « mot de passe oublié ».',
+                'Compte créé pour %s (%s), groupe %s. Le client définira son mot de passe par « mot de passe oublié ».%s',
                 $email,
                 $client->company !== '' ? $client->company : $client->lastname,
-                $this->groupes->roleDe($tier)
+                $this->groupes->roleDe($tier),
+                $this->resumeAdresses($adresses)
             ),
         ];
     }
@@ -239,6 +243,221 @@ class ImportTiers
         $client->updateGroup($this->appartenances($client, $vise));
 
         return sprintf('Groupe corrigé d\'après E-KO : %s.', $this->groupes->roleDe($tier));
+    }
+
+    /**
+     * Ce que la reprise des adresses a donné, en une phrase.
+     *
+     * Le détail sort intégralement : une adresse refusée sans qu'on dise
+     * laquelle ni pourquoi, c'est une donnée perdue que personne ne cherchera.
+     *
+     * @param  list<array{eko_id: int, action: string}>  $rapport
+     */
+    private function resumeAdresses(array $rapport): string
+    {
+        if ($rapport === []) {
+            return ' Aucune adresse dans l\'ERP.';
+        }
+
+        return ' Adresses : ' . implode(' ; ', array_map(
+            static fn (array $l): string => ($l['eko_id'] > 0 ? '#' . $l['eko_id'] . ' ' : '') . $l['action'],
+            $rapport
+        )) . '.';
+    }
+
+    /**
+     * Recopie les adresses du tiers dans le carnet du compte boutique.
+     *
+     * PrestaShop gère le multi-adresse comme l'ERP : la reprise est donc une
+     * copie, pas un choix. Deux garde-fous méritent d'être connus :
+     *
+     * 1. `address1` et `city` sont OBLIGATOIRES côté PrestaShop. Une adresse
+     *    d'ERP qui n'a pas de voie ou pas de ville est refusée et RAPPORTÉE —
+     *    la créer amputée donnerait un bon de livraison inutilisable.
+     * 2. Le pays doit exister dans la boutique. S'il n'y est pas activé,
+     *    l'adresse est créée quand même mais le rapport le signale : le client
+     *    ne pourrait pas s\'en servir en commande tant que le marchand ne
+     *    l\'active pas.
+     *
+     * L\'opération est idempotente : une petite table retient quelle adresse
+     * d\'ERP a produit quelle adresse boutique, si bien qu\'un second import ne
+     * duplique rien.
+     *
+     * @param  array<string,mixed>  $tier
+     * @return list<array{eko_id: int, action: string}>
+     */
+    public function importerAdresses(string $tierCode, int $idCustomer, array $tier): array
+    {
+        $r = $this->client->appeler('GET', '/api/v1/tiers/' . rawurlencode($tierCode) . '/addresses');
+
+        if (!$r['ok']) {
+            return [['eko_id' => 0, 'action' => 'lecture impossible : ' . $r['erreur']]];
+        }
+
+        $lignes = $r['donnees']['data'] ?? $r['donnees'];
+
+        if (!is_array($lignes)) {
+            return [];
+        }
+
+        $client = new \Customer($idCustomer);
+
+        if (!\Validate::isLoadedObject($client)) {
+            return [['eko_id' => 0, 'action' => 'compte boutique introuvable']];
+        }
+
+        $this->tableAdresses();
+        $rapport = [];
+
+        foreach ($lignes as $a) {
+            if (!is_array($a)) {
+                continue;
+            }
+
+            $rapport[] = $this->reprendreUneAdresse($a, $client, $tier);
+        }
+
+        return $rapport;
+    }
+
+    /**
+     * @param  array<string,mixed>  $a
+     * @param  array<string,mixed>  $tier
+     * @return array{eko_id: int, action: string}
+     */
+    private function reprendreUneAdresse(array $a, \Customer $client, array $tier): array
+    {
+        $ekoId = (int) ($a['id'] ?? 0);
+
+        if ($ekoId <= 0) {
+            return ['eko_id' => 0, 'action' => 'adresse sans identifiant : ignorée'];
+        }
+
+        $deja = (int) \Db::getInstance()->getValue(
+            'SELECT `id_address` FROM `' . _DB_PREFIX_ . 'ekosync_address`'
+            . ' WHERE `eko_address_id` = ' . $ekoId . ' AND `id_customer` = ' . (int) $client->id
+        );
+
+        if ($deja > 0 && \Validate::isLoadedObject(new \Address($deja))) {
+            return ['eko_id' => $ekoId, 'action' => 'déjà reprise (adresse #' . $deja . ')'];
+        }
+
+        $voie = trim((string) ($a['street'] ?? ''));
+        $ville = trim((string) ($a['city'] ?? ''));
+
+        // PrestaShop exige les deux. Une adresse amputée vaut moins que pas
+        // d'adresse : elle produirait un bon de livraison inutilisable.
+        if ($voie === '' || $ville === '') {
+            return ['eko_id' => $ekoId, 'action' => 'refusée : ' . ($voie === '' ? 'aucune voie' : 'aucune ville')];
+        }
+
+        $iso = strtoupper(trim((string) ($a['country'] ?? '')));
+        $idPays = $iso === '' ? 0 : (int) \Country::getByIso($iso);
+
+        if ($idPays <= 0) {
+            return ['eko_id' => $ekoId, 'action' => 'refusée : pays « ' . htmlspecialchars($iso) . ' » inconnu de la boutique'];
+        }
+
+        $adresse = new \Address();
+        $adresse->id_customer = (int) $client->id;
+        $adresse->id_country = $idPays;
+        $adresse->alias = $this->alias($a);
+        $adresse->firstname = $client->firstname;
+        $adresse->lastname = $client->lastname;
+        $adresse->company = (string) ($tier['commercial_name'] ?? $tier['name'] ?? '');
+        $adresse->address1 = mb_substr($voie, 0, 128);
+        $adresse->address2 = mb_substr(trim((string) ($a['street2'] ?? '')), 0, 128);
+        $adresse->postcode = mb_substr(trim((string) ($a['postal_code'] ?? '')), 0, 12);
+        $adresse->city = mb_substr($ville, 0, 64);
+        $adresse->phone = mb_substr(trim((string) ($a['contact_phone'] ?? '')), 0, 32);
+        $adresse->other = mb_substr(trim((string) ($a['notes'] ?? '')), 0, 300);
+
+        $erreur = $adresse->validateFields(false, true);
+
+        if ($erreur !== true) {
+            return ['eko_id' => $ekoId, 'action' => 'refusée par PrestaShop : ' . (string) $erreur];
+        }
+
+        if (!$adresse->add()) {
+            return ['eko_id' => $ekoId, 'action' => 'refusée : PrestaShop n\'a pas enregistré l\'adresse'];
+        }
+
+        \Db::getInstance()->execute(
+            'INSERT INTO `' . _DB_PREFIX_ . 'ekosync_address` (`id_address`, `eko_address_id`, `id_customer`, `date_add`) '
+            . 'VALUES (' . (int) $adresse->id . ', ' . $ekoId . ', ' . (int) $client->id . ', NOW()) '
+            . 'ON DUPLICATE KEY UPDATE `eko_address_id` = ' . $ekoId
+        );
+
+        $actif = (bool) \Db::getInstance()->getValue(
+            'SELECT `active` FROM `' . _DB_PREFIX_ . 'country` WHERE `id_country` = ' . $idPays
+        );
+
+        return [
+            'eko_id' => $ekoId,
+            'action' => 'créée (adresse #' . (int) $adresse->id . ')'
+                . ($actif ? '' : ' — ⚠ le pays ' . htmlspecialchars($iso) . ' n\'est pas activé dans la boutique'),
+        ];
+    }
+
+    /**
+     * Un libellé d'adresse que PrestaShop accepte, et qui reste lisible.
+     *
+     * `alias` est limité à 32 caractères et validé par `isGenericName`. Le
+     * libellé de l'ERP passe en premier ; à défaut, le type de l'adresse, qui
+     * dit au moins de quoi il s'agit.
+     *
+     * @param  array<string,mixed>  $a
+     */
+    private function alias(array $a): string
+    {
+        // Le client voit cet intitulé dans son carnet d'adresses : « main » y
+        // serait un code technique échappé jusqu'à l'écran.
+        $parType = [
+            'main' => 'Adresse principale',
+            'billing' => 'Facturation',
+            'delivery' => 'Livraison',
+            'shipping' => 'Livraison',
+            'warehouse' => 'Entrepôt',
+            'site' => 'Chantier',
+        ];
+
+        $type = strtolower(trim((string) ($a['type'] ?? '')));
+
+        foreach ([
+            (string) ($a['label'] ?? ''),
+            $parType[$type] ?? '',
+            $type,
+        ] as $candidat) {
+            $propre = trim((string) preg_replace('/\s+/u', ' ', $candidat));
+            $propre = mb_substr($propre, 0, 32);
+
+            if ($propre !== '' && \Validate::isGenericName($propre)) {
+                return $propre;
+            }
+        }
+
+        return 'Adresse';
+    }
+
+    /**
+     * Retient quelle adresse d'ERP a produit quelle adresse boutique.
+     *
+     * Sans elle, chaque import recréerait le carnet entier. La clé primaire est
+     * l'adresse BOUTIQUE : une adresse d'ERP peut légitimement produire une
+     * adresse chez plusieurs comptes du même tiers.
+     */
+    private function tableAdresses(): void
+    {
+        \Db::getInstance()->execute(
+            'CREATE TABLE IF NOT EXISTS `' . _DB_PREFIX_ . 'ekosync_address` ('
+            . '`id_address` INT UNSIGNED NOT NULL,'
+            . '`eko_address_id` INT UNSIGNED NOT NULL,'
+            . '`id_customer` INT UNSIGNED NOT NULL,'
+            . '`date_add` DATETIME NOT NULL,'
+            . 'PRIMARY KEY (`id_address`),'
+            . 'KEY `eko_customer` (`eko_address_id`, `id_customer`)'
+            . ') ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8mb4'
+        );
     }
 
     /**

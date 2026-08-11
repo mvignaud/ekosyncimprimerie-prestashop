@@ -7,6 +7,35 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.2.0] — 2026-08-11
+
+### Ajouté
+
+- **Reprise du carnet d'adresses.** Les adresses du tiers deviennent des
+  adresses du compte boutique. L'opération est idempotente : une petite table
+  retient quelle adresse d'ERP a produit quelle adresse boutique, si bien qu'un
+  second import ne duplique rien.
+- L'intitulé de l'adresse est **lisible** : le libellé de l'ERP s'il existe,
+  sinon un intitulé déduit du type — « Adresse principale », « Facturation »,
+  « Livraison ». Le client voit cet intitulé dans son carnet ; y laisser le
+  code technique reviendrait à lui montrer `main`.
+
+### Corrigé
+
+- Le prénom, le nom et la civilité sont désormais repris du premier contact non
+  privé de la fiche. Une société n'a ni prénom ni nom : répéter son enseigne
+  dans les deux champs affichait « ATELIER ATELIER » partout où PrestaShop
+  écrit « prénom nom ».
+
+### Limites connues
+
+- Une adresse sans voie ou sans ville est **refusée et signalée**, jamais créée
+  amputée : PrestaShop exige les deux et un bon de livraison incomplet ne vaut
+  rien. Un pays inconnu de la boutique est refusé ; un pays connu mais non
+  activé passe, avec un avertissement.
+- La reprise va de l'ERP vers la boutique seulement : une adresse créée par le
+  client sur le site n'est pas remontée.
+
 ## [0.1.0] — 2026-08-11
 
 Première version publique. Le module établit la liaison avec l'ERP et prépare
@@ -72,9 +101,11 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Le SIRET n'est renseigné que si l'ERP fournit un numéro à 14 chiffres
   valide : y écrire un SIREN à 9 chiffres donnerait un numéro faux dans un
   champ qu'un comptable lit comme un SIRET.
-- Les adresses ne sont pas reprises : l'API de l'ERP ne les expose pas encore.
+- Les adresses ne sont pas reprises : l'API de l'ERP ne les exposait pas
+  encore à cette date (repris en 0.2.0).
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.1.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.1.0
