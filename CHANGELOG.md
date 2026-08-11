@@ -7,6 +7,34 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.3.0] — 2026-08-11
+
+### Sécurité
+
+- **Changer l'adresse de l'API efface le jeton enregistré.** Sans cela, le
+  module envoyait le jeton de l'ancienne instance à la nouvelle adresse dès le
+  premier appel : quelqu'un n'ayant que le droit de configurer les modules
+  pointait le module sur un serveur qu'il contrôlait, cliquait « Tester la
+  liaison » et repartait avec un secret que le formulaire masque pourtant. Le
+  jeton fourni dans le même enregistrement est conservé.
+- **Les adresses visant le réseau interne du serveur sont refusées** :
+  `localhost`, plages privées, lien-local et service de métadonnées de
+  l'hébergeur. Le contrôle porte sur l'adresse IP **résolue** et pas seulement
+  sur le nom — un domaine public peut pointer sur une adresse privée.
+
+### Ajouté
+
+- **Catalogue de traduction `en-US`**, au format attendu par PrestaShop. Le
+  catalogue est produit à partir des chaînes du code, jamais d'une liste tenue
+  à la main : le script échoue si une chaîne manque ou si une chaîne disparue
+  y subsiste, et l'intégration continue le rejoue à chaque poussée.
+
+### Limites connues
+
+- Les messages produits par `src/Client/` — comptes rendus d'import, écarts de
+  groupes — restent en français : ils ne passent pas par le traducteur. Ils
+  s'affichent à l'opérateur dans le back-office, jamais au client.
+
 ## [0.2.0] — 2026-08-11
 
 ### Ajouté
@@ -106,6 +134,7 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.2.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.1.0

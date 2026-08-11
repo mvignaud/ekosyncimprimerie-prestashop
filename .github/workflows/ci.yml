@@ -35,6 +35,27 @@ jobs:
           done < <(find . -name '*.php' -not -path './.git/*')
           exit $erreurs
 
+  traductions:
+    name: Catalogue de traduction à jour
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Le script sort en erreur si une chaîne du code manque au catalogue, ou
+      # si le catalogue garde une chaîne que le code n'utilise plus. Sans ce
+      # contrôle, une chaîne ajoutée s'afficherait en français dans une
+      # boutique étrangère sans que rien ne le signale.
+      - name: Vérifier l'appariement code / catalogue
+        run: python3 dev/faire_catalogue.py
+
+      - name: Refuser une modification non commitée du catalogue
+        run: |
+          if ! git diff --quiet -- translations; then
+            echo "::error::le catalogue régénéré diffère de celui du dépôt — lancer dev/faire_catalogue.py et committer"
+            git diff --stat -- translations
+            exit 1
+          fi
+
   package:
     name: Archive distribuable
     runs-on: ubuntu-latest
@@ -55,7 +76,8 @@ jobs:
             ekosyncimprimerie/logo.png \
             ekosyncimprimerie/index.php \
             ekosyncimprimerie/src/index.php \
-            ekosyncimprimerie/src/Client/index.php
+            ekosyncimprimerie/src/Client/index.php \
+            ekosyncimprimerie/translations/en-US/ModulesEkosyncimprimerieAdmin.en-US.xlf
           do
             unzip -l "$archive" | grep -q " $attendu$" \
               || { echo "::error::absent de l'archive : $attendu"; exit 1; }

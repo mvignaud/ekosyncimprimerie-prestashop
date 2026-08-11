@@ -67,7 +67,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.2.0';
+        $this->version = '0.3.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -159,6 +159,56 @@ class Ekosyncimprimerie extends Module
         }
 
         return $sortie . $this->tableauGroupes() . $this->formulaire();
+    }
+
+    /**
+     * L'adresse vise-t-elle le réseau interne du serveur ?
+     *
+     * Une adresse d'API est saisie par un administrateur puis appelée par le
+     * serveur lui-même : c'est un canal de sortie. Sans ce garde, elle permet
+     * d'atteindre ce que le serveur voit et que l'extérieur ne voit pas —
+     * bases de données, interfaces d'administration, service de métadonnées de
+     * l'hébergeur (169.254.169.254), qui rend des identifiants.
+     *
+     * Le contrôle porte sur l'hôte ET sur son adresse IP résolue : `https://
+     * interne.exemple/` peut pointer sur 127.0.0.1.
+     */
+    private function adresseInterne(string $url): bool
+    {
+        $hote = parse_url($url, PHP_URL_HOST);
+
+        if (!is_string($hote) || $hote === '') {
+            return true;
+        }
+
+        $hote = strtolower($hote);
+
+        if ($hote === 'localhost' || str_ends_with($hote, '.localhost') || str_ends_with($hote, '.internal')) {
+            return true;
+        }
+
+        // Une IP littérale se juge telle quelle ; un nom se résout d'abord.
+        $ips = filter_var($hote, FILTER_VALIDATE_IP) ? [$hote] : (gethostbynamel($hote) ?: []);
+
+        if ($ips === []) {
+            // Un nom qui ne résout pas ne sert à rien : autant le refuser ici
+            // plutôt que de laisser l'appel échouer sans explication.
+            return true;
+        }
+
+        foreach ($ips as $ip) {
+            $publique = filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+            );
+
+            if ($publique === false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function groupes(): Groupes
@@ -264,22 +314,56 @@ class Ekosyncimprimerie extends Module
             ));
         }
 
+        if ($base !== '' && $this->adresseInterne($base)) {
+            // Sans ce refus, l'adresse de l'API devient un canal de sortie vers
+            // le réseau interne du serveur — bases de données, interfaces
+            // d'administration, métadonnées de l'hébergeur — atteignable par
+            // quelqu'un qui n'a que le droit de configurer les modules.
+            return $this->displayError($this->trans(
+                'Cette adresse pointe vers le réseau interne du serveur : refusée.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            ));
+        }
+
         $ancienneBase = (string) Configuration::get(self::CLE_BASE);
+        $changementInstance = $base !== $ancienneBase && $ancienneBase !== '';
 
         Configuration::updateValue(self::CLE_BASE, $base);
         Configuration::updateValue(self::CLE_CACHE_S, max(0, $cache));
-
-        // Changer d'instance doit oublier ce qu'on savait de la precedente :
-        // les reponses en cache portent l'identite de l'ancienne.
-        if ($base !== $ancienneBase) {
-            ClientEko::viderCache();
-        }
 
         // Un champ jeton laissé vide ne doit PAS effacer le jeton enregistré :
         // le formulaire le réaffiche masqué, et l'enregistrer tel quel le
         // remplacerait par des astérisques.
         if ($jeton !== '' && !preg_match('/^\*+$/', $jeton)) {
             Configuration::updateValue(self::CLE_JETON, $jeton);
+        }
+
+        if ($changementInstance) {
+            // Le cache d'abord : ses réponses portent l'identité de l'ancienne
+            // instance, et un jeton révoqué continuerait de servir des données.
+            ClientEko::viderCache();
+
+            // ⚠️ LE JETON EST EFFACÉ, et c'est le point important.
+            //
+            // Sans cela, le module envoie le jeton de l'ancienne instance à la
+            // NOUVELLE adresse dès le premier appel. Quelqu'un qui n'a que le
+            // droit de configurer les modules pointe le module sur un serveur
+            // qu'il contrôle, clique « Tester la liaison », et repart avec un
+            // secret qu'il n'a jamais eu le droit de lire — le formulaire le
+            // masque pourtant scrupuleusement.
+            //
+            // Le jeton saisi DANS LE MÊME enregistrement est conservé : changer
+            // d'instance et fournir son jeton est un geste légitime.
+            if ($jeton === '' || preg_match('/^\*+$/', $jeton)) {
+                Configuration::deleteByName(self::CLE_JETON);
+
+                return $this->displayWarning($this->trans(
+                    'Adresse de l\'API modifiée : le jeton a été effacé et doit être ressaisi. Un jeton délivré par l\'ancienne instance n\'a pas à être envoyé à la nouvelle.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ));
+            }
         }
 
         return $this->displayConfirmation($this->trans(

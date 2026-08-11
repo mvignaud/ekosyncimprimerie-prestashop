@@ -143,6 +143,16 @@ tranche.
 - **Le jeton n'apparaît jamais dans le HTML.** Le champ affiche un masque de
   longueur fixe ; enregistrer sans y toucher conserve le jeton existant.
 - **HTTPS imposé** sur l'adresse de l'API — refus, pas avertissement.
+- **Les adresses internes sont refusées.** L'adresse de l'API est saisie par un
+  administrateur puis appelée par le serveur : c'est un canal de sortie. Le
+  module refuse `localhost`, les plages privées et le service de métadonnées de
+  l'hébergeur, en jugeant l'IP **résolue** et pas seulement le nom.
+- **Changer d'instance efface le jeton.** Sans cela, le module enverrait le
+  jeton de l'ancienne instance à la nouvelle adresse dès le premier appel :
+  quelqu'un n'ayant que le droit de configurer les modules pointerait le module
+  sur un serveur qu'il contrôle et repartirait avec un secret que le formulaire
+  masque pourtant scrupuleusement. Le jeton fourni dans le même enregistrement
+  est conservé — changer d'instance et donner son jeton est légitime.
 - **Le jeton est effacé à la désinstallation.** Un secret qui survit à une
   désinstallation est un secret qui traîne.
 
@@ -179,6 +189,28 @@ find . -name '*.php' -not -path './.git/*' -exec php -l {} \;
 
 Le logo est généré, pas dessiné à la main : `dev/faire_logo.py` écrit les PNG
 sans aucune dépendance externe.
+
+```bash
+# Régénérer le catalogue de traduction après un ajout de chaîne
+python3 dev/faire_catalogue.py
+```
+
+Le script extrait les chaînes du code plutôt que de tenir une liste à la main,
+et **sort en erreur** si une chaîne du module manque au catalogue ou si le
+catalogue garde une chaîne disparue. L'intégration continue le rejoue à chaque
+poussée : une chaîne ajoutée et oubliée s'afficherait sinon en français dans une
+boutique étrangère, sans que rien ne le signale.
+
+### Traductions
+
+L'interface est écrite en français — c'est la langue source. Le catalogue
+`en-US` est fourni. Pour ajouter une langue, compléter `CATALOGUES` dans
+`dev/faire_catalogue.py` et relancer le script.
+
+Les messages produits par `src/Client/` (comptes rendus d'import, écarts de
+groupes) restent en français : ils ne passent pas par le traducteur de
+PrestaShop. Ils s'affichent dans le back-office, à l'opérateur — jamais au
+client.
 
 ## Licence
 
