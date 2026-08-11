@@ -30,6 +30,7 @@
 
 use Eko\SyncImprimerie\Configurateur\LiaisonProduit;
 use Eko\SyncImprimerie\Configurateur\PrixConfigure;
+use Eko\SyncImprimerie\Configurateur\ReglesBoutique;
 
 class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
 {
@@ -132,16 +133,23 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
 
         (new PrixConfigure())->memoriser($idCustomization, $idProduct, $quantite, $centimes, $variables, $delai);
 
+        $unitaire = $this->avecTaxe($centimes / 100, $idProduct);
+        $precision = ReglesBoutique::precision();
+
         // ⚠️ LISTE BLANCHE. On nomme ce qui sort ; tout le reste — coûts,
         // marge, détail des matières — ne sort pas, aujourd'hui ni après un
         // ajout de champ côté ERP.
+        //
+        // Les montants passent tous par ReglesBoutique : le configurateur
+        // doit compter exactement comme le panier comptera, sans quoi le
+        // client voit un prix sur la fiche et en paie un autre.
         return [
             'ok' => true,
             'id_customization' => $idCustomization,
             'quantity' => $quantite,
-            'unit_price_ht' => round($centimes / 100, 2),
-            'unit_price' => round($this->avecTaxe($centimes / 100, $idProduct), 2),
-            'total_price' => round($this->avecTaxe($centimes / 100, $idProduct) * $quantite, 2),
+            'unit_price_ht' => ReglesBoutique::montant($centimes / 100, $precision),
+            'unit_price' => ReglesBoutique::montant($unitaire, $precision),
+            'total_price' => ReglesBoutique::total($unitaire, $quantite, $precision),
             'lead_days' => $delai,
         ];
     }
@@ -254,25 +262,12 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
      */
     private function avecTaxe(float $ht, int $idProduct): float
     {
-        $groupe = (int) ($this->context->customer->id_default_group ?? 0);
-        $afficheHt = $groupe > 0 && (int) Group::getPriceDisplayMethod($groupe) === PS_TAX_EXC;
-
-        if ($afficheHt) {
+        if (ReglesBoutique::afficheHorsTaxe()) {
             return $ht;
         }
 
-        // `Address::initialize()` et pas `new Address(...)` : un visiteur qui
-        // n'a pas encore d'adresse n'en a PAS, et `TaxManagerFactory` refuse
-        // `null`. PrestaShop sait fabriquer l'adresse par défaut de la
-        // boutique — pays, région — c'est exactement ce qu'il faut ici, et
-        // c'est ce qu'il fait lui-même pour un panier anonyme.
-        $adresse = Address::initialize(
-            (int) ($this->context->cart->id_address_invoice ?? 0) ?: null,
-            true
-        );
-
         return TaxManagerFactory::getManager(
-            $adresse,
+            ReglesBoutique::adresseFiscale($this->context->cart),
             (int) Product::getIdTaxRulesGroupByIdProduct($idProduct)
         )->getTaxCalculator()->addTaxes($ht);
     }

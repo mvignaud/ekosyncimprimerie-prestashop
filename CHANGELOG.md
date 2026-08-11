@@ -7,6 +7,48 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.4.1] — 2026-08-11
+
+Le prix affiché et le prix facturé, sur toutes les boutiques et pas seulement
+sur celles réglées comme la nôtre.
+
+### Corrigé
+
+Trois défauts de la même famille : le module reprenait une décision que
+PrestaShop avait déjà prise. Chacun était juste sur une boutique aux réglages
+par défaut et faux ailleurs — donc invisible au contrôle.
+
+- **L'adresse fiscale.** Le module lisait toujours l'adresse de facturation ;
+  la boutique désigne livraison **ou** facturation via `PS_TAX_ADDRESS_TYPE`,
+  et la livraison est le défaut de PrestaShop. Dès que les deux adresses d'un
+  client ne sont pas dans la même zone — Corse, outre-mer, un européen livré
+  ailleurs qu'à son siège — le prix affiché n'était pas le prix facturé.
+- **L'arrondi du total.** Le module appliquait une seule des **trois** formules
+  de PrestaShop. Sur une boutique réglée « par article », le configurateur
+  annonçait 25 422,00 € là où le panier facturait 25 420,00 €.
+- **Le groupe du visiteur.** Un visiteur anonyme appartient à
+  `PS_UNIDENTIFIED_GROUP`, pas au groupe zéro. Le module retombait sur
+  « afficher TTC » quel que soit le réglage — faux sur toute boutique affichant
+  en HT, ce qui est le cas courant en imprimerie B2B.
+
+Deux corrections plus discrètes, de même nature :
+
+- La précision d'arrondi vient désormais de la **devise** et non d'une
+  supposition à deux décimales — le yen n'en a aucune, le dinar en a trois.
+- Les montants passent par `Tools::ps_round()` et non par le `round()` de PHP,
+  qui ignore le mode d'arrondi choisi par le marchand.
+
+### Ajouté
+
+- `dev/verifier-tva.php` — éprouve le chemin TVA sur un produit **réellement
+  taxé**, avec un prix à nombre impair de centimes. Les trois défauts ci-dessus
+  ont été trouvés par ce script, pas par relecture. Seize contrôles, décor créé
+  et supprimé même en cas d'échec.
+- `src/Configurateur/ReglesBoutique.php` — les décisions de la boutique, en un
+  seul endroit : arrondi, précision, adresse fiscale, affichage HT ou TTC.
+  Une règle recopiée à deux endroits diverge le jour où l'on n'en corrige
+  qu'un.
+
 ## [0.4.0] — 2026-08-11
 
 Le configurateur de prix. Une fiche produit peut désormais être chiffrée par
@@ -185,7 +227,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.4.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.1
 [0.4.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.2.0

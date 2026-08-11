@@ -36,6 +36,7 @@ require_once __DIR__ . '/src/Client/ClientEko.php';
 require_once __DIR__ . '/src/Client/DepotEko.php';
 require_once __DIR__ . '/src/Client/Groupes.php';
 require_once __DIR__ . '/src/Client/ImportTiers.php';
+require_once __DIR__ . '/src/Configurateur/ReglesBoutique.php';
 require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
 require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
 
@@ -71,7 +72,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.4.0';
+        $this->version = '0.4.1';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
