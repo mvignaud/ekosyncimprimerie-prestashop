@@ -29,7 +29,8 @@
      data-jours="{l s='jour(s) ouvré(s)' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-echec="{l s='Configuration impossible à chiffrer.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-injoignable="{l s='Le prix n’a pas pu être obtenu.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-sans-quantite="{l s='Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
+     data-sans-quantite="{l s='Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-attendez-prix="{l s='Le prix de cette configuration est en cours de calcul.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
   <h3 class="eko-configurateur__titre">{l s='Configurez votre produit' d='Modules.Ekosyncimprimerie.Shop'}</h3>
 
   <div class="eko-configurateur__champs">

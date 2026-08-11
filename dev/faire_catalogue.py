@@ -98,6 +98,8 @@ SHOP_EN = {
         "This theme exposes no quantity field: the price cannot be guaranteed.",
     "Le prix s’applique à la quantité choisie ci-dessous.":
         "The price applies to the quantity selected below.",
+    "Le prix de cette configuration est en cours de calcul.":
+        "The price for this configuration is being calculated.",
 }
 
 # Un domaine = un fichier de catalogue, une source d'extraction, une table.

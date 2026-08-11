@@ -7,6 +7,37 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.5.1] — 2026-08-11
+
+Aucune commande ne peut plus partir à un prix que l'ERP n'a pas donné.
+
+### Corrigé
+
+- **Le panier acceptait une commande au prix catalogue.** Le prix est mémorisé
+  pour le couple *(configuration, quantité)* : changer la quantité invalide
+  donc le prix connu jusqu'au retour du nouveau chiffrage. Dans cette fenêtre,
+  le hook ne trouvait rien, se retirait, et PrestaShop appliquait son **prix
+  catalogue**. Un client qui saisissait sa quantité puis cliquait aussitôt
+  commandait au mauvais prix, sans que rien ne le signale — ni à lui, ni au
+  marchand.
+
+  Le bouton d'ajout au panier est désormais **verrouillé dès la frappe**, et ne
+  se rouvre qu'au retour d'un prix effectivement mémorisé. Le verrou tombe au
+  geste et non à l'appel : le placer dans la fonction d'appel le laissait
+  arriver après les 400 ms d'attente, et la fenêtre restait grande ouverte.
+
+- **Deux prix se contredisaient à l'écran.** Le bloc prix du thème affiche le
+  prix catalogue tant que l'ERP n'a pas répondu, et le thème le re-rend à
+  chaque changement de quantité — plus vite que le chiffrage. Il est désormais
+  masqué sur les fiches liées : une seule vérité affichée, celle de l'ERP.
+
+### Note d'exploitation
+
+Après toute mise à jour du module, **vider les paquets concaténés** du thème
+(`themes/*/assets/cache/*.js`), et pas seulement `var/cache/`. Sans cela
+PrestaShop sert l'ancien JavaScript avec le nouveau gabarit — le nom du paquet
+ne change pas, car il dépend de la LISTE des fichiers et non de leur contenu.
+
 ## [0.5.0] — 2026-08-11
 
 Les informations commerciales du client, et une quantité au lieu de deux.
@@ -274,7 +305,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.1
 [0.5.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.0
 [0.4.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.1
 [0.4.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.0

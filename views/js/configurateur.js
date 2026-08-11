@@ -48,6 +48,72 @@
     return d.innerHTML;
   }
 
+  /**
+   * Le bouton d'ajout au panier du thème.
+   *
+   * `[data-button-action="add-to-cart"]` est une convention du cœur, respectée
+   * par tous les thèmes qui héritent du formulaire produit standard — c'est
+   * l'attribut que PrestaShop lui-même cible dans son propre JavaScript.
+   */
+  function boutonPanier() {
+    return document.querySelector('[data-button-action="add-to-cart"]');
+  }
+
+  /**
+   * Interdire la commande tant que le prix n'est pas connu.
+   *
+   * ─── Pourquoi c'est indispensable ──────────────────────────────────────
+   *
+   * Le prix est mémorisé pour le COUPLE (configuration, quantité). Changer la
+   * quantité invalide donc le prix connu jusqu'à ce que le nouveau chiffrage
+   * revienne — quelques centaines de millisecondes.
+   *
+   * Dans cette fenêtre, le hook de prix ne trouve rien, se retire, et
+   * PrestaShop applique son prix CATALOGUE. Un client qui saisit sa quantité
+   * puis clique aussitôt commande donc au mauvais prix, sans que rien ne le
+   * signale — ni à lui, ni au marchand.
+   *
+   * Se taire n'était pas suffisant : il faut aussi empêcher.
+   */
+  function commande(autorisee, motif) {
+    var b = boutonPanier();
+
+    if (!b) {
+      return;
+    }
+
+    b.disabled = !autorisee;
+
+    if (autorisee) {
+      b.removeAttribute('aria-disabled');
+      b.removeAttribute('title');
+    } else {
+      b.setAttribute('aria-disabled', 'true');
+      b.setAttribute('title', motif || '');
+    }
+  }
+
+  /**
+   * Masquer le prix que le thème affiche de son côté.
+   *
+   * Deux prix sur un écran, c'est un prix de trop : le bloc natif montre le
+   * prix catalogue tant que l'ERP n'a pas répondu, et le thème le re-rend à
+   * chaque changement de quantité — plus vite que notre chiffrage. Le visiteur
+   * voit alors deux montants qui se contredisent.
+   *
+   * `.product-prices` est le conteneur du formulaire produit du cœur. Sur un
+   * thème qui ne l'emploie pas, rien n'est masqué et rien ne casse : le
+   * configurateur reste la source du prix, le bloc natif redevient seulement
+   * bavard.
+   */
+  function masquerPrixNatif() {
+    var bloc = document.querySelector('.product-prices');
+
+    if (bloc) {
+      bloc.style.display = 'none';
+    }
+  }
+
   function demarrer() {
     var racine = document.querySelector('.eko-configurateur');
 
@@ -67,10 +133,19 @@
         echapper(racine.dataset.sansQuantite || 'Configurateur indisponible sur ce thème.') +
         '</p>';
 
+      // Sans quantité fiable, aucun prix ne peut être garanti : on ferme la
+      // commande plutôt que de laisser passer un prix catalogue.
+      commande(false, racine.dataset.sansQuantite || '');
+
       return;
     }
 
     racine.dataset.ekoPret = '1';
+
+    // Le thème vient peut-être de re-rendre son bloc : on le remasque, et on
+    // reverrouille la commande jusqu'au prochain prix connu.
+    masquerPrixNatif();
+    commande(false, racine.dataset.attendezPrix || '');
 
     var enCours = null;
     var minuteur = null;
@@ -105,6 +180,11 @@
 
       afficher('<p class="eko-configurateur__attente">' + echapper(racine.dataset.attente || 'Calcul du prix…') + '</p>');
 
+      // Le prix mémorisé ne vaut plus pour la nouvelle quantité : on referme
+      // la commande AVANT de partir, et non au retour. L'inverse laisserait le
+      // bouton ouvert pendant tout l'aller-retour.
+      commande(false, racine.dataset.attendezPrix || '');
+
       var params = new URLSearchParams();
       params.set('ajax', '1');
       params.set('id_product', racine.dataset.idProduct);
@@ -133,6 +213,8 @@
               '</p>'
             );
 
+            commande(false, (d && d.message) ? d.message : '');
+
             return;
           }
 
@@ -152,6 +234,10 @@
           }
 
           afficher(lignes);
+
+          // Le seul endroit qui rouvre la commande : un prix vient d'être
+          // rendu ET mémorisé côté serveur pour ce couple exact.
+          commande(true);
         })
         .catch(function (e) {
           if (e.name === 'AbortError') {
@@ -159,11 +245,24 @@
           }
 
           afficher('<p class="eko-configurateur__erreur">' + echapper(racine.dataset.injoignable || 'Le prix n’a pas pu être obtenu.') + '</p>');
+          commande(false, racine.dataset.injoignable || '');
         });
     }
 
-    /** Le visiteur tape ; on attend qu'il s'arrête avant d'appeler. */
+    /**
+     * Le visiteur tape ; on attend qu'il s'arrête avant d'appeler.
+     *
+     * ⚠️ Le verrou tombe ICI, au geste, et NON dans `chiffrer()`.
+     *
+     * L'attente de 400 ms ne doit retarder que l'appel réseau. La poser aussi
+     * devant le verrou rouvrait le trou qu'on ferme : dès la première frappe,
+     * le prix mémorisé ne vaut plus pour la nouvelle quantité, et le bouton
+     * restait pourtant cliquable pendant ces 400 ms — plus le temps de
+     * l'aller-retour. Mesuré : le bouton était encore ouvert juste après le
+     * changement de quantité, avec l'ancien prix affiché à côté.
+     */
     function differer() {
+      commande(false, racine.dataset.attendezPrix || '');
       clearTimeout(minuteur);
       minuteur = setTimeout(chiffrer, 400);
     }
@@ -192,6 +291,13 @@
   // reprise, le configurateur meurt au premier changement de quantité — et
   // c'est précisément le geste qui compte.
   if (window.prestashop && typeof window.prestashop.on === 'function') {
-    window.prestashop.on('updatedProduct', demarrer);
+    window.prestashop.on('updatedProduct', function () {
+      // Le thème peut remplacer SON bloc prix sans toucher au nôtre. Le garde
+      // d'initialisation sortirait alors aussitôt, et le prix natif
+      // réapparaîtrait — avec le prix catalogue. On remasque d'abord, on
+      // réinitialise ensuite.
+      masquerPrixNatif();
+      demarrer();
+    });
   }
 })();

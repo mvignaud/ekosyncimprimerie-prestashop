@@ -70,12 +70,17 @@ if ($existants > 0) {
     ));
 }
 
+// PAS de `LIMIT 1` dans un `getValue()` : `Db::getRow()` en ajoute un
+// SANS CONDITION depuis PrestaShop 9 (classes/db/Db.php:634), là où les
+// versions précédentes vérifiaient d'abord s'il y en avait déjà un. Le SQL
+// devient « LIMIT 1 LIMIT 1 », la requête échoue, et `getValue()` rend
+// `false` — donc zéro après conversion, sans une ligne d'erreur.
 /** Le régime de taxe à éprouver — par défaut le premier régime actif. */
 $idRegle = (int) ($argv[1] ?? 0);
 
 if ($idRegle <= 0) {
     $idRegle = (int) $db->getValue(
-        'SELECT id_tax_rules_group FROM ' . _DB_PREFIX_ . 'tax_rules_group WHERE active = 1 ORDER BY id_tax_rules_group LIMIT 1'
+        'SELECT id_tax_rules_group FROM ' . _DB_PREFIX_ . 'tax_rules_group WHERE active = 1 ORDER BY id_tax_rules_group'
     );
 }
 

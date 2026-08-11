@@ -31,18 +31,22 @@
         <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
       </trans-unit>
       <trans-unit id="8">
+        <source>Le prix de cette configuration est en cours de calcul.</source>
+        <target>The price for this configuration is being calculated.</target>
+      </trans-unit>
+      <trans-unit id="9">
         <source>Configurez votre produit</source>
         <target>Configure your product</target>
       </trans-unit>
-      <trans-unit id="9">
+      <trans-unit id="10">
         <source>— au choix —</source>
         <target>— your choice —</target>
       </trans-unit>
-      <trans-unit id="10">
+      <trans-unit id="11">
         <source>Choisissez vos options pour obtenir un prix.</source>
         <target>Choose your options to get a price.</target>
       </trans-unit>
-      <trans-unit id="11">
+      <trans-unit id="12">
         <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
         <target>The price applies to the quantity selected below.</target>
       </trans-unit>
