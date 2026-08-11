@@ -7,6 +7,53 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.5.0] — 2026-08-11
+
+Les informations commerciales du client, et une quantité au lieu de deux.
+
+### Corrigé
+
+- **Le configurateur avait sa propre quantité.** C'était le défaut le plus
+  grave du module, et le plus silencieux. Le prix était mémorisé pour la
+  quantité saisie dans le bloc, tandis que le hook de prix lisait celle du
+  thème : un visiteur qui demandait 500 exemplaires voyait le prix ERP pour
+  500 dans le configurateur, et PrestaShop lui facturait le **prix catalogue**,
+  faute de prix mémorisé pour la quantité 1 restée dans le champ du thème.
+  Deux champs, deux vérités — exactement ce que ce module existe pour éviter.
+  Il n'y a plus qu'une quantité : celle de PrestaShop.
+- **La TVA intracommunautaire était écrite dans le vide.** Le module la posait
+  sur le compte client, où PrestaShop n'a aucun champ `vat_number` — ni dans la
+  définition de l'objet, ni en base. La valeur était jetée sans erreur, à la
+  création comme à la mise à jour. Elle va désormais sur les **adresses**, où
+  PrestaShop la porte réellement, et sur toutes celles reprises du tiers.
+- **Un compte existant ne recevait jamais aucune information commerciale.**
+  Seuls le groupe et les adresses étaient rafraîchis ; encours et délai de
+  paiement restaient à leur valeur d'origine pour toujours. Ils sont maintenant
+  remis à jour, et le changement est **rapporté** — modifier le crédit d'un
+  compte sans le dire ne laisse aucune trace.
+
+### Ajouté
+
+- **SIRET, encours autorisé et délai de paiement** sont repris depuis l'ERP
+  (E-KO 1.95.98 et supérieur). Sur une version antérieure, le module se comporte
+  comme avant : les champs restent à zéro, rien ne casse.
+- **Les textes du configurateur sont traduisibles.** Onze chaînes que lit le
+  client — prix, délai, messages d'erreur — vivaient dans le fichier JavaScript
+  et le gabarit, hors de toute traduction : une boutique anglaise les affichait
+  en français. Elles passent maintenant par le catalogue, et le contrôle qui
+  garde les traductions balaie désormais **les gabarits aussi**, pas seulement
+  le fichier principal. Un garde partiel donne une confiance imméritée.
+
+### Limites connues
+
+- `ape` reste vide : E-KO ne porte aucun code APE. Le déduire du SIREN serait
+  une invention, et un code faux se recopie ensuite partout.
+- Un encours **absent** dans E-KO signifie « aucun plafond fixé ». PrestaShop
+  n'a pas de valeur pour dire « illimité » : on retient zéro, le côté prudent.
+- « Fin de mois » n'a pas d'équivalent chez PrestaShop, qui ne connaît qu'un
+  nombre de jours. « 30 jours fin de mois » vaut 30 ici, quand l'échéance
+  réelle peut aller jusqu'à 60 : on sous-estime plutôt qu'on ne surestime.
+
 ## [0.4.1] — 2026-08-11
 
 Le prix affiché et le prix facturé, sur toutes les boutiques et pas seulement
@@ -227,7 +274,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.4.1...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.0
 [0.4.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.1
 [0.4.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.3.0

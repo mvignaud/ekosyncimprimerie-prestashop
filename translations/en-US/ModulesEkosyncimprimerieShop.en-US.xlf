@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file source-language="fr-FR" target-language="en-US" datatype="plaintext" original="module.ekosyncimprimerie">
+    <body>
+      <trans-unit id="1">
+        <source>Calcul du prix…</source>
+        <target>Calculating the price…</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>l’unité</source>
+        <target>each</target>
+      </trans-unit>
+      <trans-unit id="3">
+        <source>Délai indicatif</source>
+        <target>Estimated lead time</target>
+      </trans-unit>
+      <trans-unit id="4">
+        <source>jour(s) ouvré(s)</source>
+        <target>working day(s)</target>
+      </trans-unit>
+      <trans-unit id="5">
+        <source>Configuration impossible à chiffrer.</source>
+        <target>This configuration cannot be priced.</target>
+      </trans-unit>
+      <trans-unit id="6">
+        <source>Le prix n’a pas pu être obtenu.</source>
+        <target>The price could not be retrieved.</target>
+      </trans-unit>
+      <trans-unit id="7">
+        <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
+        <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
+      </trans-unit>
+      <trans-unit id="8">
+        <source>Configurez votre produit</source>
+        <target>Configure your product</target>
+      </trans-unit>
+      <trans-unit id="9">
+        <source>— au choix —</source>
+        <target>— your choice —</target>
+      </trans-unit>
+      <trans-unit id="10">
+        <source>Choisissez vos options pour obtenir un prix.</source>
+        <target>Choose your options to get a price.</target>
+      </trans-unit>
+      <trans-unit id="11">
+        <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
+        <target>The price applies to the quantity selected below.</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

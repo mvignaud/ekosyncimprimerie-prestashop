@@ -121,6 +121,7 @@ class ImportTiers
         if ($existant > 0) {
             $this->lier($existant, $tierId);
             $deplace = $this->classer($existant, $tier);
+            $commercial = $this->rafraichirChampsB2b($existant, $tier);
             $adresses = $this->importerAdresses($tierCode, $existant, $tier);
 
             return [
@@ -128,10 +129,11 @@ class ImportTiers
                 'cree' => false,
                 'id_customer' => $existant,
                 'message' => sprintf(
-                    'Un compte existait déjà pour %s : il a été rattaché au tiers %d.%s%s',
+                    'Un compte existait déjà pour %s : il a été rattaché au tiers %d.%s%s%s',
                     $email,
                     $tierId,
                     $deplace === '' ? '' : ' ' . $deplace,
+                    $commercial === '' ? '' : ' ' . $commercial,
                     $this->resumeAdresses($adresses)
                 ),
             ];
@@ -150,18 +152,10 @@ class ImportTiers
         $client->lastname = $this->nom($tier, $contact);
         $client->id_gender = $this->civilite($contact);
         $client->company = (string) ($tier['commercial_name'] ?? $tier['name'] ?? '');
-        $client->vat_number = (string) ($tier['vat_intracom'] ?? '');
         $client->website = (string) ($tier['website'] ?? '');
         $client->active = (bool) ($tier['is_active'] ?? true);
         $client->newsletter = false;
         $client->optin = false;
-
-        // Le SIRET n'accepte qu'un vrai SIRET (14 chiffres, clé de Luhn). E-KO
-        // n'expose aujourd'hui que le SIREN (9 chiffres) : l'y écrire donnerait
-        // un numéro faux dans un champ qu'un comptable lit comme un SIRET.
-        // Mieux vaut le laisser vide que le remplir de travers.
-        $siret = preg_replace('/\D/', '', (string) ($tier['siret'] ?? '')) ?? '';
-        $client->siret = \Validate::isSiret($siret) ? $siret : '';
 
         // Mode B2B : `id_risk` vaut 0 par défaut sur l'objet, or aucun risque ne
         // porte ce numéro — la fiche du back-office joint dessus. On pose le
@@ -170,11 +164,7 @@ class ImportTiers
             'SELECT MIN(`id_risk`) FROM `' . _DB_PREFIX_ . 'risk`'
         ) ?: 1);
 
-        // Encours et délai de paiement restent à zéro : E-KO les porte
-        // (`encours_limit`, conditions de règlement) mais ne les expose pas
-        // encore par l'API. Zéro = aucun crédit accordé, le défaut prudent.
-        $client->outstanding_allow_amount = 0;
-        $client->max_payment_days = 0;
+        $this->poserChampsB2b($client, $tier);
 
         // Secret aléatoire jamais communiqué : le client passe par « mot de
         // passe oublié ». On ne le stocke nulle part et on ne l'affiche pas.
@@ -212,6 +202,111 @@ class ImportTiers
                 $this->resumeAdresses($adresses)
             ),
         ];
+    }
+
+    /**
+     * Pose sur le compte PrestaShop les informations commerciales du tiers.
+     *
+     * Ces champs ne s'AFFICHENT au back-office que si le mode B2B est actif,
+     * mais PrestaShop les persiste dans tous les cas. On les écrit donc
+     * toujours : ne pas le faire laisserait des comptes incomplets le jour où
+     * le marchand activerait le mode, sans qu'aucune reprise ne repasse dessus.
+     *
+     * ─── Ce que l'ERP ne sait pas dire, et qu'on n'invente pas ─────────────
+     *
+     * `ape` reste vide : E-KO ne porte aucun code APE. Le déduire du SIREN
+     * serait une invention, et un code APE faux se recopie ensuite partout.
+     *
+     * ─── Les deux correspondances qui ne sont pas des égalités ─────────────
+     *
+     * Un encours ABSENT dans E-KO veut dire « aucun plafond fixé », pas
+     * « plafond de zéro ». PrestaShop n'a pas de valeur pour dire « illimité » :
+     * zéro y signifie « aucun crédit ». On retient donc zéro, qui est le côté
+     * prudent de l'erreur — accorder un découvert que personne n'a décidé
+     * serait le mauvais sens.
+     *
+     * `end_of_month` n'a aucun équivalent : PrestaShop ne connaît qu'un nombre
+     * de jours. « 30 jours fin de mois » vaut donc 30 ici, quand l'échéance
+     * réelle peut aller jusqu'à 60. On sous-estime plutôt qu'on ne surestime :
+     * `max_payment_days` sert à surveiller un risque, pas à facturer.
+     *
+     * @param  array<string, mixed>  $tier
+     */
+    private function poserChampsB2b(\Customer $client, array $tier): void
+    {
+        // Le SIRET n'accepte qu'un vrai SIRET : 14 chiffres et une clé de
+        // Luhn. Un numéro qui ne passe pas est laissé de côté plutôt qu'écrit
+        // de travers dans un champ qu'un comptable lit comme un SIRET.
+        $siret = preg_replace('/\D/', '', (string) ($tier['siret'] ?? '')) ?? '';
+        $client->siret = \Validate::isSiret($siret) ? $siret : '';
+
+        $encours = $tier['encours_limit'] ?? null;
+        $client->outstanding_allow_amount = $encours === null ? 0.0 : max(0.0, (float) $encours);
+
+        $conditions = $tier['payment_terms'] ?? null;
+        $client->max_payment_days = is_array($conditions)
+            ? max(0, (int) ($conditions['lead_days'] ?? 0))
+            : 0;
+    }
+
+    /**
+     * Remet à jour les informations commerciales d'un compte qui existait déjà.
+     *
+     * Sans cela, un compte créé avant que l'ERP ne connaisse son encours — ou
+     * avant que l'API ne sache l'exposer — restait à zéro pour toujours :
+     * aucune reprise ne repassait sur ces champs. Le plafond de crédit d'un
+     * client peut changer, et c'est l'ERP qui en décide.
+     *
+     * Le changement est RAPPORTÉ, jamais silencieux : modifier l'encours d'un
+     * compte sans le dire, c'est fermer ou ouvrir un crédit sans trace.
+     *
+     * @param  array<string, mixed>  $tier
+     */
+    private function rafraichirChampsB2b(int $idCustomer, array $tier): string
+    {
+        $client = new \Customer($idCustomer);
+
+        if (!\Validate::isLoadedObject($client)) {
+            return '';
+        }
+
+        $avant = [
+            'siret' => (string) $client->siret,
+            'encours' => (float) $client->outstanding_allow_amount,
+            'delai' => (int) $client->max_payment_days,
+        ];
+
+        $this->poserChampsB2b($client, $tier);
+
+        $apres = [
+            'siret' => (string) $client->siret,
+            'encours' => (float) $client->outstanding_allow_amount,
+            'delai' => (int) $client->max_payment_days,
+        ];
+
+        if ($avant === $apres) {
+            return '';
+        }
+
+        if (!$client->update()) {
+            return 'Les informations commerciales n\'ont pas pu être mises à jour.';
+        }
+
+        $changes = [];
+
+        if ($avant['siret'] !== $apres['siret']) {
+            $changes[] = 'SIRET';
+        }
+
+        if (abs($avant['encours'] - $apres['encours']) > 0.005) {
+            $changes[] = sprintf('encours %s → %s €', $avant['encours'], $apres['encours']);
+        }
+
+        if ($avant['delai'] !== $apres['delai']) {
+            $changes[] = sprintf('délai de paiement %d → %d jours', $avant['delai'], $apres['delai']);
+        }
+
+        return 'Informations commerciales mises à jour (' . implode(', ', $changes) . ').';
     }
 
     /**
@@ -371,6 +466,20 @@ class ImportTiers
         $adresse->city = mb_substr($ville, 0, 64);
         $adresse->phone = mb_substr(trim((string) ($a['contact_phone'] ?? '')), 0, 32);
         $adresse->other = mb_substr(trim((string) ($a['notes'] ?? '')), 0, 300);
+
+        // La TVA intracommunautaire vit sur l'ADRESSE dans PrestaShop, pas sur
+        // le client : c'est l'adresse de facturation qui porte le numéro sur
+        // une facture. Le module l'écrivait sur le `Customer`, où aucun champ
+        // `vat_number` n'existe — ni dans la définition de l'objet, ni en base.
+        // `ObjectModel` n'émet que les champs qu'il déclare : la valeur était
+        // jetée en silence, à la création comme à la mise à jour, sans la
+        // moindre erreur. Le numéro que l'ERP donnait n'arrivait nulle part.
+        //
+        // E-KO porte le numéro PAR TIERS, PrestaShop PAR ADRESSE : on le pose
+        // donc sur chacune des adresses reprises. C'est le seul choix qui ne
+        // perd rien ; l'inverse — n'en servir qu'une — laisserait les autres
+        // factures sans numéro.
+        $adresse->vat_number = mb_substr(trim((string) ($tier['vat_intracom'] ?? '')), 0, 32);
 
         $erreur = $adresse->validateFields(false, true);
 

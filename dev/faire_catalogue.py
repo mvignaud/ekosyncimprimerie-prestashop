@@ -1,15 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Produit le catalogue de traduction du module au format attendu par PrestaShop.
+"""Produit les catalogues de traduction du module au format attendu par PrestaShop.
 
-Les chaînes SOURCES sont en français : c'est ce que `$this->trans()` reçoit en
-premier argument, et ce que PrestaShop affiche faute de catalogue. Ce script les
-extrait du fichier principal et les apparie avec leur traduction, plutôt que de
-tenir une liste à la main qui divergerait au premier ajout.
+Les chaînes SOURCES sont en français : c'est ce que reçoivent `$this->trans()`
+et `{l s='…'}` en premier argument, et ce que PrestaShop affiche faute de
+catalogue. Ce script les extrait des fichiers du module et les apparie avec leur
+traduction, plutôt que de tenir une liste à la main qui divergerait au premier
+ajout.
 
-Un écart entre le code et la table de traduction est signalé, jamais avalé : une
-chaîne ajoutée au module et oubliée ici s'afficherait en français dans une
-boutique étrangère, sans que rien ne le dise.
+Un écart entre le code et la table est signalé, jamais avalé : une chaîne
+ajoutée au module et oubliée ici s'afficherait en français dans une boutique
+étrangère, sans que rien ne le dise.
+
+─── DEUX DOMAINES, ET POURQUOI ────────────────────────────────────────────────
+
+PrestaShop range les traductions par domaine, et le domaine décide du fichier de
+catalogue. Le module en emploie deux :
+
+  Admin — ce que voit le marchand, dans `ekosyncimprimerie.php` ;
+  Shop  — ce que voit le CLIENT, dans les gabarits `.tpl`.
+
+Ce script n'a longtemps balayé que le premier. Le garde était donc partiel, et
+un garde partiel donne une confiance imméritée : onze chaînes du configurateur —
+celles que lit le visiteur, prix et messages d'erreur compris — n'étaient dans
+aucun catalogue, et rien ne le signalait. Balayer les deux est la seule façon
+que le vert veuille dire quelque chose.
 """
 import pathlib
 import re
@@ -17,11 +32,9 @@ import sys
 from xml.sax.saxutils import escape
 
 RACINE = pathlib.Path(__file__).resolve().parent.parent
-SOURCE = RACINE / "ekosyncimprimerie.php"
-DOMAINE = "ModulesEkosyncimprimerieAdmin"
 
 # fr-FR -> en-US. La source française est la clé : PrestaShop apparie là-dessus.
-EN = {
+ADMIN_EN = {
     "EKO Sync — Imprimerie": "EKO Sync — Print shop",
     "Relie la boutique à l'ERP E-KO : catalogue, tarifs, documents et fichiers clients. Les tarifs affichés sont ceux calculés par E-KO, sans recalcul local.":
         "Connects the shop to the E-KO ERP: catalogue, prices, documents and customer files. Displayed prices are the ones E-KO computes; nothing is recalculated locally.",
@@ -71,24 +84,57 @@ EN = {
     "Liste des produits d'atelier indisponible : ": "Workshop product list unavailable: ",
 }
 
-CATALOGUES = {"en-US": EN}
+SHOP_EN = {
+    "Configurez votre produit": "Configure your product",
+    "— au choix —": "— your choice —",
+    "Choisissez vos options pour obtenir un prix.": "Choose your options to get a price.",
+    "Calcul du prix…": "Calculating the price…",
+    "l’unité": "each",
+    "Délai indicatif": "Estimated lead time",
+    "jour(s) ouvré(s)": "working day(s)",
+    "Configuration impossible à chiffrer.": "This configuration cannot be priced.",
+    "Le prix n’a pas pu être obtenu.": "The price could not be retrieved.",
+    "Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.":
+        "This theme exposes no quantity field: the price cannot be guaranteed.",
+    "Le prix s’applique à la quantité choisie ci-dessous.":
+        "The price applies to the quantity selected below.",
+}
+
+# Un domaine = un fichier de catalogue, une source d'extraction, une table.
+DOMAINES = [
+    {
+        "nom": "ModulesEkosyncimprimerieAdmin",
+        "fichiers": [RACINE / "ekosyncimprimerie.php"],
+        # Le premier argument littéral de `$this->trans()`.
+        "motif": re.compile(r"\$this->trans\(\s*'((?:[^'\\]|\\.)*)'", re.S),
+        "tables": {"en-US": ADMIN_EN},
+    },
+    {
+        "nom": "ModulesEkosyncimprimerieShop",
+        "fichiers": sorted((RACINE / "views" / "templates").rglob("*.tpl")),
+        # Le premier argument de `{l s='…' d='…'}` de Smarty.
+        "motif": re.compile(r"\{l\s+s='((?:[^'\\]|\\.)*)'", re.S),
+        "tables": {"en-US": SHOP_EN},
+    },
+]
 
 
-def sources():
-    """Les premiers arguments littéraux de `$this->trans()`, dans l'ordre du fichier."""
-    texte = SOURCE.read_text(encoding="utf-8")
-    motif = re.compile(r"\$this->trans\(\s*'((?:[^'\\]|\\.)*)'", re.S)
-
+def sources(domaine):
+    """Les chaînes sources du domaine, dans l'ordre des fichiers."""
     vues = []
-    for m in motif.finditer(texte):
-        s = m.group(1).replace("\\'", "'").replace("\\\\", "\\")
-        if s not in vues:
-            vues.append(s)
+
+    for fichier in domaine["fichiers"]:
+        texte = fichier.read_text(encoding="utf-8")
+
+        for m in domaine["motif"].finditer(texte):
+            s = m.group(1).replace("\\'", "'").replace("\\\\", "\\")
+            if s not in vues:
+                vues.append(s)
 
     return vues
 
 
-def ecrire(locale, table, chaines):
+def ecrire(nom, locale, table, chaines):
     dossier = RACINE / "translations" / locale
     dossier.mkdir(parents=True, exist_ok=True)
 
@@ -110,31 +156,42 @@ def ecrire(locale, table, chaines):
 
     lignes += ["    </body>", "  </file>", "</xliff>", ""]
 
-    chemin = dossier / ("%s.%s.xlf" % (DOMAINE, locale))
+    chemin = dossier / ("%s.%s.xlf" % (nom, locale))
     chemin.write_text("\n".join(lignes), encoding="utf-8")
 
     return chemin
 
 
 if __name__ == "__main__":
-    chaines = sources()
-    print("%d chaîne(s) trouvée(s) dans %s" % (len(chaines), SOURCE.name))
-
     rate = 0
-    for locale, table in CATALOGUES.items():
-        manquantes = [s for s in chaines if s not in table]
-        surplus = [s for s in table if s not in chaines]
 
-        for s in manquantes:
-            print("  MANQUE en %s : %s" % (locale, s[:70]))
-            rate += 1
-        for s in surplus:
-            print("  ORPHELIN en %s (plus dans le code) : %s" % (locale, s[:70]))
-            rate += 1
+    for domaine in DOMAINES:
+        chaines = sources(domaine)
+        print("%s : %d chaîne(s) dans %d fichier(s)"
+              % (domaine["nom"], len(chaines), len(domaine["fichiers"])))
 
-        if manquantes:
+        if not chaines:
+            # Un domaine vide n'est pas normal : ou le motif ne mord plus, ou
+            # les fichiers ont bougé. Le taire donnerait un vert sans objet.
+            print("  AUCUNE chaîne trouvée — le motif d'extraction ne mord plus ?")
+            rate += 1
             continue
 
-        print("  %s -> %s" % (locale, ecrire(locale, table, chaines).relative_to(RACINE)))
+        for locale, table in domaine["tables"].items():
+            manquantes = [s for s in chaines if s not in table]
+            surplus = [s for s in table if s not in chaines]
+
+            for s in manquantes:
+                print("  MANQUE en %s : %s" % (locale, s[:70]))
+                rate += 1
+            for s in surplus:
+                print("  ORPHELIN en %s (plus dans le code) : %s" % (locale, s[:70]))
+                rate += 1
+
+            if manquantes:
+                continue
+
+            chemin = ecrire(domaine["nom"], locale, table, chaines)
+            print("  %s -> %s" % (locale, chemin.relative_to(RACINE)))
 
     sys.exit(1 if rate else 0)
