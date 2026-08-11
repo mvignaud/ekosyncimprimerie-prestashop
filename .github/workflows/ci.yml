@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Syntaxe PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # PrestaShop 9 impose PHP 8.1 au minimum ; on couvre les versions
+        # qu'un marchand peut réellement avoir en production.
+        php: ['8.1', '8.2', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+
+      - name: Contrôle syntaxique de tous les fichiers
+        run: |
+          erreurs=0
+          while IFS= read -r f; do
+            php -l "$f" > /dev/null || { echo "::error file=$f::erreur de syntaxe"; erreurs=1; }
+          done < <(find . -name '*.php' -not -path './.git/*')
+          exit $erreurs
+
+  package:
+    name: Archive distribuable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fabriquer l'archive
+        run: ./bin/package.sh
+
+      # PrestaShop refuse une archive dont la racine ne porte pas le nom exact du
+      # module. L'échec est silencieux côté back-office : on le rattrape ici.
+      - name: Vérifier la racine et les fichiers attendus
+        run: |
+          archive=$(ls ekosyncimprimerie-v*.zip)
+          echo "archive : $archive"
+          for attendu in \
+            ekosyncimprimerie/ekosyncimprimerie.php \
+            ekosyncimprimerie/logo.png \
+            ekosyncimprimerie/index.php \
+            ekosyncimprimerie/src/index.php \
+            ekosyncimprimerie/src/Client/index.php
+          do
+            unzip -l "$archive" | grep -q " $attendu$" \
+              || { echo "::error::absent de l'archive : $attendu"; exit 1; }
+          done
+
+      - name: Refuser toute trace de développement dans l'archive
+        run: |
+          archive=$(ls ekosyncimprimerie-v*.zip)
+          if unzip -l "$archive" | grep -E "(\.git|/dev/|/bin/|config(_[a-z]{2})?\.xml)"; then
+            echo "::error::l'archive embarque des fichiers qui ne doivent pas être distribués"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: module
+          path: ekosyncimprimerie-v*.zip

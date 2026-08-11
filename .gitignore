@@ -1,0 +1,16 @@
+# Généré par PrestaShop à l'installation du module
+config.xml
+config_*.xml
+
+# Archives produites par bin/package.sh
+*.zip
+build/
+
+# Systèmes de fichiers
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea/
+.vscode/
+*.swp
