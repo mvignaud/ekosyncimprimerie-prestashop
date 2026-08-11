@@ -212,10 +212,18 @@ class ImportTiers
      * toujours : ne pas le faire laisserait des comptes incomplets le jour où
      * le marchand activerait le mode, sans qu'aucune reprise ne repasse dessus.
      *
-     * ─── Ce que l'ERP ne sait pas dire, et qu'on n'invente pas ─────────────
+     * ─── Le code APE, et pourquoi on ne le devine pas ─────────────────────
      *
-     * `ape` reste vide : E-KO ne porte aucun code APE. Le déduire du SIREN
-     * serait une invention, et un code APE faux se recopie ensuite partout.
+     * `ape` vient d'E-KO (1.95.99 et supérieur) et de nulle part ailleurs. Le
+     * déduire du SIREN serait une invention : deux entreprises aux numéros
+     * voisins exercent des métiers sans rapport, et un code faux se recopie
+     * ensuite partout où il passe. Sans code chez l'ERP, le champ reste vide.
+     *
+     * `Validate::isApe()` de PrestaShop exige 4 chiffres et une lettre — la
+     * forme rangée, celle qu'E-KO enregistre. Un code qui ne passe pas est
+     * laissé de côté plutôt qu'écrit de travers : PrestaShop REFUSERAIT
+     * l'enregistrement du client entier sur un `ape` invalide, et le compte ne
+     * serait pas créé du tout.
      *
      * ─── Les deux correspondances qui ne sont pas des égalités ─────────────
      *
@@ -239,6 +247,12 @@ class ImportTiers
         // de travers dans un champ qu'un comptable lit comme un SIRET.
         $siret = preg_replace('/\D/', '', (string) ($tier['siret'] ?? '')) ?? '';
         $client->siret = \Validate::isSiret($siret) ? $siret : '';
+
+        // Le point de « 18.12Z » est de la présentation : E-KO enregistre la
+        // forme rangée, mais on la range de nouveau ici — un intégrateur tiers
+        // peut avoir écrit dans l'ERP par un autre chemin.
+        $ape = strtoupper(preg_replace('/[^0-9A-Za-z]/', '', (string) ($tier['code_ape'] ?? '')) ?? '');
+        $client->ape = \Validate::isApe($ape) ? $ape : '';
 
         $encours = $tier['encours_limit'] ?? null;
         $client->outstanding_allow_amount = $encours === null ? 0.0 : max(0.0, (float) $encours);
@@ -272,6 +286,7 @@ class ImportTiers
 
         $avant = [
             'siret' => (string) $client->siret,
+            'ape' => (string) $client->ape,
             'encours' => (float) $client->outstanding_allow_amount,
             'delai' => (int) $client->max_payment_days,
         ];
@@ -280,6 +295,7 @@ class ImportTiers
 
         $apres = [
             'siret' => (string) $client->siret,
+            'ape' => (string) $client->ape,
             'encours' => (float) $client->outstanding_allow_amount,
             'delai' => (int) $client->max_payment_days,
         ];
@@ -296,6 +312,10 @@ class ImportTiers
 
         if ($avant['siret'] !== $apres['siret']) {
             $changes[] = 'SIRET';
+        }
+
+        if ($avant['ape'] !== $apres['ape']) {
+            $changes[] = 'code APE';
         }
 
         if (abs($avant['encours'] - $apres['encours']) > 0.005) {

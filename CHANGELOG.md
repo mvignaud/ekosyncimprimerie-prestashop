@@ -7,6 +7,28 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.5.2] — 2026-08-11
+
+Le dernier champ B2B que la boutique ne savait pas remplir.
+
+### Ajouté
+
+- **Le code APE** est repris depuis l'ERP (E-KO 1.95.99 et supérieur) et posé
+  sur le compte client. Sur une version antérieure, le champ reste vide et rien
+  ne casse.
+
+### Notes de conception
+
+- Le code **n'est pas déduit du SIREN**. Deux entreprises aux numéros voisins
+  exercent des métiers sans rapport, et un code faux se recopie ensuite partout
+  où il passe. Sans code chez l'ERP, le champ reste vide.
+- Un code invalide est **laissé de côté**, jamais écrit tel quel : PrestaShop
+  refuse l'enregistrement du client **entier** sur un `ape` mal formé — mesuré,
+  `validateFields()` rend « La propriété Customer->ape n'est pas valide ». Le
+  compte ne serait pas créé du tout. Un `ape` vide, lui, passe sans réserve.
+- La forme est rangée à l'entrée — majuscules, sans séparateur — même si l'ERP
+  la range déjà : un intégrateur tiers peut avoir écrit par un autre chemin.
+
 ## [0.5.1] — 2026-08-11
 
 Aucune commande ne peut plus partir à un prix que l'ERP n'a pas donné.
@@ -305,7 +327,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.1...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.2
 [0.5.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.1
 [0.5.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.0
 [0.4.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.1
