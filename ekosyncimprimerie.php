@@ -36,11 +36,15 @@ require_once __DIR__ . '/src/Client/ClientEko.php';
 require_once __DIR__ . '/src/Client/DepotEko.php';
 require_once __DIR__ . '/src/Client/Groupes.php';
 require_once __DIR__ . '/src/Client/ImportTiers.php';
+require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
+require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
 
 use Eko\SyncImprimerie\Client\ClientEko;
 use Eko\SyncImprimerie\Client\DepotEko;
 use Eko\SyncImprimerie\Client\Groupes;
 use Eko\SyncImprimerie\Client\ImportTiers;
+use Eko\SyncImprimerie\Configurateur\LiaisonProduit;
+use Eko\SyncImprimerie\Configurateur\PrixConfigure;
 
 class Ekosyncimprimerie extends Module
 {
@@ -67,7 +71,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.3.0';
+        $this->version = '0.4.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -95,12 +99,38 @@ class Ekosyncimprimerie extends Module
 
     public function install(): bool
     {
-        // Aucun hook enregistré à ce stade : le module ne rend encore rien côté
-        // boutique. On les ajoutera quand ils serviront — un hook déclaré et
-        // vide se paie à chaque page rendue, pour rien.
-        // Aucune écriture ici : voir CACHE_DEFAUT. Les réglages n'existent
-        // qu'une fois saisis, et leur absence est gérée à la lecture.
-        return parent::install();
+        // Un seul hook, et c'est le point de bascule du configurateur : c'est
+        // par lui que le prix calculé par l'ERP entre dans PrestaShop. Trois
+        // chemins y convergent — fiche produit, panier, et la commande, qui
+        // FIGE le prix dans `order_detail`. La facture ne recalcule donc rien.
+        //
+        // Toujours aucune écriture de réglage ici : voir CACHE_DEFAUT. Les
+        // réglages n'existent qu'une fois saisis, et leur absence est gérée à
+        // la lecture — ce qui rend le module installable depuis le back-office,
+        // un script ou la ligne de commande indifféremment.
+        $hooks = [
+            // Le prix : par ou l'ERP entre dans PrestaShop.
+            'actionProductPriceCalculation',
+            // La liaison fiche <-> produit d'atelier, posee et lue au meme
+            // endroit que le reste des reglages du produit.
+            'displayAdminProductsMainStepLeftColumnMiddle',
+            'actionProductSave',
+            // Le configurateur lui-meme, sur la fiche produit.
+            'displayProductAdditionalInfo',
+            'actionFrontControllerSetMedia',
+        ];
+
+        if (!parent::install()) {
+            return false;
+        }
+
+        foreach ($hooks as $hook) {
+            if (!$this->registerHook($hook)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function uninstall(): bool
@@ -131,7 +161,277 @@ class Ekosyncimprimerie extends Module
         Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_tier`');
         Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_address`');
 
+        // Les prix mémorisés n'ont aucun sens sans le module qui les a
+        // demandés : les laisser ferait resservir un tarif que plus personne
+        // ne peut expliquer ni recalculer.
+        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_prix`');
+        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_produit`');
+        Db::getInstance()->execute('DROP TABLE IF EXISTS `' . _DB_PREFIX_ . 'ekosync_address`');
+
         return parent::uninstall();
+    }
+
+    /**
+     * Le choix du produit d'atelier, sur la fiche produit du back-office.
+     *
+     * Rendu dans le formulaire natif plutot que dans un ecran a part : le
+     * marchand y pense au moment ou il pense au produit, et le champ part avec
+     * l'enregistrement de la fiche, sans bouton supplementaire.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    public function hookDisplayAdminProductsMainStepLeftColumnMiddle(array $params): string
+    {
+        $idProduct = (int) ($params['id_product'] ?? 0);
+
+        if ($idProduct <= 0) {
+            return '';
+        }
+
+        $liaison = new LiaisonProduit();
+        $actuel = $liaison->pour($idProduct);
+
+        $r = $this->client()->appeler('GET', '/api/v1/printing/products?per_page=100');
+
+        if (!$r['ok']) {
+            // L'ERP est injoignable : on le DIT plutot que d'afficher une liste
+            // vide, qui se lirait comme « aucun produit d'atelier ».
+            return $this->panneauProduit(
+                '<p class="alert alert-warning">'
+                . $this->trans('Liste des produits d\'atelier indisponible : ', [], 'Modules.Ekosyncimprimerie.Admin')
+                . htmlspecialchars($r['erreur'])
+                . '</p>'
+            );
+        }
+
+        $produits = $r['donnees']['data'] ?? [];
+        $options = '<option value="0">' . $this->trans('— aucun, prix géré par PrestaShop —', [], 'Modules.Ekosyncimprimerie.Admin') . '</option>';
+
+        foreach (is_array($produits) ? $produits : [] as $p) {
+            if (!is_array($p)) {
+                continue;
+            }
+
+            $id = (int) ($p['id'] ?? 0);
+            $options .= sprintf(
+                '<option value="%d"%s>%s — %s</option>',
+                $id,
+                $id === $actuel ? ' selected' : '',
+                htmlspecialchars((string) ($p['code'] ?? '')),
+                htmlspecialchars((string) ($p['name'] ?? ''))
+            );
+        }
+
+        return $this->panneauProduit(
+            '<select name="ekosync_produit_atelier" class="form-control">' . $options . '</select>'
+            . '<p class="help-block">'
+            . $this->trans(
+                'Lier cette fiche à un produit d\'atelier fait venir son prix de l\'ERP. Sans liaison, PrestaShop garde la main.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '</p>'
+        );
+    }
+
+    /** L'encadré qui porte le choix, pour n'écrire son gabarit qu'une fois. */
+    private function panneauProduit(string $contenu): string
+    {
+        return '<div class="form-group"><label class="form-control-label">'
+            . $this->trans('Produit d\'atelier E-KO', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</label>' . $contenu . '</div>';
+    }
+
+    /**
+     * Enregistre la liaison en même temps que la fiche.
+     *
+     * Le champ n'est lu QUE s'il est present dans la requete : une sauvegarde
+     * declenchee par un autre ecran — import, script, autre module — ne doit
+     * pas rompre une liaison a laquelle personne n'a touche.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    public function hookActionProductSave(array $params): void
+    {
+        $idProduct = (int) ($params['id_product'] ?? 0);
+
+        if ($idProduct <= 0 || !Tools::getIsset('ekosync_produit_atelier')) {
+            return;
+        }
+
+        (new LiaisonProduit())->lier($idProduct, (int) Tools::getValue('ekosync_produit_atelier'));
+    }
+
+    /**
+     * Le configurateur, sur la fiche produit.
+     *
+     * Les champs viennent de l'ERP : lui seul sait ce qu'un produit accepte.
+     * Ajouter une option a un produit dans l'atelier la fait apparaitre sur la
+     * boutique sans toucher au theme ni au module.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    public function hookDisplayProductAdditionalInfo(array $params): string
+    {
+        $idProduct = $this->produitAffiche($params);
+
+        if ($idProduct <= 0) {
+            return '';
+        }
+
+        $ekoProductId = (new LiaisonProduit())->pour($idProduct);
+
+        if ($ekoProductId === null) {
+            // Fiche non liee : PrestaShop garde la main, on ne montre rien.
+            return '';
+        }
+
+        $r = $this->client()->appeler('GET', '/api/v1/printing/products/' . (int) $ekoProductId . '/variables');
+
+        if (!$r['ok']) {
+            // On se tait plutot que d'afficher un formulaire vide : un
+            // configurateur sans champ inviterait a commander n'importe quoi.
+            return '';
+        }
+
+        $variables = $r['donnees']['data'] ?? [];
+
+        if (!is_array($variables) || $variables === []) {
+            return '';
+        }
+
+        $this->smarty->assign('eko', [
+            'id_product' => $idProduct,
+            'variables' => $variables,
+            // URL DIRECTE, et pas `getModuleLink()`. La forme simplifiee
+            // `/module/<module>/<controleur>` depend d'une regle de reecriture
+            // que PrestaShop n'ajoute au `.htaccess` qu'en le regenerant : sur
+            // une boutique qui ne l'a pas fait depuis l'installation du module,
+            // elle repond 404 et le configurateur reste muet. Cet appel n'est
+            // jamais vu par un humain ni indexe : rien ne justifie de le faire
+            // dependre de l'etat du fichier de reecriture du marchand.
+            'url' => $this->context->link->getBaseLink()
+                . 'index.php?fc=module&module=' . $this->name . '&controller=prix',
+        ]);
+
+        return $this->fetch('module:' . $this->name . '/views/templates/hook/configurateur.tpl');
+    }
+
+    /**
+     * Charge le script du configurateur, et LUI SEUL quand il sert.
+     *
+     * Le poser sur toutes les pages ferait payer a chaque visiteur un fichier
+     * qui ne concerne que les fiches configurables.
+     */
+    public function hookActionFrontControllerSetMedia(): void
+    {
+        if ($this->context->controller instanceof ProductController) {
+            $this->context->controller->registerJavascript(
+                'ekosync-configurateur',
+                'modules/' . $this->name . '/views/js/configurateur.js',
+                ['position' => 'bottom', 'priority' => 200]
+            );
+        }
+    }
+
+    /**
+     * L'identifiant du produit affiche, quelle que soit la forme des parametres.
+     *
+     * Selon le theme et la version, le hook recoit un tableau, un objet
+     * `Product`, ou rien du tout — auquel cas la requete fait foi.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    private function produitAffiche(array $params): int
+    {
+        $produit = $params['product'] ?? null;
+
+        if (is_array($produit) && isset($produit['id_product'])) {
+            return (int) $produit['id_product'];
+        }
+
+        if (is_object($produit) && isset($produit->id_product)) {
+            return (int) $produit->id_product;
+        }
+
+        if (is_object($produit) && isset($produit->id)) {
+            return (int) $produit->id;
+        }
+
+        return (int) Tools::getValue('id_product');
+    }
+
+    /**
+     * Le prix d'une configuration entre ici, et nulle part ailleurs.
+     *
+     * ⚠️ CE HOOK NE DOIT JAMAIS APPELER L'ERP. PrestaShop l'exécute jusqu'à huit
+     * fois pour une seule fiche produit et quatre fois par ligne de panier : un
+     * appel réseau à quinze secondes de délai rendrait la boutique inutilisable
+     * au premier incident. Le prix a été calculé et enregistré en amont, par le
+     * contrôleur qui répond au changement d'option. Ici, on lit.
+     *
+     * Pourquoi ce hook et pas le mécanisme natif `customized_data.price` : ce
+     * dernier n'est consulté que si l'identifiant de configuration est transmis
+     * au calcul de prix. Le panier et la commande le transmettent ; **la fiche
+     * produit ne le transmet jamais**. On aurait donc eu le bon prix au panier
+     * et le prix catalogue sur la fiche — deux vérités, ce que ce module existe
+     * précisément pour éviter.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    public function hookActionProductPriceCalculation(array &$params): void
+    {
+        $idProduct = (int) ($params['id_product'] ?? 0);
+        $quantite = max(1, (int) ($params['quantity'] ?? 1));
+
+        if ($idProduct <= 0) {
+            return;
+        }
+
+        $prix = new PrixConfigure();
+
+        // Panier et commande désignent la configuration ; la fiche produit, non
+        // — il faut alors la retrouver parmi celles en attente de ce panier.
+        $idCustomization = (int) ($params['id_customization'] ?? 0);
+
+        if ($idCustomization <= 0) {
+            $panier = $this->context->cart ?? null;
+
+            if (!$panier instanceof \Cart) {
+                return;
+            }
+
+            $idCustomization = $prix->customizationEnCours($panier, $idProduct);
+        }
+
+        if ($idCustomization <= 0) {
+            // Aucune configuration en cours : ce produit n'est pas configuré
+            // ici. C'est le cas d'une vignette de liste — la surcharger
+            // afficherait un prix personnel hors contexte.
+            return;
+        }
+
+        $centimes = $prix->lire($idCustomization, $quantite);
+
+        if ($centimes === null) {
+            // Rien de chiffré pour cette quantité. On laisse PrestaShop faire
+            // plutôt que d'inventer : un prix inventé serait indétectable.
+            return;
+        }
+
+        $montant = $centimes / 100;
+
+        // L'ERP ne rend que du HT. La TVA relève du client — pays, exonération,
+        // groupe d'affichage — et PrestaShop la connaît. On réutilise SON
+        // calculateur plutôt que d'appliquer un taux de notre cru.
+        if (!empty($params['use_tax'])) {
+            $montant = \TaxManagerFactory::getManager(
+                $params['address'] ?? null,
+                (int) \Product::getIdTaxRulesGroupByIdProduct($idProduct)
+            )->getTaxCalculator()->addTaxes($montant);
+        }
+
+        $params['price'] = $montant;
     }
 
     public function getContent(): string

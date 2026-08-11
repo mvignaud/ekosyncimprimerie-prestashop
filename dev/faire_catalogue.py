@@ -64,6 +64,11 @@ EN = {
     "Enregistrer": "Save",
     "Tester la liaison": "Test the connection",
     "Rechercher": "Search",
+    "Produit d'atelier E-KO": "E-KO workshop product",
+    "— aucun, prix géré par PrestaShop —": "— none, price handled by PrestaShop —",
+    "Lier cette fiche à un produit d'atelier fait venir son prix de l'ERP. Sans liaison, PrestaShop garde la main.":
+        "Linking this product to a workshop product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
+    "Liste des produits d'atelier indisponible : ": "Workshop product list unavailable: ",
 }
 
 CATALOGUES = {"en-US": EN}

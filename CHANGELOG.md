@@ -7,6 +7,57 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.4.0] — 2026-08-11
+
+Le configurateur de prix. Une fiche produit peut désormais être chiffrée par
+l'ERP, de la première option jusqu'à la facture.
+
+### Ajouté
+
+- **Liaison fiche ↔ produit d'atelier**, dans le formulaire natif du produit.
+  Une fiche ne peut être liée qu'une fois et un produit d'atelier ne peut l'être
+  qu'à une fiche — la règle est posée en base, donc vraie même pour une écriture
+  qui contournerait le module.
+- **Configurateur sur la fiche produit**. Les champs, leurs libellés, leurs
+  unités, leurs valeurs par défaut et leurs listes de choix viennent de l'ERP :
+  rien n'est écrit en dur. Ajouter une option à un produit dans l'atelier la
+  fait apparaître en boutique sans toucher au module ni au thème.
+- **Le prix de l'ERP s'impose** sur la fiche, au panier et en commande, par le
+  hook `actionProductPriceCalculation`. La facture ne recalcule rien : elle
+  recopie ce que la commande a figé.
+- **Script de vérification** (`dev/verifier-chaine.php`) : éprouve la chaîne
+  complète sur une boutique de recette, crée son décor et le supprime — même en
+  cas d'échec. Il refuse de tourner sur une boutique qui a déjà des produits.
+
+### Sécurité
+
+- La réponse du serveur au navigateur est construite par **liste blanche**. Le
+  chiffrage de l'ERP contient le prix de revient, le détail des coûts et la
+  marge : un filtre des champs interdits laisserait passer le premier champ
+  ajouté plus tard côté ERP.
+- Le hook de prix **n'appelle jamais l'ERP** : PrestaShop l'exécute jusqu'à huit
+  fois par fiche. L'appel se fait une seule fois, au changement d'option.
+
+### Notes de conception
+
+- **Le navigateur ne calcule rien**, pas même la multiplication par la quantité :
+  le total vient du serveur. Le chiffrage d'atelier est dégressif — cent
+  exemplaires ne coûtent pas cent fois un.
+- **Sans prix mémorisé pour le couple (configuration, quantité), le module ne
+  touche à rien** et laisse PrestaShop afficher son prix catalogue. Un prix
+  inventé serait indétectable.
+- L'appel au serveur utilise une **URL directe** et non la forme
+  `/module/<module>/<contrôleur>`, qui dépend d'une règle de réécriture absente
+  de bien des boutiques et répond alors 404.
+
+### Limites connues
+
+- Le chemin TVA n'est éprouvé que sur un produit **sans règle de taxe** : la
+  garantie « au centime » porte sur le HT. PrestaShop connaît le régime du
+  client, l'ERP non.
+- Le produit doit être **personnalisable** et porter un champ texte : c'est ce
+  qui donne son identité à une configuration, de la fiche jusqu'à la facture.
+
 ## [0.3.0] — 2026-08-11
 
 ### Sécurité
@@ -134,7 +185,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.3.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.4.0
 [0.3.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.1.0
