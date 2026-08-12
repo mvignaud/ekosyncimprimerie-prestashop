@@ -134,8 +134,11 @@ $posees = 0;
 $ignorees = 0;
 
 foreach ($facettes as $code => $produit) {
-    $reference = 'POC-' . $code;
-    $idProduct = $fiches[$reference] ?? 0;
+    // ⚠️ La clé est le code de l'ERP NU. `POC-` est le préfixe de la référence
+    // PRESTASHOP, celle qu'on lit sur la fiche — pas celle que la table de
+    // liaison enregistre. Chercher `POC-FLY` là où est écrit `FLY` faisait
+    // ignorer les quatre-vingt-quatre produits, en le disant poliment.
+    $idProduct = $fiches[(string) $code] ?? 0;
 
     if ($idProduct === 0) {
         printf("  ignoré : %s n'a pas de fiche liée\n", $code);
