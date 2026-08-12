@@ -87,6 +87,35 @@ ADMIN_EN = {
         "Linking this product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
     "Fiche technique": "Technical sheet",
     "Prestations": "Services",
+    "Ventes phares": "Best sellers",
+    "Heure limite — offre incluse": "Cut-off time — included offer",
+    "Si commandé aujourd'hui avant 18h": "If ordered today before 6pm",
+    "Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c'est un engagement pris devant le client.":
+        "Shown under the included lead time. Leave empty to announce nothing: this is a promise made to the customer.",
+    "Heure limite — livraison accélérée": "Cut-off time — express delivery",
+    "Mention sous le prix": "Line under the price",
+    "Réassurances": "Reassurance points",
+    "Réglages de l'imprimerie": "Print shop settings",
+    "Ajouter une ligne": "Add a row",
+    "Retirer cette ligne": "Remove this row",
+    "Déposer un SVG": "Upload an SVG",
+    "Icône…": "Icon…",
+    "Dépôt refusé.": "Upload rejected.",
+    "Aucun fichier reçu.": "No file received.",
+    "Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c'est ici qu'on l'ajuste, fiche par fiche.":
+        "Leave empty to use the shop-wide setting, shown as a hint. Artwork does not take the same work on a flyer and on a folded leaflet: this is where you adjust it, product by product.",
+    "Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.":
+        "These settings apply to every product linked to the ERP. A product carrying its own value keeps it.",
+    "Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.":
+        "One line per point: \u00ab Label|icon \u00bb. The icon is origine, livraison, fichier or paiement \u2014 or the path of an image uploaded to the shop, for a logo you own.",
+    "Tout inclus — Livraison offerte": "All included — Free delivery",
+    "Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n'est pas offerte : la mention serait alors fausse.":
+        "Shown in the summary, under the amount. Leave empty if delivery is not free: the line would then be untrue.",
+    "Si commandé avant demain 11h": "If ordered before 11am tomorrow",
+    "Affichée sous les délais payants, dont l'heure limite est souvent différente.":
+        "Shown under the paid lead times, whose cut-off time is often different.",
+    "Une ligne par onglet : « Libellé|format ». Le format s'écrit avec son nom tel qu'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n'afficher aucun onglet.":
+        "One line per tab: \u00ab Label|format \u00bb. Write the format with the name shown on the shop, or with the supplier code. Leave empty to show no tab.",
     "BAT numérique": "Digital proof",
     "Ma création graphique": "My artwork",
     "Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.":
@@ -119,22 +148,31 @@ SHOP_EN = {
     "Chargement des options…": "Loading options…",
     "Calcul des tarifs…": "Calculating prices…",
     "Quantité": "Quantity",
+    "Délai": "Lead time",
     "Je choisis mon délai": "Choose your lead time",
     "Inclus": "Included",
     "Supplément": "Extra",
     "Meilleure offre": "Best value",
+    "Soyez livré plus rapidement": "Get it faster",
+    "Prix public TTC": "Retail price incl. VAT",
     "Bon plan": "Good deal",
     "ex.": "units",
     "Détail de ma commande": "Order summary",
     "HT": "excl. VAT",
     "TTC": "incl. VAT",
-    "Modifier": "Change",
     "Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.":
         "These prices have not been refreshed recently. Please confirm before ordering.",
     "Options indisponibles pour le moment.": "Options unavailable right now.",
-    "— Choisir —": "— Choose —",
     "Livraison estimée": "Estimated delivery",
     "Ajouter au panier": "Add to cart",
+    "Tout voir": "See all",
+    "Configuration personnalisée": "Custom configuration",
+    "Quantités supérieures": "Larger quantities",
+    "Voir plus": "See more",
+    "Formats précédents": "Previous formats",
+    "Formats suivants": "Next formats",
+    "L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.":
+        "Adding to the cart did not go through. Check your configuration and try again.",
 
     # Fiche technique.
     "Gabarits & instructions": "Templates & instructions",
@@ -148,16 +186,31 @@ SHOP_EN = {
 DOMAINES = [
     {
         "nom": "ModulesEkosyncimprimerieAdmin",
-        "fichiers": [RACINE / "ekosyncimprimerie.php"],
+        # Le module ET ses contrôleurs d'ADMINISTRATION : les deux écrivent
+        # pour le marchand, donc dans le domaine Admin. Ranger les contrôleurs
+        # d'administration avec ceux du front les enverrait dans le catalogue
+        # boutique — traduits, mais jamais lus par PrestaShop.
+        "fichiers": ([RACINE / "ekosyncimprimerie.php"]
+                     + sorted((RACINE / "controllers" / "admin").rglob("*.php"))),
         # Le premier argument littéral de `$this->trans()`.
         "motif": re.compile(r"\$this->trans\(\s*'((?:[^'\\]|\\.)*)'", re.S),
         "tables": {"en-US": ADMIN_EN},
     },
     {
         "nom": "ModulesEkosyncimprimerieShop",
-        "fichiers": sorted((RACINE / "views" / "templates").rglob("*.tpl")),
-        # Le premier argument de `{l s='…' d='…'}` de Smarty.
-        "motif": re.compile(r"\{l\s+s='((?:[^'\\]|\\.)*)'", re.S),
+        # DEUX sources, et c'est le point faible historique de ce script : il
+        # n'en balayait qu'une, si bien qu'un texte ajouté dans l'autre passait
+        # le garde sans être traduit. Les gabarits d'abord, puis les
+        # contrôleurs front — ces derniers écrivent la configuration qui finit
+        # sur la FACTURE du client, en sa langue.
+        "fichiers": (sorted((RACINE / "views" / "templates").rglob("*.tpl"))
+                     + sorted((RACINE / "controllers" / "front").rglob("*.php"))),
+        # `{l s='…'}` de Smarty, ou `$this->trans('…')` d'un contrôleur.
+        "motif": re.compile(
+            r"\{l\s+s='((?:[^'\\]|\\.)*)'"
+            r"|\$this->trans\(\s*'((?:[^'\\]|\\.)*)'",
+            re.S,
+        ),
         "tables": {"en-US": SHOP_EN},
     },
 ]
@@ -171,7 +224,14 @@ def sources(domaine):
         texte = fichier.read_text(encoding="utf-8")
 
         for m in domaine["motif"].finditer(texte):
-            s = m.group(1).replace("\\'", "'").replace("\\\\", "\\")
+            # Un motif peut porter plusieurs alternatives : on prend celle qui
+            # a mordu. Lire `group(1)` en dur rendrait `None` sur les autres.
+            brut = next((g for g in m.groups() if g is not None), None)
+
+            if brut is None:
+                continue
+
+            s = brut.replace("\\'", "'").replace("\\\\", "\\")
             if s not in vues:
                 vues.append(s)
 

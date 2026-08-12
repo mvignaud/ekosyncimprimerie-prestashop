@@ -145,6 +145,114 @@ final class ServicesProduit
     }
 
     /**
+     * Les ventes phares : des raccourcis vers une configuration courante.
+     *
+     * ─── POURQUOI CELA SE RÈGLE, ET NE SE DÉDUIT PAS ───────────────────────
+     *
+     * « Top vente A5 » est une affirmation sur ce que les clients achètent.
+     * Elle appartient au marchand, qui le sait. La déduire de l'arbre —
+     * « prenons les deux premiers formats » — reviendrait à écrire au client
+     * une information fausse sur une étiquette qui a l'air d'un conseil.
+     *
+     * ─── CE QUE LE MARCHAND SAISIT ─────────────────────────────────────────
+     *
+     * Une ligne par onglet : `Libellé|format`. Le format s'écrit avec le code
+     * du fournisseur OU avec le nom affiché sur le site — le configurateur
+     * accepte les deux, parce qu'un marchand voit les noms et jamais les codes.
+     *
+     * Sans séparateur, la ligne sert des deux : `A5` donne un onglet « A5 »
+     * qui pointe sur le format A5.
+     *
+     * @return list<array{nom: string, cible: string}>
+     */
+    public static function ventesPhares(int $idProduct): array
+    {
+        $sortie = [];
+
+        foreach (preg_split('/\R/', self::reglage('ventes', $idProduct)) ?: [] as $ligne) {
+            $ligne = trim($ligne);
+
+            if ($ligne === '') {
+                continue;
+            }
+
+            $parts = explode('|', $ligne, 2);
+            $nom = trim($parts[0]);
+            $cible = trim($parts[1] ?? $parts[0]);
+
+            if ($nom === '' || $cible === '') {
+                continue;
+            }
+
+            $sortie[] = ['nom' => $nom, 'cible' => $cible];
+        }
+
+        return $sortie;
+    }
+
+    /**
+     * Les réassurances affichées sous le bouton de commande.
+     *
+     * Une ligne par argument : `Libellé|icône`. L'icône est soit l'un des
+     * pictogrammes que le module dessine — `origine`, `livraison`, `fichier`,
+     * `paiement` — soit le chemin d'une image de la boutique.
+     *
+     * ⚠️ AUCUNE VALEUR PAR DÉFAUT. Ce sont des ENGAGEMENTS : « livraison
+     * offerte », « paiement sécurisé », « fabriqué en région ». Les écrire à la
+     * place du marchand reviendrait à promettre en son nom.
+     *
+     * ⚠️ Et aucun logo officiel n'est embarqué. Une marque territoriale ou un
+     * label appartient à son émetteur et ne se distribue pas dans un module
+     * public : le marchand pointe le sien, déposé sur sa propre boutique.
+     *
+     * @return list<array{nom: string, icone: string}>
+     */
+    public static function reassurances(int $idProduct): array
+    {
+        $sortie = [];
+
+        foreach (preg_split('/\R/', self::reglage('reassurances', $idProduct)) ?: [] as $ligne) {
+            $ligne = trim($ligne);
+
+            if ($ligne === '') {
+                continue;
+            }
+
+            $parts = explode('|', $ligne, 2);
+            $nom = trim($parts[0]);
+
+            if ($nom === '') {
+                continue;
+            }
+
+            $sortie[] = ['nom' => $nom, 'icone' => self::icone(trim($parts[1] ?? ''))];
+        }
+
+        return $sortie;
+    }
+
+    /**
+     * Une icône : un pictogramme connu, ou un chemin d'image accepté.
+     *
+     * Tout le reste est ramené au pictogramme neutre. Un chemin est accepté
+     * s'il reste DANS la boutique ou pointe une adresse http(s) — de quoi
+     * afficher un logo déposé par le marchand, sans laisser une valeur de
+     * réglage devenir n'importe quelle URL.
+     */
+    private static function icone(string $brut): string
+    {
+        if (in_array($brut, ['origine', 'livraison', 'fichier', 'paiement'], true)) {
+            return $brut;
+        }
+
+        if ($brut !== '' && preg_match('#^(/[^\s"\'<>]*|https?://[^\s"\'<>]+)$#', $brut) === 1) {
+            return $brut;
+        }
+
+        return 'origine';
+    }
+
+    /**
      * Décode une saisie « Libellé|prix » en options.
      *
      * Un prix absent ou illisible vaut ZÉRO, jamais un refus : une ligne mal

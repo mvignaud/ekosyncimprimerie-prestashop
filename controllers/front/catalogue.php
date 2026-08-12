@@ -39,6 +39,17 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     public $ajax = true;
 
     /**
+     * Ce que l'ensemble des dessins d'une réponse a le droit de peser.
+     *
+     * 24 000 caractères, soit l'ordre de grandeur d'une petite image — pour
+     * une ligne entière de vignettes. Les dessins servis sont ceux que l'ERP
+     * annonce en premier, et les suivants retombent sur le rectangle du
+     * module ; l'ordre étant celui de l'arbre, il ne change pas d'un appel à
+     * l'autre.
+     */
+    private const BUDGET_DESSINS = 24000;
+
+    /**
      * Comme pour le chiffrage d'atelier : tout se joue dans `postProcess()`.
      *
      * `Controller::run()` appelle `initContent()` ensuite, qui meurt sans
@@ -134,7 +145,19 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 // ne changent pas d'une étape à l'autre, et un second appel
                 // pour les obtenir doublerait les allers-retours.
                 'services' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::services($idProduct),
+                // Les raccourcis « vente phare » du marchand. Ils voyagent avec
+                // l'arbre : ils ne changent pas d'une étape à l'autre.
+                'ventes' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::ventesPhares($idProduct),
+                // Les réassurances : elles ne changent pas d'une étape à
+                // l'autre non plus, elles voyagent avec l'arbre.
+                'reassurances' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reassurances($idProduct),
             ];
+        }
+
+        // ─── Retenir la configuration, juste avant l'ajout au panier ───────
+
+        if (Tools::getValue('quoi') === 'retenir') {
+            return $this->retenir($idProduct, $code);
         }
 
         // ─── La grille ─────────────────────────────────────────────────────
@@ -209,6 +232,12 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 'lot' => \Eko\SyncImprimerie\Configurateur\ReglesBoutique::montant($lot, $precision),
                 'lot_texte' => $this->enLettres($lot),
                 'unite_texte' => $this->enLettres($lot / $q),
+                // Le prix public, POUR CEUX QUI VOIENT DU HT — revendeurs et
+                // comptes B2B. Eux achètent hors taxes ; le montant qu'un
+                // particulier paierait sur cette même boutique leur dit où ils
+                // se situent. Un client en TTC voit déjà ce montant comme prix
+                // principal : le répéter n'apprendrait rien.
+                'public_texte' => $horsTaxe ? $this->enLettres($this->avecTaxe($lotHt, $idProduct)) : '',
             ];
         }
 
@@ -222,6 +251,15 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             ))),
             'grid' => $cases,
             'stale' => (bool) ($d['price_stale'] ?? false),
+            // L'heure limite de commande, si l'imprimeur en a déclaré une.
+            // Aucune valeur par défaut : « commandé avant 18h » est un
+            // engagement, pas une décoration.
+            'note_delai' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('delai_note', $idProduct),
+            'note_delai_rapide' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('delai_note_rapide', $idProduct),
+            // La mention sous le prix — « Tout inclus, livraison offerte ».
+            // Réglée par le marchand, vide par défaut : c'est une promesse
+            // commerciale, elle n'a pas à être écrite à sa place.
+            'mention_prix' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('mention_prix', $idProduct),
             // Le supplément est rendu SÉPARÉMENT en plus d'être inclus : le
             // récapitulatif doit pouvoir montrer les deux lignes, pour qu'un
             // client rapproche son devis du prix affiché sans deviner ce qui a
@@ -230,6 +268,246 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 $horsTaxe ? $supplementHt : $this->avecTaxe($supplementHt, $idProduct)
             ) : '',
         ];
+    }
+
+    /**
+     * Retient la configuration choisie, et enregistre son prix.
+     *
+     * ─── POURQUOI CETTE ÉTAPE EXISTE ───────────────────────────────────────
+     *
+     * Sans elle, le bouton « Ajouter au panier » ajoutait le produit au prix
+     * catalogue de PrestaShop. Mesuré en production : le configurateur
+     * affichait 68,04 €, la ligne au panier valait **0,00 €**, en quantité 1,
+     * sans trace de la configuration. Le chemin d'atelier faisait ce travail
+     * depuis toujours ; celui de sous-traitance ne l'avait jamais fait.
+     *
+     * ─── POURQUOI AU MOMENT DU GESTE, ET PAS À CHAQUE GRILLE ───────────────
+     *
+     * Une grille rend vingt quantités par trois délais. Retenir chaque case
+     * écrirait soixante lignes dont cinquante-neuf ne serviront jamais, et il
+     * faudrait ensuite décider laquelle vaut. On retient la seule case que le
+     * visiteur a choisie, au moment où il l'ajoute — c'est aussi le moment où
+     * un prix périmé se verrait, puisque l'ERP est réinterrogé.
+     *
+     * ─── LA QUANTITÉ ───────────────────────────────────────────────────────
+     *
+     * Le panier reçoit **un lot**, pas N exemplaires. Le sous-traitant tarife
+     * le lot : 50 exemplaires valent 68,04 €, et non cinquante fois un prix
+     * unitaire. Diviser pour reconstituer un prix unitaire ferait dériver
+     * l'arrondi — 6804 / 50 = 136,08 centimes, arrondi à 137, soit 68,50 € au
+     * panier pour 68,04 € affichés. Le nombre d'exemplaires est donc porté par
+     * la configuration, jamais par la quantité du panier.
+     *
+     * @return array<string, mixed>
+     */
+    private function retenir(int $idProduct, string $code): array
+    {
+        $chemin = implode('/', $this->selection());
+        $quantite = (int) Tools::getValue('quantite');
+        $delai = trim((string) Tools::getValue('delai'));
+
+        if ($chemin === '' || $quantite <= 0) {
+            return $this->refus('Configuration incomplète.');
+        }
+
+        $panier = \Eko\SyncImprimerie\Configurateur\Personnalisation::panier($this->context);
+
+        if ($panier === null) {
+            return $this->refus('Panier indisponible.');
+        }
+
+        /** @var Ekosyncimprimerie $module */
+        $module = $this->module;
+
+        $r = $module->client()->appeler(
+            'GET',
+            '/api/v1/printoclock/products/' . $code . '/price?path=' . rawurlencode($chemin)
+        );
+
+        if (!$r['ok']) {
+            return $this->refus('Ce tarif n\'est plus disponible. Reprenez votre configuration.');
+        }
+
+        // On RELIT le prix du fournisseur au lieu de croire le navigateur. Un
+        // montant qui arriverait du client serait un montant que la boutique
+        // n'a pas vérifié — donc n'importe lequel.
+        $case = null;
+
+        foreach ((array) ($r['donnees']['grid'] ?? []) as $c) {
+            if (is_array($c) && (int) ($c['quantity'] ?? 0) === $quantite
+                && (string) ($c['delay'] ?? '') === $delai) {
+                $case = $c;
+                break;
+            }
+        }
+
+        if ($case === null) {
+            return $this->refus('Cette quantité n\'est plus proposée pour ce délai.');
+        }
+
+        $lotCents = (int) ($case['lot_price_cents'] ?? 0);
+
+        if ($lotCents <= 0) {
+            return $this->refus('L\'ERP n\'a pas rendu de prix pour cette configuration.');
+        }
+
+        // Les prestations de l'imprimeur s'AJOUTENT, côté serveur, exactement
+        // comme dans la grille affichée. Le prix du sous-traitant reste ce
+        // qu'il a rendu, au centime.
+        $choixServices = $this->choixServices();
+        $lotCents += \Eko\SyncImprimerie\Configurateur\ServicesProduit::supplement($idProduct, $choixServices);
+
+        $variables = [
+            'path' => $chemin,
+            'quantity' => $quantite,
+            'delay' => $delai,
+            'services' => $choixServices,
+        ];
+
+        $idCustomization = \Eko\SyncImprimerie\Configurateur\Personnalisation::retenir(
+            $panier,
+            $idProduct,
+            $this->configurationLisible($code, $quantite, $delai, $choixServices)
+        );
+
+        if ($idCustomization <= 0) {
+            return $this->refus('La configuration n\'a pas pu être retenue.');
+        }
+
+        // Quantité 1 : le panier reçoit UN lot. Le hook de prix relira
+        // exactement ce couple, et PrestaShop multipliera par la quantité de
+        // la ligne — deux lots feront donc deux fois le prix du lot, ce qui
+        // est juste.
+        (new \Eko\SyncImprimerie\Configurateur\PrixConfigure())->memoriser(
+            $idCustomization,
+            $idProduct,
+            1,
+            $lotCents,
+            $variables,
+            $this->joursDe($delai)
+        );
+
+        return [
+            'ok' => true,
+            'id_customization' => $idCustomization,
+            'quantite_panier' => 1,
+        ];
+    }
+
+    /**
+     * La configuration en toutes lettres, pour le panier et la facture.
+     *
+     * ⚠️ CE TEXTE EST VU PAR LE CLIENT. Il s'affiche sous « Votre
+     * personnalisation » au panier, sur la confirmation de commande, et il
+     * finit sur la FACTURE. Écrit en codes de fournisseur — « 115CP · R · NOF »
+     * — il ne dit rien à personne et fait mauvais effet sur un document
+     * comptable. Mesuré : c'est exactement ce qu'il affichait.
+     *
+     * On redescend donc l'arbre pour retrouver le nom de chaque critère et de
+     * chaque option choisie. Les appels sont mis en cache par le client HTTP du
+     * module, et l'arbre vient d'être parcouru par le navigateur : en pratique
+     * ils ne coûtent rien.
+     *
+     * @param  array<string, string>  $services
+     */
+    private function configurationLisible(string $code, int $quantite, string $delai, array $services): string
+    {
+        [$etapes, $libelles] = $this->nomsDuChemin($code);
+
+        $morceaux = [];
+
+        foreach ($this->selection() as $rang => $valeur) {
+            $nom = (string) ($libelles[$valeur]['name'] ?? $valeur);
+            $critere = (string) ($etapes[$rang] ?? '');
+
+            $morceaux[] = $critere === '' ? $nom : $critere . ' : ' . $nom;
+        }
+
+        $morceaux[] = $this->trans('Quantité', [], 'Modules.Ekosyncimprimerie.Shop') . ' : ' . $quantite;
+
+        if ($delai !== '') {
+            $morceaux[] = $this->trans('Délai', [], 'Modules.Ekosyncimprimerie.Shop') . ' : ' . $delai;
+        }
+
+        // Les prestations portent leur intitulé : « Non » seul, sur une facture,
+        // ne dit pas à quoi le client a répondu non.
+        $catalogue = \Eko\SyncImprimerie\Configurateur\ServicesProduit::services(
+            (int) Tools::getValue('id_product')
+        );
+
+        foreach ($catalogue as $sv) {
+            $choisi = (string) ($services[$sv['cle']] ?? '');
+
+            if ($choisi !== '') {
+                $morceaux[] = $sv['label'] . ' : ' . $choisi;
+            }
+        }
+
+        return implode(' · ', $morceaux);
+    }
+
+    /**
+     * Les noms des critères et des options, en redescendant l'arbre.
+     *
+     * L'arbre est ÉLAGUÉ : les options d'un rang dépendent des choix
+     * précédents, et le dictionnaire rendu ne couvre que le rang courant. Il
+     * faut donc le parcourir en suivant la sélection du visiteur, exactement
+     * comme le navigateur l'a fait.
+     *
+     * @return array{0: array<int, string>, 1: array<string, array<string, mixed>>}
+     */
+    private function nomsDuChemin(string $code): array
+    {
+        /** @var Ekosyncimprimerie $module */
+        $module = $this->module;
+
+        $selection = $this->selection();
+        $etapes = [];
+        $libelles = [];
+
+        for ($i = 0; $i <= count($selection); $i++) {
+            $requete = '/api/v1/printoclock/products/' . $code . '/tree';
+
+            foreach (array_slice($selection, 0, $i) as $v) {
+                $requete .= (str_contains($requete, '?') ? '&' : '?') . 'selection[]=' . rawurlencode($v);
+            }
+
+            $r = $module->client()->appeler('GET', $requete);
+
+            if (!$r['ok']) {
+                // Mieux vaut une configuration en codes bruts qu'une commande
+                // sans configuration : on garde ce qu'on a pu résoudre.
+                break;
+            }
+
+            $d = $r['donnees'] ?? [];
+
+            foreach ((array) ($d['labels'] ?? []) as $cle => $l) {
+                if (is_string($cle) && is_array($l)) {
+                    $libelles[$cle] = $l;
+                }
+            }
+
+            $rang = (int) ($d['rank'] ?? $i);
+            $etape = ((array) ($d['steps'] ?? []))[$rang] ?? null;
+
+            if (is_array($etape) && isset($etape['label'])) {
+                $etapes[$i] = (string) $etape['label'];
+            }
+        }
+
+        return [$etapes, $libelles];
+    }
+
+    /**
+     * Le nombre de jours ouvrés porté par un code de délai — « J+5 » → 5.
+     *
+     * Rend `null` quand le code ne dit pas de nombre : mieux vaut pas de délai
+     * qu'un délai inventé, qui finirait sur une confirmation de commande.
+     */
+    private function joursDe(string $delai): ?int
+    {
+        return preg_match('/(\d+)/', $delai, $m) === 1 ? (int) $m[1] : null;
     }
 
     /**
@@ -268,6 +546,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     private function libelles(array $brut): array
     {
         $sortie = [];
+        $depense = 0;
 
         foreach ($brut as $code => $l) {
             if (!is_array($l) || !is_string($code)) {
@@ -280,11 +559,11 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 $entree['description'] = (string) $l['description'];
             }
 
-            // Le SVG de l'ERP est rendu tel quel dans la page : on ne garde que
-            // ce qui ressemble à un dessin, et le navigateur l'insère comme du
-            // texte échappé faute de quoi ce serait une porte ouverte.
-            if (isset($l['svg']) && is_string($l['svg']) && str_starts_with(trim($l['svg']), '<svg')) {
-                $entree['svg'] = $l['svg'];
+            $svg = $this->dessin($l['svg'] ?? null, self::BUDGET_DESSINS - $depense);
+
+            if ($svg !== null) {
+                $entree['svg'] = $svg;
+                $depense += mb_strlen($svg);
             }
 
             if (isset($l['width'], $l['height'])) {
@@ -296,6 +575,56 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         }
 
         return $sortie;
+    }
+
+    /**
+     * Un dessin d'option, si on peut raisonnablement l'afficher.
+     *
+     * ─── LE POIDS ──────────────────────────────────────────────────────────
+     *
+     * Ces dessins viennent du fournisseur et pèsent 7 Ko en moyenne, jusqu'à
+     * 65 Ko. Quatorze formats sur une ligne, c'est cent kilo-octets de balisage
+     * pour des vignettes de cinquante pixels — payés par le visiteur, sur son
+     * mobile, avant de voir un prix.
+     *
+     * DEUX plafonds, parce qu'un seul ne tenait pas : un dessin de 5 Ko passe
+     * la limite individuelle sans rien signaler, et quatorze dessins de 5 Ko
+     * font 75 Ko. Le plafond qui compte est donc le CUMUL — c'est lui que la
+     * page paye. Le plafond par dessin reste, il écarte l'aberration isolée.
+     *
+     * Au-delà, on rend `null` et le module retombe sur le rectangle qu'il
+     * dessine lui-même : à cette taille, un tracé détaillé et un rectangle
+     * proportionnel se ressemblent, mais l'un coûte cent fois moins.
+     *
+     * ─── CE QU'ON RETIRE ───────────────────────────────────────────────────
+     *
+     * Un SVG inséré dans une page est du BALISAGE, pas une image : il peut
+     * porter du script et des gestionnaires d'événements. Aucun de ceux du
+     * catalogue n'en contient aujourd'hui — vérifié sur les 321 entrées — mais
+     * le dictionnaire se remplit depuis le site du fournisseur, et « aujourd'hui
+     * il n'y en a pas » n'est pas une garantie sur ce qu'il contiendra demain.
+     *
+     * On retire donc, plutôt que de faire confiance.
+     */
+    private function dessin(mixed $brut, int $reste): ?string
+    {
+        if (!is_string($brut)) {
+            return null;
+        }
+
+        // ⚠️ LA MÊME DÉFINITION QUE POUR LES ICÔNES DÉPOSÉES, et ce n'est pas
+        // de l'économie : le ménage écrit ici remplaçait `<image` par
+        // `<!--image`, un commentaire jamais refermé qui avalait tout ce qui
+        // suivait. Inséré dans une page, il aurait mangé la suite du document.
+        // Deux frontières qui filtrent le même danger doivent le filtrer de la
+        // même façon, sinon la plus faible décide.
+        $svg = \Eko\SyncImprimerie\Configurateur\IconeSvg::assainir($brut);
+
+        if ($svg === null || mb_strlen($svg) > min(12000, $reste)) {
+            return null;
+        }
+
+        return $svg;
     }
 
     /**
@@ -391,15 +720,30 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             }
         }
 
-        try {
-            return (string) $this->context->getCurrentLocale()
-                ->getDateTimeFormatter()
-                ->format($date, 'EEEE d MMMM');
-        } catch (\Throwable $e) {
-            // Sans formateur de dates, on rend une forme neutre plutôt que
-            // rien : la date reste juste, seule sa mise en forme est pauvre.
-            return $date->format('d/m/Y');
+        // ⚠️ `getCurrentLocale()` de PrestaShop met en forme des NOMBRES et des
+        // prix, pas des dates : il n'a pas de `getDateTimeFormatter()`. L'appel
+        // levait donc systématiquement, et le repli « 19/08/2026 » s'affichait
+        // toujours — un repli qui marche trop bien cache le défaut qu'il couvre.
+        if (class_exists('\IntlDateFormatter')) {
+            $formateur = new \IntlDateFormatter(
+                (string) ($this->context->language->locale ?? 'fr-FR'),
+                \IntlDateFormatter::FULL,
+                \IntlDateFormatter::NONE,
+                null,
+                null,
+                'EEEE d MMMM'
+            );
+
+            $texte = $formateur->format($date);
+
+            if (is_string($texte) && $texte !== '') {
+                return $texte;
+            }
         }
+
+        // Sans `intl`, une forme neutre plutôt que rien : la date reste juste,
+        // seule sa mise en forme est pauvre.
+        return $date->format('d/m/Y');
     }
 
     /** Un montant écrit comme la boutique l'écrit. */

@@ -55,96 +55,128 @@
         <target>each</target>
       </trans-unit>
       <trans-unit id="14">
-        <source>Modifier</source>
-        <target>Change</target>
-      </trans-unit>
-      <trans-unit id="15">
         <source>Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.</source>
         <target>These prices have not been refreshed recently. Please confirm before ordering.</target>
       </trans-unit>
-      <trans-unit id="16">
+      <trans-unit id="15">
         <source>Options indisponibles pour le moment.</source>
         <target>Options unavailable right now.</target>
       </trans-unit>
-      <trans-unit id="17">
+      <trans-unit id="16">
         <source>Choisissez vos options pour obtenir un prix.</source>
         <target>Choose your options to get a price.</target>
       </trans-unit>
-      <trans-unit id="18">
-        <source>— Choisir —</source>
-        <target>— Choose —</target>
-      </trans-unit>
-      <trans-unit id="19">
+      <trans-unit id="17">
         <source>Livraison estimée</source>
         <target>Estimated delivery</target>
       </trans-unit>
-      <trans-unit id="20">
+      <trans-unit id="18">
         <source>dont prestations</source>
         <target>incl. services</target>
       </trans-unit>
-      <trans-unit id="21">
+      <trans-unit id="19">
         <source>Ajouter au panier</source>
         <target>Add to cart</target>
       </trans-unit>
+      <trans-unit id="20">
+        <source>L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.</source>
+        <target>Adding to the cart did not go through. Check your configuration and try again.</target>
+      </trans-unit>
+      <trans-unit id="21">
+        <source>Tout voir</source>
+        <target>See all</target>
+      </trans-unit>
       <trans-unit id="22">
+        <source>Voir plus</source>
+        <target>See more</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Formats précédents</source>
+        <target>Previous formats</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>Formats suivants</source>
+        <target>Next formats</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>Quantités supérieures</source>
+        <target>Larger quantities</target>
+      </trans-unit>
+      <trans-unit id="26">
         <source>Je configure mon produit</source>
         <target>Configure my product</target>
       </trans-unit>
-      <trans-unit id="23">
+      <trans-unit id="27">
+        <source>Configuration personnalisée</source>
+        <target>Custom configuration</target>
+      </trans-unit>
+      <trans-unit id="28">
+        <source>Soyez livré plus rapidement</source>
+        <target>Get it faster</target>
+      </trans-unit>
+      <trans-unit id="29">
+        <source>Prix public TTC</source>
+        <target>Retail price incl. VAT</target>
+      </trans-unit>
+      <trans-unit id="30">
         <source>Gabarits &amp; instructions</source>
         <target>Templates &amp; instructions</target>
       </trans-unit>
-      <trans-unit id="24">
+      <trans-unit id="31">
         <source>Fiche technique</source>
         <target>Technical sheet</target>
       </trans-unit>
-      <trans-unit id="25">
+      <trans-unit id="32">
         <source>Gabarits</source>
         <target>Templates</target>
       </trans-unit>
-      <trans-unit id="26">
+      <trans-unit id="33">
         <source>Télécharger le gabarit</source>
         <target>Download the template</target>
       </trans-unit>
-      <trans-unit id="27">
+      <trans-unit id="34">
         <source>Calcul du prix…</source>
         <target>Calculating the price…</target>
       </trans-unit>
-      <trans-unit id="28">
+      <trans-unit id="35">
         <source>Délai indicatif</source>
         <target>Estimated lead time</target>
       </trans-unit>
-      <trans-unit id="29">
+      <trans-unit id="36">
         <source>jour(s) ouvré(s)</source>
         <target>working day(s)</target>
       </trans-unit>
-      <trans-unit id="30">
+      <trans-unit id="37">
         <source>Configuration impossible à chiffrer.</source>
         <target>This configuration cannot be priced.</target>
       </trans-unit>
-      <trans-unit id="31">
+      <trans-unit id="38">
         <source>Le prix n’a pas pu être obtenu.</source>
         <target>The price could not be retrieved.</target>
       </trans-unit>
-      <trans-unit id="32">
+      <trans-unit id="39">
         <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
         <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
       </trans-unit>
-      <trans-unit id="33">
+      <trans-unit id="40">
         <source>Le prix de cette configuration est en cours de calcul.</source>
         <target>The price for this configuration is being calculated.</target>
       </trans-unit>
-      <trans-unit id="34">
+      <trans-unit id="41">
         <source>Configurez votre produit</source>
         <target>Configure your product</target>
       </trans-unit>
-      <trans-unit id="35">
+      <trans-unit id="42">
         <source>— au choix —</source>
         <target>— your choice —</target>
       </trans-unit>
-      <trans-unit id="36">
+      <trans-unit id="43">
         <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
         <target>The price applies to the quantity selected below.</target>
+      </trans-unit>
+      <trans-unit id="44">
+        <source>Délai</source>
+        <target>Lead time</target>
       </trans-unit>
     </body>
   </file>

@@ -32,14 +32,22 @@
      data-ht="{l s='HT' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-ttc="{l s='TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-unite="{l s='l’unité' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-modifier="{l s='Modifier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-perime="{l s='Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-echec="{l s='Options indisponibles pour le moment.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-attendez="{l s='Choisissez vos options pour obtenir un prix.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-choisir="{l s='— Choisir —' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-livree="{l s='Livraison estimée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-dont-prestations="{l s='dont prestations' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-ajouter="{l s='Ajouter au panier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
+     data-ajouter="{l s='Ajouter au panier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-echec-panier="{l s='L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-tout-voir="{l s='Tout voir' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-voir-plus="{l s='Voir plus' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-precedent="{l s='Formats précédents' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-suivant="{l s='Formats suivants' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-superieures="{l s='Quantités supérieures' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-je-configure="{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-sur-mesure="{l s='Configuration personnalisée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-plus-vite="{l s='Soyez livré plus rapidement' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-prix-public="{l s='Prix public TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
 
   <h2 class="eko-poc__titre">{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'}</h2>
 

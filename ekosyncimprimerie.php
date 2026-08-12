@@ -40,6 +40,8 @@ require_once __DIR__ . '/src/Configurateur/ReglesBoutique.php';
 require_once __DIR__ . '/src/Configurateur/ServicesProduit.php';
 require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
 require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
+require_once __DIR__ . '/src/Configurateur/Personnalisation.php';
+require_once __DIR__ . '/src/Configurateur/IconeSvg.php';
 
 use Eko\SyncImprimerie\Client\ClientEko;
 use Eko\SyncImprimerie\Client\DepotEko;
@@ -70,11 +72,14 @@ class Ekosyncimprimerie extends Module
      */
     public const CACHE_DEFAUT = 900;
 
+    /** La classe du contrôleur d'administration, et donc de son onglet. */
+    public const ONGLET = 'AdminEkoImprimerie';
+
     public function __construct()
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.11.0';
+        $this->version = '0.17.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -122,6 +127,9 @@ class Ekosyncimprimerie extends Module
             'displayProductAdditionalInfo',
             'displayProductPriceBlock',
             'actionFrontControllerSetMedia',
+            // L'editeur en liste du back-office : fiche produit et ecran de
+            // reglages s'en servent tous les deux.
+            'actionAdminControllerSetMedia',
         ];
 
         if (!parent::install()) {
@@ -131,6 +139,114 @@ class Ekosyncimprimerie extends Module
         foreach ($hooks as $hook) {
             if (!$this->registerHook($hook)) {
                 return false;
+            }
+        }
+
+        return $this->poserOnglet();
+    }
+
+    /**
+     * L'entrée « EKO Imprimerie » sous Catalogue.
+     *
+     * Rangée là, et non dans la configuration du module : on ne va dans la
+     * configuration d'un module qu'une fois, pour brancher l'API. Ces
+     * réglages-ci — fiche technique, prestations, réassurances, heures limites
+     * — se retouchent en travaillant le catalogue, donc à côté des produits.
+     *
+     * Publique et idempotente : le module est déjà posé sur les boutiques en
+     * service, où `install()` ne repassera pas. Elle peut donc être appelée
+     * après coup sans rien casser.
+     */
+    public function poserOnglet(): bool
+    {
+        if ((int) Tab::getIdFromClassName(self::ONGLET) > 0) {
+            return true;
+        }
+
+        $parent = (int) Tab::getIdFromClassName('AdminCatalog');
+
+        if ($parent <= 0) {
+            return false;
+        }
+
+        $onglet = new Tab();
+        $onglet->class_name = self::ONGLET;
+        $onglet->module = $this->name;
+        $onglet->id_parent = $parent;
+        $onglet->active = true;
+
+        $noms = [];
+
+        foreach (Language::getLanguages(false) as $langue) {
+            $noms[(int) $langue['id_lang']] = 'EKO Imprimerie';
+        }
+
+        $onglet->name = $noms;
+
+        if ($onglet->add()) {
+            return true;
+        }
+
+        // ⚠️ REPLI EN SQL, et il sert vraiment. `Tab::add()` passe par la couche
+        // de droits, qui réclame le conteneur Symfony — absent hors du
+        // back-office. Sur l'hébergement mutualisé de ce projet l'appel échoue
+        // donc en ligne de commande, exactement comme `Module::install()`.
+        // Mesuré : sans ce repli, un module posé par script s'installe sans son
+        // écran de réglages, et rien ne le signale.
+        return $this->poserOngletEnSql($parent);
+    }
+
+    /**
+     * L'onglet écrit directement, avec ses droits.
+     *
+     * ⚠️ Les colonnes sont nommées une par une : `tab` a perdu
+     * `hide_host_mode` en PrestaShop 9, et une insertion qui la cite encore
+     * échoue — en silence, puisque `Db::execute()` rend simplement `false`.
+     */
+    private function poserOngletEnSql(int $parent): bool
+    {
+        $db = Db::getInstance();
+        $prefixe = _DB_PREFIX_;
+        $position = 1 + (int) $db->getValue(
+            'SELECT MAX(position) FROM ' . $prefixe . 'tab WHERE id_parent = ' . $parent
+        );
+
+        $pose = $db->execute(
+            'INSERT INTO ' . $prefixe . 'tab (id_parent, position, module, class_name, active, enabled)'
+            . ' VALUES (' . $parent . ', ' . $position . ', "' . pSQL($this->name) . '",'
+            . ' "' . pSQL(self::ONGLET) . '", 1, 1)'
+        );
+
+        if (!$pose) {
+            return false;
+        }
+
+        $id = (int) $db->Insert_ID();
+
+        foreach (Language::getLanguages(false) as $langue) {
+            $db->execute(
+                'INSERT INTO ' . $prefixe . 'tab_lang (id_tab, id_lang, name)'
+                . ' VALUES (' . $id . ', ' . (int) $langue['id_lang'] . ', "EKO Imprimerie")'
+            );
+        }
+
+        // Sans droits, l'entrée existe mais reste invisible : le back-office
+        // n'affiche que les onglets que le profil a le droit de lire.
+        foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $droit) {
+            $slug = 'ROLE_MOD_TAB_' . strtoupper(self::ONGLET) . '_' . $droit;
+
+            $db->execute('INSERT IGNORE INTO ' . $prefixe . 'authorization_role (slug) VALUES ("' . pSQL($slug) . '")');
+
+            $role = (int) $db->getValue(
+                'SELECT id_authorization_role FROM ' . $prefixe . 'authorization_role'
+                . ' WHERE slug = "' . pSQL($slug) . '"'
+            );
+
+            if ($role > 0) {
+                $db->execute(
+                    'INSERT IGNORE INTO ' . $prefixe . 'access (id_profile, id_authorization_role)'
+                    . ' VALUES (1, ' . $role . ')'
+                );
             }
         }
 
@@ -157,6 +273,14 @@ class Ekosyncimprimerie extends Module
         }
 
         ClientEko::viderCache();
+
+        // L'onglet part avec le module : laissé en place, il mènerait à un
+        // contrôleur qui n'existe plus.
+        $idOnglet = (int) Tab::getIdFromClassName(self::ONGLET);
+
+        if ($idOnglet > 0) {
+            (new Tab($idOnglet))->delete();
+        }
 
         // La correspondance compte boutique -> tiers relie une personne
         // identifiable a un identifiant d'un systeme tiers. La laisser apres
@@ -196,6 +320,7 @@ class Ekosyncimprimerie extends Module
             . $this->boLiaison($idProduct)
             . $this->boTechnique($idProduct)
             . $this->boServices($idProduct)
+            . $this->boVentesPhares($idProduct)
             . '</div>';
     }
 
@@ -310,6 +435,72 @@ class Ekosyncimprimerie extends Module
      * l'usage du métier. Le filigrane montre ce qui s'appliquera — un champ
      * vide sans filigrane laisserait croire que rien ne s'affiche.
      */
+    /**
+     * La surcharge PROPRE à ce produit, sans la cascade.
+     *
+     * ⚠️ C'est toute la différence avec `ServicesProduit::reglage()`, et elle
+     * compte : afficher la valeur de boutique DANS le champ d'une fiche ferait
+     * qu'un simple enregistrement la recopie en surcharge produit. Le lien
+     * serait rompu sans que personne ne l'ait voulu, et la prochaine
+     * modification du réglage de boutique n'atteindrait plus cette fiche.
+     *
+     * Le champ ne montre donc que ce que la fiche porte en propre. Ce qui
+     * s'applique réellement va en filigrane.
+     */
+    private function surchargeProduit(string $cle, int $idProduct): string
+    {
+        $v = Configuration::get('EKOSYNC_' . strtoupper($cle) . '_' . $idProduct);
+
+        return ($v === false) ? '' : (string) $v;
+    }
+
+    /**
+     * Ce qui s'appliquera si la fiche ne dit rien : le réglage de boutique,
+     * ou l'exemple à défaut.
+     *
+     * Montré en filigrane, jamais dans le champ. Le marchand voit ainsi ce que
+     * sa fiche affiche aujourd'hui sans qu'un enregistrement le fige.
+     */
+    private function filigrane(string $cle, string $exemple): string
+    {
+        $boutique = ServicesProduit::reglage($cle, 0);
+
+        return $boutique !== '' ? $boutique : $exemple;
+    }
+
+    /**
+     * Les attributs que l'éditeur en liste lit sur une zone de texte.
+     *
+     * Tous les libellés passent par `trans()` : l'éditeur en est dépourvu, et
+     * un texte écrit dans le JavaScript resterait français sur un back-office
+     * anglais. `$icones` est vide quand la liste ne porte pas d'icônes — c'est
+     * ce qui distingue les réassurances des prestations, sans deux éditeurs.
+     */
+    private function attributsListe(string $icones): string
+    {
+        return sprintf(
+            'data-icones="%s" data-depot="%s" data-libelle-ajouter="%s"'
+            . ' data-libelle-retirer="%s" data-libelle-depot="%s" data-libelle-icone="%s"'
+            . ' data-echec-depot="%s"',
+            htmlspecialchars($icones),
+            htmlspecialchars($icones === '' ? '' : $this->urlDepotIcone()),
+            htmlspecialchars($this->trans('Ajouter une ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Retirer cette ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Déposer un SVG', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Icône…', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Dépôt refusé.', [], 'Modules.Ekosyncimprimerie.Admin'))
+        );
+    }
+
+    /** L'adresse du dépôt d'icône, jeton d'administration compris. */
+    private function urlDepotIcone(): string
+    {
+        return $this->context->link->getAdminLink(self::ONGLET, true, [], [
+            'ajax' => 1,
+            'action' => 'televerserIcone',
+        ]);
+    }
+
     private function boTechnique(int $idProduct): string
     {
         $libelles = [
@@ -365,14 +556,21 @@ class Ekosyncimprimerie extends Module
         $champs = '';
 
         foreach ($defauts as $cle => [$libelle, $exemple]) {
-            $valeur = Configuration::get('EKOSYNC_SVC_' . strtoupper($cle) . '_' . $idProduct);
+            // Le filigrane montre CE QUI S'APPLIQUE : le réglage de boutique
+            // s'il existe, l'exemple sinon. Un champ vide devant un exemple
+            // inventé laisserait croire que rien ne s'affiche sur la fiche,
+            // alors que le réglage de boutique, lui, s'affiche bien.
+            $boutique = ServicesProduit::reglage('svc_' . $cle, 0);
+
             $champs .= sprintf(
                 '<div class="form-group"><label class="form-control-label">%s</label>'
-                . '<textarea name="ekosync_svc_%s" class="form-control" rows="3" placeholder="%s">%s</textarea></div>',
+                . '<textarea name="ekosync_svc_%s" class="form-control eko-bo-liste" rows="4"'
+                . ' ' . $this->attributsListe('')
+                . ' placeholder="%s">%s</textarea></div>',
                 htmlspecialchars($libelle),
                 htmlspecialchars($cle),
-                htmlspecialchars($exemple),
-                htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
+                htmlspecialchars($boutique !== '' ? $boutique : $exemple),
+                htmlspecialchars($this->surchargeProduit('svc_' . $cle, $idProduct))
             );
         }
 
@@ -385,7 +583,106 @@ class Ekosyncimprimerie extends Module
                 [],
                 'Modules.Ekosyncimprimerie.Admin'
             )
+            . '<br>'
+            . $this->trans(
+                'Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c\'est ici qu\'on l\'ajuste, fiche par fiche.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
             . '</p>' . $champs . '</fieldset>';
+    }
+
+    /**
+     * Les ventes phares : des raccourcis vers une configuration courante.
+     *
+     * ⚠️ CE CHAMP N'A PAS DE VALEUR PAR DÉFAUT, et c'est délibéré. « Top vente
+     * A5 » est une affirmation sur ce que les clients achètent : elle appartient
+     * au marchand. La pré-remplir avec les premiers formats de l'arbre
+     * écrirait au client, sur une étiquette qui a l'air d'un conseil, quelque
+     * chose que personne n'a vérifié.
+     */
+    private function boVentesPhares(int $idProduct): string
+    {
+        $valeur = Configuration::get('EKOSYNC_VENTES_' . $idProduct);
+
+        return '<fieldset class="eko-bo__bloc"><legend>'
+            . $this->trans('Ventes phares', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</legend>'
+            . '<p class="help-block">'
+            . $this->trans(
+                'Une ligne par onglet : « Libellé|format ». Le format s\'écrit avec son nom tel qu\'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n\'afficher aucun onglet.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '</p>'
+            . sprintf(
+                '<textarea name="ekosync_ventes" class="form-control eko-bo-liste" rows="3"'
+                . ' ' . $this->attributsListe('')
+                . ' placeholder="%s">%s</textarea>',
+                htmlspecialchars("Top vente A5|A5\nTop vente A6|A6"),
+                htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_delai_note" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Heure limite — offre incluse', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('delai_note', $idProduct)),
+                htmlspecialchars($this->filigrane('delai_note', $this->trans('Si commandé aujourd\'hui avant 18h', [], 'Modules.Ekosyncimprimerie.Admin'))),
+                htmlspecialchars($this->trans(
+                    'Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c\'est un engagement pris devant le client.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_delai_note_rapide" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Heure limite — livraison accélérée', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('delai_note_rapide', $idProduct)),
+                htmlspecialchars($this->filigrane('delai_note_rapide', $this->trans('Si commandé avant demain 11h', [], 'Modules.Ekosyncimprimerie.Admin'))),
+                htmlspecialchars($this->trans(
+                    'Affichée sous les délais payants, dont l\'heure limite est souvent différente.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_mention_prix" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Mention sous le prix', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('mention_prix', $idProduct)),
+                htmlspecialchars($this->filigrane('mention_prix', $this->trans('Tout inclus — Livraison offerte', [], 'Modules.Ekosyncimprimerie.Admin'))),
+                htmlspecialchars($this->trans(
+                    'Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n\'est pas offerte : la mention serait alors fausse.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<textarea name="ekosync_reassurances" class="form-control eko-bo-liste" rows="4"'
+                . ' ' . $this->attributsListe('origine,livraison,fichier,paiement')
+                . ' placeholder="%s">%s</textarea>'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Réassurances', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->filigrane(
+                    'reassurances',
+                    "100% Made In Occitanie|/img/cms/occitanie.svg\n"
+                    . "Livraison rapide et offerte|livraison\n"
+                    . "Vérification gratuite de vos fichiers|fichier\n"
+                    . 'Paiement sécurisé|paiement'
+                )),
+                htmlspecialchars($this->surchargeProduit('reassurances', $idProduct)),
+                htmlspecialchars($this->trans(
+                    'Une ligne par argument : « Libellé|icône ». L\'icône est origine, livraison, fichier ou paiement — ou le chemin d\'une image déposée sur la boutique, pour un logo qui vous appartient.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . '</fieldset>';
     }
 
     /**
@@ -428,6 +725,16 @@ class Ekosyncimprimerie extends Module
         foreach (ServicesProduit::SERVICES as $cle) {
             if (Tools::getIsset('ekosync_svc_' . $cle)) {
                 ServicesProduit::poser('svc_' . $cle, $idProduct, (string) Tools::getValue('ekosync_svc_' . $cle));
+            }
+        }
+
+        if (Tools::getIsset('ekosync_ventes')) {
+            ServicesProduit::poser('ventes', $idProduct, (string) Tools::getValue('ekosync_ventes'));
+        }
+
+        foreach (['delai_note', 'delai_note_rapide', 'mention_prix', 'reassurances'] as $cle) {
+            if (Tools::getIsset('ekosync_' . $cle)) {
+                ServicesProduit::poser($cle, $idProduct, (string) Tools::getValue('ekosync_' . $cle));
             }
         }
     }
@@ -642,6 +949,26 @@ class Ekosyncimprimerie extends Module
      * Le poser sur toutes les pages ferait payer a chaque visiteur un fichier
      * qui ne concerne que les fiches configurables.
      */
+    /**
+     * L'éditeur en liste, dans le back-office.
+     *
+     * Chargé sur les seuls écrans qui en ont un — la fiche produit et l'écran
+     * de réglages. Un module qui pose ses fichiers sur tout le back-office
+     * ralentit des pages qui n'en font rien, et finit par entrer en conflit
+     * avec un autre.
+     */
+    public function hookActionAdminControllerSetMedia(): void
+    {
+        $ecran = (string) (Tools::getValue('controller') ?: '');
+
+        if (!in_array($ecran, ['AdminProducts', self::ONGLET], true)) {
+            return;
+        }
+
+        $this->context->controller->addCSS($this->_path . 'views/css/bo-liste.css');
+        $this->context->controller->addJS($this->_path . 'views/js/bo-liste.js');
+    }
+
     public function hookActionFrontControllerSetMedia(): void
     {
         if ($this->context->controller instanceof ProductController) {
