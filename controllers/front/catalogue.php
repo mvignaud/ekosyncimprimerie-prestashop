@@ -93,6 +93,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                     (array) ($d['options'] ?? []),
                     static fn ($o): bool => is_string($o) && $o !== ''
                 )),
+                'labels' => $this->libelles($d['labels'] ?? []),
                 'complete' => (bool) ($d['complete'] ?? false),
             ];
         }
@@ -194,6 +195,50 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             // pas celle du visiteur.
             static fn (string $v): bool => $v !== '' && !str_contains($v, '/')
         ));
+    }
+
+    /**
+     * Les libellés d'options, réduits à ce qu'un écran affiche.
+     *
+     * Liste blanche, comme partout : le nom, la description courte, le dessin
+     * et les dimensions. Un `image_url` pointerait vers l'ERP, donc une requête
+     * du navigateur du client vers un serveur qui n'est pas la boutique — on ne
+     * le transmet pas.
+     *
+     * @param  array<string, mixed>  $brut
+     * @return array<string, array<string, mixed>>
+     */
+    private function libelles(array $brut): array
+    {
+        $sortie = [];
+
+        foreach ($brut as $code => $l) {
+            if (!is_array($l) || !is_string($code)) {
+                continue;
+            }
+
+            $entree = ['name' => (string) ($l['name'] ?? '')];
+
+            if (isset($l['description']) && $l['description'] !== '') {
+                $entree['description'] = (string) $l['description'];
+            }
+
+            // Le SVG de l'ERP est rendu tel quel dans la page : on ne garde que
+            // ce qui ressemble à un dessin, et le navigateur l'insère comme du
+            // texte échappé faute de quoi ce serait une porte ouverte.
+            if (isset($l['svg']) && is_string($l['svg']) && str_starts_with(trim($l['svg']), '<svg')) {
+                $entree['svg'] = $l['svg'];
+            }
+
+            if (isset($l['width'], $l['height'])) {
+                $entree['width'] = (float) $l['width'];
+                $entree['height'] = (float) $l['height'];
+            }
+
+            $sortie[$code] = $entree;
+        }
+
+        return $sortie;
     }
 
     /**

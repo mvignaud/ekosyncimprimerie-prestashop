@@ -7,6 +7,38 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.10.0] — 2026-08-12
+
+Les options portent enfin leur nom.
+
+### Ajouté
+
+- **Les libellés de l'ERP.** Les options s'affichaient avec leur code
+  technique : `O100`, `99x210`, `NOF`. Elles portent maintenant leur nom —
+  « 10 cm de diamètre (rond) », « DL », « Standard » — et leurs dimensions
+  réelles quand l'ERP les connaît, ce qui rend les vignettes exactes plutôt
+  que déduites.
+
+  Le dictionnaire est incomplet par construction : un code sans libellé
+  retombe sur son code. C'est le cas **normal**, pas une erreur — mieux vaut
+  `NOF` que rien.
+
+- **Les prestations de l'imprimeur** — bon à tirer, création graphique — se
+  règlent au back-office, produit par produit, avec cascade sur un réglage de
+  boutique. Elles ne remontent jamais à l'ERP : il sait ce que le sous-traitant
+  fabrique, pas ce que l'imprimeur ajoute par-dessus.
+
+  Leur supplément s'ajoute au prix **sans jamais le recalculer**, et l'addition
+  se fait côté serveur. Un supplément additionné dans le navigateur serait un
+  montant que la boutique n'a pas vérifié.
+
+### Corrigé
+
+- **Les dimensions de l'ERP sont en centimètres**, les codes bruts en
+  millimètres. Vérifié sur trois formats normalisés — DL rendu 9,9 × 21 vaut
+  99 × 210 mm, A3 rendu 29,7 × 42 vaut 297 × 420. Les mélanger dessinait un A4
+  dix fois plus petit qu'un « 210x297 » sur la même ligne.
+
 ## [0.9.0] — 2026-08-12
 
 Le configurateur prend la forme qu'on attend d'un configurateur d'imprimerie.
@@ -491,7 +523,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.9.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.10.0
 [0.9.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.7.0

@@ -184,6 +184,8 @@
     var selection = [];
     /** Les libellés des étapes, tels que l'ERP les nomme. */
     var etapes = [];
+    /** Le dictionnaire des options : code -> nom, dessin, dimensions. */
+    var libelles = {};
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
     var quantiteChoisie = null;
@@ -273,6 +275,36 @@
      * Sur le code de l'étape, pas sur son libellé : le libellé est traduit et
      * change d'une langue à l'autre, le code non.
      */
+    /**
+     * Le nom d'une option, ou son code faute de mieux.
+     *
+     * Le dictionnaire de l'ERP est incomplet par construction — il se remplit
+     * produit par produit. Retomber sur le code est donc le cas NORMAL, pas une
+     * erreur : mieux vaut « NOF » que rien.
+     */
+    function nomDe(code) {
+      var l = libelles[code];
+
+      return (l && l.name) ? l.name : code;
+    }
+
+    /**
+     * Les dimensions connues de l'ERP priment sur celles qu'on devine.
+     *
+     * ⚠️ Elles sont en CENTIMÈTRES chez le fournisseur, là où les codes bruts
+     * sont en millimètres. Vérifié sur trois formats normalisés : DL rendu
+     * 9,9 × 21 vaut bien 99 × 210 mm, A3 rendu 29,7 × 42 vaut 297 × 420, A4
+     * rendu 21 × 29,7 vaut 210 × 297. Les mélanger dessinerait un A4 dix fois
+     * plus petit qu'un « 210x297 » sur la même ligne.
+     */
+    function dimensionsDe(code) {
+      var l = libelles[code];
+
+      return (l && l.width && l.height)
+        ? { l: l.width * 10, h: l.height * 10 }
+        : dimensions(code);
+    }
+
     function estFormat(etape) {
       return /format|dimension|taille/i.test(String(etape.code || ''));
     }
@@ -280,13 +312,19 @@
     /** Une ligne de vignettes proportionnelles. */
     function ligneFormats(titre, options, choisi, surChoix) {
       var refMax = options.reduce(function (m, o) {
-        var d = dimensions(o);
+        var d = dimensionsDe(o);
 
         return d ? Math.max(m, d.l, d.h) : m;
       }, 0);
 
       var cartes = options.map(function (o) {
-        return { nom: o, note: mesure(o), svg: vignetteFormat(o, refMax) };
+        var d = dimensionsDe(o);
+
+        return {
+          nom: nomDe(o),
+          note: d ? d.l + ' × ' + d.h + ' mm' : '',
+          svg: vignetteFormat(o, refMax)
+        };
       });
 
       var l = ligne(titre, cartes, choisi === null ? -1 : options.indexOf(choisi), function (i, c) {
@@ -317,7 +355,7 @@
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'eko-poc__choix';
-        b.innerHTML = '<span>' + echapper(choisi) + '</span>'
+        b.innerHTML = '<span>' + echapper(nomDe(choisi)) + '</span>'
           + '<span class="eko-poc__choix-modifier">' + echapper(txt(r, 'modifier', '')) + '</span>';
         b.addEventListener('click', function () { surChoix(choisi); });
         l.appendChild(b);
@@ -336,7 +374,7 @@
       options.forEach(function (o) {
         var op = document.createElement('option');
         op.value = o;
-        op.textContent = o;
+        op.textContent = nomDe(o);
         sel.appendChild(op);
       });
 
@@ -374,6 +412,11 @@
           }
 
           etapes = d.steps || [];
+
+          // Le dictionnaire s'ACCUMULE au lieu d'être remplacé : chaque étape
+          // n'apporte que ses propres options, et un choix replié doit garder
+          // le nom qu'on lui a affiché.
+          Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
 
           if (d.complete || !d.options.length) {
             chargerGrille();
@@ -572,7 +615,7 @@
         .sort(function (a, b) { return a.lot - b.lot; })
         .map(function (c) {
           return {
-            nom: c.delay,
+            nom: nomDe(c.delay),
             date: c.date_texte,
             prix: c.lot <= base.lot
               ? txt(r, 'offert', 'Inclus')
@@ -631,7 +674,7 @@
         var li = document.createElement('li');
         li.innerHTML =
           '<span>' + echapper((etapes[i] && etapes[i].label) || '') + '</span>' +
-          '<strong>' + echapper(v) + '</strong>';
+          '<strong>' + echapper(nomDe(v)) + '</strong>';
         ul.appendChild(li);
       });
 
