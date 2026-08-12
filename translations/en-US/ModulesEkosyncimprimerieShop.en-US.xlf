@@ -71,46 +71,74 @@
         <target>Choose your options to get a price.</target>
       </trans-unit>
       <trans-unit id="18">
+        <source>— Choisir —</source>
+        <target>— Choose —</target>
+      </trans-unit>
+      <trans-unit id="19">
+        <source>Livraison estimée</source>
+        <target>Estimated delivery</target>
+      </trans-unit>
+      <trans-unit id="20">
+        <source>Ajouter au panier</source>
+        <target>Add to cart</target>
+      </trans-unit>
+      <trans-unit id="21">
         <source>Je configure mon produit</source>
         <target>Configure my product</target>
       </trans-unit>
-      <trans-unit id="19">
+      <trans-unit id="22">
+        <source>Gabarits &amp; instructions</source>
+        <target>Templates &amp; instructions</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Fiche technique</source>
+        <target>Technical sheet</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>Gabarits</source>
+        <target>Templates</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>Télécharger le gabarit</source>
+        <target>Download the template</target>
+      </trans-unit>
+      <trans-unit id="26">
         <source>Calcul du prix…</source>
         <target>Calculating the price…</target>
       </trans-unit>
-      <trans-unit id="20">
+      <trans-unit id="27">
         <source>Délai indicatif</source>
         <target>Estimated lead time</target>
       </trans-unit>
-      <trans-unit id="21">
+      <trans-unit id="28">
         <source>jour(s) ouvré(s)</source>
         <target>working day(s)</target>
       </trans-unit>
-      <trans-unit id="22">
+      <trans-unit id="29">
         <source>Configuration impossible à chiffrer.</source>
         <target>This configuration cannot be priced.</target>
       </trans-unit>
-      <trans-unit id="23">
+      <trans-unit id="30">
         <source>Le prix n’a pas pu être obtenu.</source>
         <target>The price could not be retrieved.</target>
       </trans-unit>
-      <trans-unit id="24">
+      <trans-unit id="31">
         <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
         <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
       </trans-unit>
-      <trans-unit id="25">
+      <trans-unit id="32">
         <source>Le prix de cette configuration est en cours de calcul.</source>
         <target>The price for this configuration is being calculated.</target>
       </trans-unit>
-      <trans-unit id="26">
+      <trans-unit id="33">
         <source>Configurez votre produit</source>
         <target>Configure your product</target>
       </trans-unit>
-      <trans-unit id="27">
+      <trans-unit id="34">
         <source>— au choix —</source>
         <target>— your choice —</target>
       </trans-unit>
-      <trans-unit id="28">
+      <trans-unit id="35">
         <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
         <target>The price applies to the quantity selected below.</target>
       </trans-unit>

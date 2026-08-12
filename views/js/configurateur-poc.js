@@ -41,6 +41,74 @@
     return d.innerHTML;
   }
 
+
+  /**
+   * Les dimensions d'un format, en millimètres.
+   *
+   * Deux écritures cohabitent chez le fournisseur : les formats normalisés
+   * (`A5`, `DL`) et les mesures brutes (`100x100`, `85x54`). Les premières ne
+   * se déduisent pas, on les connaît ; les secondes se lisent.
+   *
+   * Faute de reconnaître le code, on rend `null` — et la vignette retombe sur
+   * un rectangle neutre plutôt que d'inventer des proportions fausses, qui
+   * feraient croire à un format carré ce qui est un format long.
+   */
+  function dimensions(code) {
+    var connus = {
+      A3: [297, 420], A4: [210, 297], A5: [148, 210], A6: [105, 148],
+      A7: [74, 105], DL: [99, 210], CV: [85, 54]
+    };
+
+    var k = String(code).toUpperCase().replace(/\s/g, '');
+
+    if (connus[k]) {
+      return { l: connus[k][0], h: connus[k][1] };
+    }
+
+    var m = k.match(/^(\d{2,4})[X*](\d{2,4})$/);
+
+    return m ? { l: parseInt(m[1], 10), h: parseInt(m[2], 10) } : null;
+  }
+
+  /**
+   * La vignette d'un format : un rectangle À L'ÉCHELLE.
+   *
+   * C'est tout l'intérêt — un A6 et un A4 se distinguent d'un coup d'œil par
+   * leur taille relative, ce qu'aucun libellé ne fait. Le plus grand format de
+   * la ligne fixe l'échelle, les autres s'y rapportent.
+   *
+   * Le SVG est écrit ici plutôt que chargé : une image par format supposerait
+   * un fichier par format, à produire et à maintenir. Le marchand pourra en
+   * poser une depuis le back-office s'il veut la sienne ; d'ici là le dessin
+   * suffit, et il est juste.
+   */
+  function vignetteFormat(code, refMax) {
+    var d = dimensions(code);
+    var boite = 58;
+
+    if (!d) {
+      return '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">'
+        + '<rect x="8" y="14" width="42" height="30" rx="2" class="eko-poc__svg-forme"/></svg>';
+    }
+
+    var plus = Math.max(d.l, d.h);
+    var echelle = (boite - 8) / Math.max(refMax || plus, 1);
+    var l = Math.max(6, d.l * echelle);
+    var h = Math.max(6, d.h * echelle);
+
+    return '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">'
+      + '<rect x="' + ((boite - l) / 2).toFixed(1) + '" y="' + ((boite - h) / 2).toFixed(1) + '"'
+      + ' width="' + l.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" class="eko-poc__svg-forme"/>'
+      + '</svg>';
+  }
+
+  /** La mesure lisible d'un format, ou son code si on ne sait pas le lire. */
+  function mesure(code) {
+    var d = dimensions(code);
+
+    return d ? d.l + ' × ' + d.h + ' mm' : '';
+  }
+
   /** Tous les boutons d'ajout au panier — les thèmes en posent souvent deux. */
   function boutonsPanier() {
     return document.querySelectorAll('[data-button-action="add-to-cart"]');
@@ -162,10 +230,15 @@
         b.className = 'eko-poc__carte' + (i === actifIndex ? ' eko-poc__carte--actif' : '');
         b.setAttribute('aria-pressed', i === actifIndex ? 'true' : 'false');
 
-        var html = '<span class="eko-poc__carte-nom">' + echapper(c.nom) + '</span>';
+        var html = (c.svg || '') + '<span class="eko-poc__carte-nom">' + echapper(c.nom) + '</span>';
 
         if (c.prix) {
           html += '<span class="eko-poc__carte-prix">' + echapper(c.prix) + '</span>';
+        }
+
+        if (c.date) {
+          html += '<span class="eko-poc__carte-date">' + echapper(txt(r, 'livree', 'Livraison estimée'))
+            + '<strong>' + echapper(c.date) + '</strong></span>';
         }
 
         if (c.note) {
@@ -192,6 +265,90 @@
       p.textContent = texte;
 
       return p;
+    }
+
+    /**
+     * Cette étape est-elle un format ?
+     *
+     * Sur le code de l'étape, pas sur son libellé : le libellé est traduit et
+     * change d'une langue à l'autre, le code non.
+     */
+    function estFormat(etape) {
+      return /format|dimension|taille/i.test(String(etape.code || ''));
+    }
+
+    /** Une ligne de vignettes proportionnelles. */
+    function ligneFormats(titre, options, choisi, surChoix) {
+      var refMax = options.reduce(function (m, o) {
+        var d = dimensions(o);
+
+        return d ? Math.max(m, d.l, d.h) : m;
+      }, 0);
+
+      var cartes = options.map(function (o) {
+        return { nom: o, note: mesure(o), svg: vignetteFormat(o, refMax) };
+      });
+
+      var l = ligne(titre, cartes, choisi === null ? -1 : options.indexOf(choisi), function (i, c) {
+        surChoix(c.nom);
+      });
+
+      l.classList.add('eko-poc__ligne--formats');
+
+      return l;
+    }
+
+    /**
+     * Une ligne à liste déroulante.
+     *
+     * Repliée sur un seul choix, la liste devient un simple libellé cliquable :
+     * un `<select>` à une entrée invite à l'ouvrir pour rien.
+     */
+    function ligneListe(titre, options, choisi, surChoix) {
+      var l = document.createElement('div');
+      l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+
+      var t = document.createElement('h3');
+      t.className = 'eko-poc__critere';
+      t.textContent = titre;
+      l.appendChild(t);
+
+      if (choisi !== null) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'eko-poc__choix';
+        b.innerHTML = '<span>' + echapper(choisi) + '</span>'
+          + '<span class="eko-poc__choix-modifier">' + echapper(txt(r, 'modifier', '')) + '</span>';
+        b.addEventListener('click', function () { surChoix(choisi); });
+        l.appendChild(b);
+
+        return l;
+      }
+
+      var sel = document.createElement('select');
+      sel.className = 'form-control eko-poc__liste';
+
+      var vide = document.createElement('option');
+      vide.value = '';
+      vide.textContent = txt(r, 'choisir', '—');
+      sel.appendChild(vide);
+
+      options.forEach(function (o) {
+        var op = document.createElement('option');
+        op.value = o;
+        op.textContent = o;
+        sel.appendChild(op);
+      });
+
+      sel.addEventListener('change', function () {
+        if (sel.value !== '') {
+          surChoix(sel.value);
+        }
+      });
+
+      l.appendChild(sel);
+
+      return l;
     }
 
     // ─── L'arbre, étape par étape ──────────────────────────────────────────
@@ -225,20 +382,27 @@
           }
 
           var rang = d.rank || 0;
-          var titre = (etapes[rang] && etapes[rang].label) || '';
+          var etape = etapes[rang] || {};
+          var titre = (etape.label || '') + ' :';
 
-          zoneEtapes.appendChild(
-            ligne(
-              titre + ' :',
-              d.options.map(function (o) { return { nom: o }; }),
-              -1,
-              function (i, c) {
-                selection.push(c.nom);
-                redessinerDepuis(rang);
-                chargerEtape();
-              }
-            )
-          );
+          function choisir(valeur) {
+            selection.push(valeur);
+            redessinerDepuis(rang);
+            chargerEtape();
+          }
+
+          // Le format se MONTRE, le reste se choisit dans une liste.
+          //
+          // Un format est une forme : deux rectangles côte à côte se comparent
+          // instantanément, là où « A6 » et « 100x100 » demandent de savoir ce
+          // qu'ils valent. Un grammage ou une finition n'a pas de forme — en
+          // faire des cartes ne donnerait que des libellés dans des cadres,
+          // occupant dix fois la place d'une liste pour rien.
+          if (estFormat(etape)) {
+            zoneEtapes.appendChild(ligneFormats(titre, d.options, null, choisir));
+          } else {
+            zoneEtapes.appendChild(ligneListe(titre, d.options, null, choisir));
+          }
         })
         .catch(function (e) {
           if (e.name === 'AbortError') {
@@ -266,19 +430,28 @@
 
       selection = selection.slice(0, rang + 1);
 
-      var titre = (etapes[rang] && etapes[rang].label) || '';
+      var etape = etapes[rang] || {};
+      var titre = (etape.label || '') + ' :';
+      var choix = selection[rang];
 
+      function revenir() {
+        selection = selection.slice(0, rang);
+        var restantes = zoneEtapes.querySelectorAll('.eko-poc__ligne');
+
+        for (var j = restantes.length - 1; j >= rang; j--) {
+          restantes[j].remove();
+        }
+
+        chargerEtape();
+      }
+
+      // Une étape franchie garde SA forme : un format reste une vignette, une
+      // liste reste une liste. Changer d'apparence après le choix ferait
+      // douter d'avoir cliqué au bon endroit.
       zoneEtapes.appendChild(
-        ligne(titre + ' :', [{ nom: selection[rang] }], 0, function () {
-          selection = selection.slice(0, rang);
-          var restantes = zoneEtapes.querySelectorAll('.eko-poc__ligne');
-
-          for (var j = restantes.length - 1; j >= rang; j--) {
-            restantes[j].remove();
-          }
-
-          chargerEtape();
-        })
+        estFormat(etape)
+          ? ligneFormats(titre, [choix], choix, revenir)
+          : ligneListe(titre, [choix], choix, revenir)
       );
     }
 
@@ -398,14 +571,13 @@
         .slice()
         .sort(function (a, b) { return a.lot - b.lot; })
         .map(function (c) {
-          var ecart = c.lot - base.lot;
-
           return {
             nom: c.delay,
-            prix: ecart <= 0
+            date: c.date_texte,
+            prix: c.lot <= base.lot
               ? txt(r, 'offert', 'Inclus')
-              : txt(r, 'supplement', 'Supplément') + ' ' + ecartTexte(c, base),
-            badge: ecart <= 0 ? txt(r, 'meilleure', '') : '',
+              : txt(r, 'supplement', 'Supplément') + ' ' + c.lot_texte,
+            badge: c.lot <= base.lot ? txt(r, 'meilleure', '') : '',
             valeur: c.delay
           };
         });
@@ -419,18 +591,8 @@
       });
 
       l.dataset.ligne = 'delai';
+      l.classList.add('eko-poc__ligne--delais');
       zoneEtapes.appendChild(l);
-    }
-
-    /**
-     * L'écart entre deux cases, écrit par le serveur.
-     *
-     * On ne soustrait pas deux montants pour en fabriquer un troisième : ce
-     * serait remettre le navigateur à calculer de l'argent. On affiche le prix
-     * du délai, et la carte la moins chère porte « Inclus ».
-     */
-    function ecartTexte(c) {
-      return c.lot_texte;
     }
 
     function rendreResume() {
@@ -490,6 +652,24 @@
       if (grille.stale) {
         zoneResume.appendChild(message('perime', txt(r, 'perime', '')));
       }
+
+      // Le bouton d'ajout au panier vit ICI, sous le prix. Celui du thème est
+      // plus bas, hors de vue une fois la grille dépliée : un visiteur qui
+      // vient de choisir sa quantité doit pouvoir commander sans chercher.
+      // Il ne double pas le bouton du thème — il le DÉCLENCHE, pour que le
+      // panier reçoive exactement ce que PrestaShop attend.
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'eko-poc__resume-panier';
+      b.textContent = txt(r, 'ajouter', 'Ajouter au panier');
+      b.addEventListener('click', function () {
+        var natif = boutonsPanier()[0];
+
+        if (natif && !natif.disabled) {
+          natif.click();
+        }
+      });
+      zoneResume.appendChild(b);
 
       // Le prix est connu pour ce couple exact : la commande peut s'ouvrir.
       commande(true);

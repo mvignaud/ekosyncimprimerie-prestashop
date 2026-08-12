@@ -35,7 +35,10 @@
      data-modifier="{l s='Modifier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-perime="{l s='Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-echec="{l s='Options indisponibles pour le moment.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-attendez="{l s='Choisissez vos options pour obtenir un prix.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
+     data-attendez="{l s='Choisissez vos options pour obtenir un prix.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-choisir="{l s='— Choisir —' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-livree="{l s='Livraison estimée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-ajouter="{l s='Ajouter au panier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
 
   <h2 class="eko-poc__titre">{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'}</h2>
 
@@ -45,3 +48,54 @@
   {* Le récapitulatif : ce qui a été choisi, et ce que ça coûte. *}
   <aside class="eko-poc__resume" aria-live="polite"></aside>
 </div>
+
+{**
+ * Fiche technique et gabarits.
+ *
+ * Ces valeurs ne viennent PAS de l'ERP : elles décrivent ce que l'imprimeur
+ * attend d'un fichier, pas ce que le fournisseur fabrique. Elles se règlent
+ * donc au back-office, sur la fiche produit, avec des valeurs par défaut qui
+ * sont les usages de l'imprimerie — 300 DPI, CMJN, 2 mm de fond perdu.
+ *
+ * Le bloc ne s'affiche que s'il a quelque chose à dire : un cadre vide sur une
+ * fiche produit se lit comme un oubli.
+ *}
+{if $eko.technique.lignes|@count || $eko.technique.gabarits|@count}
+  <section class="eko-tech">
+    <h2 class="eko-tech__titre">
+      {l s='Gabarits & instructions' d='Modules.Ekosyncimprimerie.Shop'}
+    </h2>
+
+    <div class="eko-tech__colonnes">
+      {if $eko.technique.lignes|@count}
+        <div class="eko-tech__bloc">
+          <h3 class="eko-tech__sous-titre">{l s='Fiche technique' d='Modules.Ekosyncimprimerie.Shop'}</h3>
+          <dl class="eko-tech__liste">
+            {foreach from=$eko.technique.lignes item=t}
+              <div class="eko-tech__ligne">
+                <dt>{$t.label|escape:'html':'UTF-8'}</dt>
+                <dd>{$t.valeur|escape:'html':'UTF-8'}</dd>
+              </div>
+            {/foreach}
+          </dl>
+        </div>
+      {/if}
+
+      {if $eko.technique.gabarits|@count}
+        <div class="eko-tech__bloc">
+          <h3 class="eko-tech__sous-titre">{l s='Gabarits' d='Modules.Ekosyncimprimerie.Shop'}</h3>
+          <ul class="eko-tech__gabarits">
+            {foreach from=$eko.technique.gabarits item=g}
+              <li>
+                <span>{$g.nom|escape:'html':'UTF-8'}</span>
+                <a href="{$g.url|escape:'html':'UTF-8'}" rel="nofollow" download>
+                  {l s='Télécharger le gabarit' d='Modules.Ekosyncimprimerie.Shop'}
+                </a>
+              </li>
+            {/foreach}
+          </ul>
+        </div>
+      {/if}
+    </div>
+  </section>
+{/if}

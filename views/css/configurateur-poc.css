@@ -292,3 +292,223 @@ body.eko-poc-page #left-column {
     --eko-accent-doux: rgba(216, 27, 96, 0.18);
   }
 }
+
+/* ─── Les vignettes de format ──────────────────────────────────────────────
+   Un rectangle à l'échelle vaut mieux qu'un libellé : « A6 » et « A4 » ne se
+   comparent qu'en sachant ce qu'ils mesurent ; deux rectangles se comparent
+   d'un regard. */
+.eko-poc__ligne--formats .eko-poc__carte {
+  align-items: center;
+  min-width: 6.5em;
+  text-align: center;
+}
+
+.eko-poc__svg {
+  display: block;
+  width: 3.4em;
+  height: 3.4em;
+  margin-bottom: 0.25em;
+}
+
+.eko-poc__svg-forme {
+  fill: var(--eko-fond-doux);
+  stroke: var(--eko-texte-doux);
+  stroke-width: 1.5;
+}
+
+.eko-poc__carte--actif .eko-poc__svg-forme {
+  fill: var(--eko-fond);
+  stroke: var(--eko-accent);
+  stroke-width: 2;
+}
+
+/* ─── Les listes déroulantes ───────────────────────────────────────────────
+   Pour les critères sans forme — grammage, finition, impression. En faire des
+   cartes ne donnerait que des libellés dans des cadres, occupant dix fois la
+   place pour la même information. */
+.eko-poc__liste {
+  width: 100%;
+  max-width: 26em;
+  padding: 0.6em 0.8em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond);
+  font: inherit;
+  color: inherit;
+}
+
+.eko-poc__liste:focus-visible {
+  outline: 2px solid var(--eko-accent);
+  outline-offset: 1px;
+}
+
+/* Un critère déjà tranché : le choix se lit, « Modifier » le rouvre. */
+.eko-poc__choix {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.8em;
+  max-width: 26em;
+  padding: 0.55em 0.9em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.eko-poc__choix:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__choix > span:first-child {
+  font-weight: 600;
+}
+
+.eko-poc__choix-modifier {
+  color: var(--eko-accent);
+  font-size: 0.82em;
+  text-decoration: underline;
+}
+
+/* ─── Les cartes de livraison ──────────────────────────────────────────────
+   Plus hautes que les autres : elles portent un délai, une date estimée et un
+   supplément. Les serrer au format des vignettes rendrait la date illisible,
+   or c'est elle que le visiteur cherche. */
+.eko-poc__ligne--delais .eko-poc__carte {
+  min-width: 12em;
+  gap: 0.3em;
+}
+
+.eko-poc__carte-date {
+  font-size: 0.82em;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__carte-date strong {
+  display: block;
+  color: var(--eko-texte);
+  font-weight: 600;
+}
+
+/* ─── Le récapitulatif, et son bouton ──────────────────────────────────────
+   Le bouton d'ajout au panier vit DANS le récapitulatif, sous le prix. Le
+   thème pose le sien plus bas, hors de vue une fois la grille dépliée : un
+   visiteur qui vient de choisir sa quantité doit pouvoir commander sans
+   chercher. */
+.eko-poc__resume-panier {
+  display: block;
+  width: 100%;
+  margin-top: 1em;
+  padding: 0.85em 1em;
+  border: 0;
+  border-radius: var(--eko-rayon);
+  background: var(--eko-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.eko-poc__resume-panier:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.eko-poc__resume-panier:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+/* ─── Les descriptions du thème ────────────────────────────────────────────
+   Elles restent celles de PrestaShop — on ne fait que leur donner de l'air
+   dans une page devenue large. Une ligne de texte qui court sur 1 250 pixels
+   ne se lit plus : l'œil perd le début de la suivante. */
+.eko-poc-page .product-description,
+.eko-poc-page .product-information > .rte-content,
+.eko-poc-page #description .rte-content {
+  max-width: 62em;
+  line-height: 1.65;
+}
+
+
+/* ─── Fiche technique et gabarits ──────────────────────────────────────────
+   Deux colonnes sur grand écran, empilées en dessous. Le bloc vient APRÈS le
+   configurateur : c'est une information de préparation de fichier, utile une
+   fois la commande décidée, pas avant. */
+.eko-tech {
+  margin: 3em 0 2em;
+  padding-top: 2em;
+  border-top: 1px solid var(--bs-border-color, #dfe3e8);
+}
+
+.eko-tech__titre {
+  margin: 0 0 1.5em;
+  font-size: 1.25em;
+  font-weight: 700;
+}
+
+.eko-tech__colonnes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2em 3em;
+}
+
+.eko-tech__sous-titre {
+  margin: 0 0 0.9em;
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.eko-tech__liste {
+  margin: 0;
+}
+
+/* Libellé à gauche, valeur à droite, chacun sur son fond : c'est la forme qui
+   se lit le plus vite pour une liste de caractéristiques courtes. */
+.eko-tech__ligne {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.eko-tech__ligne dt,
+.eko-tech__ligne dd {
+  margin: 0;
+  padding: 0.7em 0.9em;
+  border-radius: 0.3em;
+  background: #f4f5f7;
+}
+
+.eko-tech__ligne dd {
+  text-align: right;
+  font-weight: 600;
+}
+
+.eko-tech__gabarits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eko-tech__gabarits li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1em;
+  padding: 0.55em 0;
+  border-bottom: 1px solid var(--bs-border-color, #eceff1);
+}
+
+.eko-tech__gabarits a {
+  color: var(--bs-primary, #d81b60);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  .eko-tech__ligne dt,
+  .eko-tech__ligne dd {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}

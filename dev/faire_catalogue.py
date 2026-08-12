@@ -82,6 +82,10 @@ ADMIN_EN = {
     "Lier cette fiche à un produit d'atelier fait venir son prix de l'ERP. Sans liaison, PrestaShop garde la main.":
         "Linking this product to a workshop product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
     "Liste des produits d'atelier indisponible : ": "Workshop product list unavailable: ",
+    "Résolution": "Resolution",
+    "Couleurs": "Colours",
+    "Fonds perdus": "Bleed",
+    "Marge de sécurité": "Safety margin",
 }
 
 SHOP_EN = {
@@ -119,6 +123,15 @@ SHOP_EN = {
     "Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.":
         "These prices have not been refreshed recently. Please confirm before ordering.",
     "Options indisponibles pour le moment.": "Options unavailable right now.",
+    "— Choisir —": "— Choose —",
+    "Livraison estimée": "Estimated delivery",
+    "Ajouter au panier": "Add to cart",
+
+    # Fiche technique.
+    "Gabarits & instructions": "Templates & instructions",
+    "Fiche technique": "Technical sheet",
+    "Gabarits": "Templates",
+    "Télécharger le gabarit": "Download the template",
 }
 
 # Un domaine = un fichier de catalogue, une source d'extraction, une table.

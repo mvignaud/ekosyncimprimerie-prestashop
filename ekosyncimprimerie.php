@@ -72,7 +72,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.8.0';
+        $this->version = '0.9.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -311,6 +311,77 @@ class Ekosyncimprimerie extends Module
     }
 
     /**
+     * La fiche technique d'un produit : ce que l'imprimeur attend d'un fichier.
+     *
+     * Ces valeurs ne viennent PAS de l'ERP. L'ERP sait ce que le fournisseur
+     * FABRIQUE ; la fiche technique dit ce qu'il faut LUI ENVOYER — résolution,
+     * mode colorimétrique, fonds perdus, marge de sécurité. C'est une propriété
+     * de l'imprimeur, pas du catalogue.
+     *
+     * Elles se règlent donc au back-office, produit par produit, avec des
+     * valeurs par défaut qui sont les usages du métier. Un marchand qui ne
+     * touche à rien obtient une fiche juste ; celui qui a des exigences propres
+     * les pose sans toucher au code.
+     *
+     * @return array{lignes: list<array{label: string, valeur: string}>, gabarits: list<array{nom: string, url: string}>}
+     */
+    private function ficheTechnique(int $idProduct): array
+    {
+        // Les libellés sont écrits EN TOUTES LETTRES dans l'appel à `trans()`.
+        //
+        // Les passer en variable — `$this->trans($libelle, …)` — était le
+        // premier jet, et il était faux : l'extraction ne lit que des
+        // littéraux. Les quatre chaînes échappaient donc à toute traduction, et
+        // aucun garde ne pouvait le voir puisqu'elles n'apparaissaient nulle
+        // part comme texte. C'est le générateur de catalogue qui les a
+        // signalées, en orphelines.
+        $defauts = [
+            'resolution' => [$this->trans('Résolution', [], 'Modules.Ekosyncimprimerie.Admin'), '300 DPI'],
+            'couleurs' => [$this->trans('Couleurs', [], 'Modules.Ekosyncimprimerie.Admin'), 'CMJN'],
+            'fonds_perdus' => [$this->trans('Fonds perdus', [], 'Modules.Ekosyncimprimerie.Admin'), '2 mm'],
+            'marge' => [$this->trans('Marge de sécurité', [], 'Modules.Ekosyncimprimerie.Admin'), '4 mm'],
+        ];
+
+        $lignes = [];
+
+        foreach ($defauts as $cle => [$libelle, $defaut]) {
+            $valeur = Configuration::get('EKOSYNC_TECH_' . strtoupper($cle) . '_' . $idProduct);
+
+            if ($valeur === false || $valeur === '') {
+                $valeur = Configuration::get('EKOSYNC_TECH_' . strtoupper($cle));
+            }
+
+            if ($valeur === false || $valeur === '') {
+                $valeur = $defaut;
+            }
+
+            $lignes[] = ['label' => $libelle, 'valeur' => (string) $valeur];
+        }
+
+        // Les gabarits sont des FICHIERS : on ne peut pas les inventer. Tant
+        // que le marchand n'en a déposé aucun, la colonne ne s'affiche pas —
+        // une liste de liens morts vaut moins que pas de liste.
+        $gabarits = [];
+        $dossier = _PS_MODULE_DIR_ . $this->name . '/gabarits/' . $idProduct;
+
+        if (is_dir($dossier)) {
+            foreach ((array) scandir($dossier) as $f) {
+                if (!is_string($f) || $f[0] === '.') {
+                    continue;
+                }
+
+                $gabarits[] = [
+                    'nom' => pathinfo($f, PATHINFO_FILENAME),
+                    'url' => $this->context->link->getBaseLink()
+                        . 'modules/' . $this->name . '/gabarits/' . $idProduct . '/' . rawurlencode($f),
+                ];
+            }
+        }
+
+        return ['lignes' => $lignes, 'gabarits' => $gabarits];
+    }
+
+    /**
      * Le configurateur n'est rendu QU'UNE fois par page.
      *
      * Les deux hooks restent enregistres, et c'est voulu : `after_price` place
@@ -356,6 +427,7 @@ class Ekosyncimprimerie extends Module
                 'id_product' => $idProduct,
                 'url' => $this->context->link->getBaseLink()
                     . 'index.php?fc=module&module=' . $this->name . '&controller=catalogue',
+                'technique' => $this->ficheTechnique($idProduct),
             ]);
 
             return $this->fetch('module:' . $this->name . '/views/templates/hook/configurateur-poc.tpl');

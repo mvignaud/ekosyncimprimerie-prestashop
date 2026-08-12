@@ -141,9 +141,17 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
 
             $lot = $horsTaxe ? $lotHt : $this->avecTaxe($lotHt, $idProduct);
 
+            $delai = (string) ($c['delay'] ?? '');
+
             $cases[] = [
                 'quantity' => $q,
-                'delay' => (string) ($c['delay'] ?? ''),
+                'delay' => $delai,
+                // La date est calculée ICI et non dans le navigateur : « J+3 »
+                // ne veut rien dire tant qu'on n'a pas compté les jours ouvrés,
+                // et le nom du jour dépend de la langue du visiteur. Même
+                // principe que pour les montants — on ne refait pas côté client
+                // ce que le serveur sait faire juste.
+                'date_texte' => $this->dateDeLivraison($delai),
                 // Le montant nu sert aux comparaisons du navigateur ; le texte
                 // sert à l'affichage. Le navigateur ne met JAMAIS en forme un
                 // prix : il ne sait ni la langue ni la devise qu'il sert.
@@ -222,6 +230,46 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             \Eko\SyncImprimerie\Configurateur\ReglesBoutique::adresseFiscale($this->context->cart),
             (int) Product::getIdTaxRulesGroupByIdProduct($idProduct)
         )->getTaxCalculator()->addTaxes($ht);
+    }
+
+    /**
+     * La date de livraison estimée pour un délai « J+N ».
+     *
+     * Comptée en jours OUVRÉS : un « J+3 » lancé un jeudi arrive le mardi, pas
+     * le dimanche. Le samedi et le dimanche sont sautés — les jours fériés ne
+     * le sont pas, faute d'un calendrier fiable ici, et c'est dit au visiteur
+     * par le mot « estimée ».
+     *
+     * Un délai qui ne ressemble pas à « J+N » est rendu tel quel : le
+     * fournisseur en emploie d'autres formes, et inventer une date sur un
+     * libellé qu'on ne sait pas lire serait pire que de n'en donner aucune.
+     */
+    private function dateDeLivraison(string $delai): string
+    {
+        if (!preg_match('/^[A-Za-z]\+(\d{1,3})$/', $delai, $m)) {
+            return '';
+        }
+
+        $jours = (int) $m[1];
+        $date = new \DateTimeImmutable('today');
+
+        while ($jours > 0) {
+            $date = $date->modify('+1 day');
+
+            if ((int) $date->format('N') <= 5) {
+                --$jours;
+            }
+        }
+
+        try {
+            return (string) $this->context->getCurrentLocale()
+                ->getDateTimeFormatter()
+                ->format($date, 'EEEE d MMMM');
+        } catch (\Throwable $e) {
+            // Sans formateur de dates, on rend une forme neutre plutôt que
+            // rien : la date reste juste, seule sa mise en forme est pauvre.
+            return $date->format('d/m/Y');
+        }
     }
 
     /** Un montant écrit comme la boutique l'écrit. */

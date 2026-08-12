@@ -7,6 +7,47 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.9.0] — 2026-08-12
+
+Le configurateur prend la forme qu'on attend d'un configurateur d'imprimerie.
+
+### Ajouté
+
+- **Les formats se montrent, en vignettes à l'échelle.** Un rectangle
+  proportionnel dessiné en SVG, avec ses dimensions en millimètres. « A6 » et
+  « 100x300 » ne se comparent qu'en sachant ce qu'ils valent ; deux rectangles
+  se comparent d'un regard. Les formats normalisés sont connus, les mesures
+  brutes sont lues ; un code illisible retombe sur un rectangle neutre plutôt
+  que d'inventer des proportions fausses.
+- **Les autres critères passent en liste déroulante.** Un grammage n'a pas de
+  forme : en faire des cartes ne donnerait que des libellés dans des cadres,
+  occupant dix fois la place pour la même information.
+- **Les délais affichent leur date de livraison estimée**, comptée en jours
+  **ouvrés** et écrite dans la langue du visiteur — côté serveur, comme les
+  montants.
+- **Le bouton d'ajout au panier vit dans le récapitulatif**, sous le prix.
+  Celui du thème est plus bas, hors de vue une fois la grille dépliée. Il ne le
+  double pas : il le **déclenche**, pour que le panier reçoive exactement ce que
+  PrestaShop attend.
+- **Un bloc fiche technique et gabarits.** Résolution, couleurs, fonds perdus,
+  marge de sécurité — réglables au back-office, avec les usages du métier pour
+  défaut. Les gabarits sont des fichiers : tant qu'aucun n'est déposé, la
+  colonne ne s'affiche pas, une liste de liens morts valant moins que rien.
+
+### Corrigé
+
+- Quatre libellés de la fiche technique étaient passés à `trans()` **en
+  variable**. L'extraction ne lit que des littéraux : ils échappaient à toute
+  traduction, sans qu'aucun garde puisse le voir. C'est le générateur de
+  catalogue qui les a signalés, en orphelins.
+
+### Reste à faire
+
+BAT numérique et création graphique — ce sont des prestations de l'imprimeur,
+pas du catalogue du sous-traitant : elles se régleront au back-office produit.
+Et les options s'affichent encore avec leur code brut, l'ERP tenant un
+dictionnaire de libellés que l'API n'expose pas.
+
 ## [0.8.0] — 2026-08-12
 
 Le configurateur de sous-traitance, et la page qui le porte.
@@ -450,7 +491,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.8.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.7.0
 [0.6.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.1
