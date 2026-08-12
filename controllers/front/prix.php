@@ -75,7 +75,7 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
             $variables = is_array($decode) ? $decode : [];
         }
 
-        $ekoProductId = (new LiaisonProduit())->pour($idProduct);
+        $ekoProductId = (new LiaisonProduit())->produitAtelier($idProduct);
 
         if ($ekoProductId === null) {
             return $this->refus('Cette fiche n\'est pas liée à un produit d\'atelier.');

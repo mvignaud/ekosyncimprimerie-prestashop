@@ -104,11 +104,11 @@ try {
     echo "\n2. Liaison vers l'atelier\n";
 
     $liaison = new LiaisonProduit();
-    $r = $liaison->lier($idProduct, $ekoProductId);
+    $r = $liaison->lier($idProduct, LiaisonProduit::SOURCE_ATELIER, (string) $ekoProductId);
     verifier('liaison posée', $r['ok'], $r['message']);
-    verifier('liaison relue', $liaison->pour($idProduct) === $ekoProductId);
+    verifier('liaison relue', $liaison->produitAtelier($idProduct) === $ekoProductId);
 
-    $doublon = $liaison->lier($idProduct + 999999, $ekoProductId);
+    $doublon = $liaison->lier($idProduct + 999999, LiaisonProduit::SOURCE_ATELIER, (string) $ekoProductId);
     verifier('un second produit sur le même atelier est refusé', $doublon['ok'] === false);
 
     echo "\n3. Chiffrage par l'ERP\n";

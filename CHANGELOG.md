@@ -7,6 +7,33 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.7.0] — 2026-08-12
+
+Une fiche peut désormais pointer **deux natures** de produit E-KO.
+
+### Ajouté
+
+- **La liaison porte une source.** E-KO sait chiffrer de deux façons, et elles
+  n'ont presque rien en commun :
+
+  - `atelier` — le prix est **calculé** : matières, temps machine, imposition,
+    majorations. Les options sont des champs libres, l'identifiant un nombre.
+  - `printoclock` — le prix est **lu** dans une grille rapportée du
+    sous-traitant, par couple (quantité, délai). Les options forment un **arbre**
+    de choix discrets, et l'identifiant est un code.
+
+  Une colonne entière ne pouvait donc pas suffire, et deviner la source à la
+  forme de l'identifiant aurait marché jusqu'au premier code numérique.
+
+### Migration
+
+La table de liaison est élargie **au premier usage**, sans intervention : les
+deux colonnes sont ajoutées, l'ancien identifiant est **recopié**, puis
+l'ancienne colonne est retirée. Dans cet ordre — retirer d'abord perdrait
+toutes les liaisons du marchand en silence.
+
+Les liaisons existantes deviennent `atelier`, et rien ne change pour elles.
+
 ## [0.6.1] — 2026-08-12
 
 ### Corrigé
@@ -381,7 +408,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.6.1...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.7.0
 [0.6.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.0
 [0.5.2]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.2

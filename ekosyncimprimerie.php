@@ -72,7 +72,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.6.1';
+        $this->version = '0.7.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -191,7 +191,7 @@ class Ekosyncimprimerie extends Module
         }
 
         $liaison = new LiaisonProduit();
-        $actuel = $liaison->pour($idProduct);
+        $actuel = $liaison->produitAtelier($idProduct);
 
         $r = $this->client()->appeler('GET', '/api/v1/printing/products?per_page=100');
 
@@ -261,7 +261,11 @@ class Ekosyncimprimerie extends Module
             return;
         }
 
-        (new LiaisonProduit())->lier($idProduct, (int) Tools::getValue('ekosync_produit_atelier'));
+        (new LiaisonProduit())->lier(
+            $idProduct,
+            LiaisonProduit::SOURCE_ATELIER,
+            (string) Tools::getValue('ekosync_produit_atelier')
+        );
     }
 
     /**
@@ -334,7 +338,10 @@ class Ekosyncimprimerie extends Module
             return '';
         }
 
-        $ekoProductId = (new LiaisonProduit())->pour($idProduct);
+        // Seul l'atelier est configurable ici pour l'instant : le
+        // configurateur Printoclock est d'une autre nature — un arbre de
+        // choix discrets — et arrive dans son propre gabarit.
+        $ekoProductId = (new LiaisonProduit())->produitAtelier($idProduct);
 
         if ($ekoProductId === null) {
             // Fiche non liee : PrestaShop garde la main, on ne montre rien.

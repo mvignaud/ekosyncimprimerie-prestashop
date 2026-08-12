@@ -264,7 +264,7 @@ if ($regleReelle !== $regleDeTaxe) {
     );
 }
 
-$liaison = (new LiaisonProduit())->lier($idProduct, $ekoProductId);
+$liaison = (new LiaisonProduit())->lier($idProduct, LiaisonProduit::SOURCE_ATELIER, (string) $ekoProductId);
 
 printf("\n%s\n", $liaison['message']);
 printf("Fiche boutique #%d ← produit d'atelier #%d (%s)\n", $idProduct, $ekoProductId, $titre);

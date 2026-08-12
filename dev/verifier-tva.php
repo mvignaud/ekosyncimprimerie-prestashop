@@ -151,7 +151,7 @@ try {
         (int) Product::getIdTaxRulesGroupByIdProduct($idProduct) === $idRegle
     );
 
-    (new LiaisonProduit())->lier($idProduct, 999001);
+    (new LiaisonProduit())->lier($idProduct, LiaisonProduit::SOURCE_ATELIER, '999001');
 
     $panier = new Cart();
     $panier->id_lang = (int) Configuration::get('PS_LANG_DEFAULT');
