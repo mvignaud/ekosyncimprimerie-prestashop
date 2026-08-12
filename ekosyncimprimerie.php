@@ -316,11 +316,17 @@ class Ekosyncimprimerie extends Module
             return '';
         }
 
+        // Les fichiers de l'éditeur voyagent AVEC le bloc. Le pipeline de
+        // `setMedia` ne traverse pas de façon fiable l'écran produit de
+        // PrestaShop 9, qui est un écran Symfony : posées ici, les balises
+        // arrivent forcément, puisqu'elles font partie du HTML rendu.
         return '<div class="eko-bo">'
+            . '<link rel="stylesheet" href="' . $this->_path . 'views/css/bo-liste.css">'
             . $this->boLiaison($idProduct)
             . $this->boTechnique($idProduct)
             . $this->boServices($idProduct)
             . $this->boVentesPhares($idProduct)
+            . '<script src="' . $this->_path . 'views/js/bo-liste.js" defer></script>'
             . '</div>';
     }
 
@@ -965,8 +971,19 @@ class Ekosyncimprimerie extends Module
             return;
         }
 
-        $this->context->controller->addCSS($this->_path . 'views/css/bo-liste.css');
-        $this->context->controller->addJS($this->_path . 'views/js/bo-liste.js');
+        $controleur = $this->context->controller ?? null;
+
+        // ⚠️ ON VÉRIFIE AVANT D'APPELER. Ce hook se déclenche aussi là où il n'y
+        // a pas de contrôleur hérité — écran Symfony, appel hors requête — et
+        // `addCSS()` sur `null` lève une fatale AU MILIEU du chargement de la
+        // page d'administration. Un module n'a pas à casser un écran parce
+        // qu'il n'a pas su poser sa feuille de style.
+        if (!is_object($controleur) || !method_exists($controleur, 'addCSS')) {
+            return;
+        }
+
+        $controleur->addCSS($this->_path . 'views/css/bo-liste.css');
+        $controleur->addJS($this->_path . 'views/js/bo-liste.js');
     }
 
     public function hookActionFrontControllerSetMedia(): void
