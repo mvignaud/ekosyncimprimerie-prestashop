@@ -96,6 +96,8 @@ ADMIN_EN = {
     "Mention sous le prix": "Line under the price",
     "Réassurances": "Reassurance points",
     "Réglages de l'imprimerie": "Print shop settings",
+    "Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c'est ici qu'on l'ajuste, fiche par fiche.":
+        "Leave empty to use the shop-wide setting, shown as a hint. Artwork does not take the same work on a flyer and on a folded leaflet: this is where you adjust it, product by product.",
     "Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.":
         "These settings apply to every product linked to the ERP. A product carrying its own value keeps it.",
     "Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.":

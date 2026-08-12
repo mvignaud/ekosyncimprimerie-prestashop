@@ -78,7 +78,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.15.0';
+        $this->version = '0.16.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -431,6 +431,39 @@ class Ekosyncimprimerie extends Module
      * l'usage du métier. Le filigrane montre ce qui s'appliquera — un champ
      * vide sans filigrane laisserait croire que rien ne s'affiche.
      */
+    /**
+     * La surcharge PROPRE à ce produit, sans la cascade.
+     *
+     * ⚠️ C'est toute la différence avec `ServicesProduit::reglage()`, et elle
+     * compte : afficher la valeur de boutique DANS le champ d'une fiche ferait
+     * qu'un simple enregistrement la recopie en surcharge produit. Le lien
+     * serait rompu sans que personne ne l'ait voulu, et la prochaine
+     * modification du réglage de boutique n'atteindrait plus cette fiche.
+     *
+     * Le champ ne montre donc que ce que la fiche porte en propre. Ce qui
+     * s'applique réellement va en filigrane.
+     */
+    private function surchargeProduit(string $cle, int $idProduct): string
+    {
+        $v = Configuration::get('EKOSYNC_' . strtoupper($cle) . '_' . $idProduct);
+
+        return ($v === false) ? '' : (string) $v;
+    }
+
+    /**
+     * Ce qui s'appliquera si la fiche ne dit rien : le réglage de boutique,
+     * ou l'exemple à défaut.
+     *
+     * Montré en filigrane, jamais dans le champ. Le marchand voit ainsi ce que
+     * sa fiche affiche aujourd'hui sans qu'un enregistrement le fige.
+     */
+    private function filigrane(string $cle, string $exemple): string
+    {
+        $boutique = ServicesProduit::reglage($cle, 0);
+
+        return $boutique !== '' ? $boutique : $exemple;
+    }
+
     private function boTechnique(int $idProduct): string
     {
         $libelles = [
@@ -486,14 +519,19 @@ class Ekosyncimprimerie extends Module
         $champs = '';
 
         foreach ($defauts as $cle => [$libelle, $exemple]) {
-            $valeur = Configuration::get('EKOSYNC_SVC_' . strtoupper($cle) . '_' . $idProduct);
+            // Le filigrane montre CE QUI S'APPLIQUE : le réglage de boutique
+            // s'il existe, l'exemple sinon. Un champ vide devant un exemple
+            // inventé laisserait croire que rien ne s'affiche sur la fiche,
+            // alors que le réglage de boutique, lui, s'affiche bien.
+            $boutique = ServicesProduit::reglage('svc_' . $cle, 0);
+
             $champs .= sprintf(
                 '<div class="form-group"><label class="form-control-label">%s</label>'
-                . '<textarea name="ekosync_svc_%s" class="form-control" rows="3" placeholder="%s">%s</textarea></div>',
+                . '<textarea name="ekosync_svc_%s" class="form-control" rows="4" placeholder="%s">%s</textarea></div>',
                 htmlspecialchars($libelle),
                 htmlspecialchars($cle),
-                htmlspecialchars($exemple),
-                htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
+                htmlspecialchars($boutique !== '' ? $boutique : $exemple),
+                htmlspecialchars($this->surchargeProduit('svc_' . $cle, $idProduct))
             );
         }
 
@@ -503,6 +541,12 @@ class Ekosyncimprimerie extends Module
             . '<p class="help-block">'
             . $this->trans(
                 'Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '<br>'
+            . $this->trans(
+                'Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c\'est ici qu\'on l\'ajuste, fiche par fiche.',
                 [],
                 'Modules.Ekosyncimprimerie.Admin'
             )
@@ -542,8 +586,8 @@ class Ekosyncimprimerie extends Module
                 . '<input type="text" name="ekosync_delai_note" class="form-control" value="%s" placeholder="%s">'
                 . '<p class="help-block">%s</p></div>',
                 htmlspecialchars($this->trans('Heure limite — offre incluse', [], 'Modules.Ekosyncimprimerie.Admin')),
-                htmlspecialchars(ServicesProduit::reglage('delai_note', $idProduct)),
-                htmlspecialchars($this->trans('Si commandé aujourd\'hui avant 18h', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('delai_note', $idProduct)),
+                htmlspecialchars($this->filigrane('delai_note', $this->trans('Si commandé aujourd\'hui avant 18h', [], 'Modules.Ekosyncimprimerie.Admin'))),
                 htmlspecialchars($this->trans(
                     'Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c\'est un engagement pris devant le client.',
                     [],
@@ -555,8 +599,8 @@ class Ekosyncimprimerie extends Module
                 . '<input type="text" name="ekosync_delai_note_rapide" class="form-control" value="%s" placeholder="%s">'
                 . '<p class="help-block">%s</p></div>',
                 htmlspecialchars($this->trans('Heure limite — livraison accélérée', [], 'Modules.Ekosyncimprimerie.Admin')),
-                htmlspecialchars(ServicesProduit::reglage('delai_note_rapide', $idProduct)),
-                htmlspecialchars($this->trans('Si commandé avant demain 11h', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('delai_note_rapide', $idProduct)),
+                htmlspecialchars($this->filigrane('delai_note_rapide', $this->trans('Si commandé avant demain 11h', [], 'Modules.Ekosyncimprimerie.Admin'))),
                 htmlspecialchars($this->trans(
                     'Affichée sous les délais payants, dont l\'heure limite est souvent différente.',
                     [],
@@ -568,8 +612,8 @@ class Ekosyncimprimerie extends Module
                 . '<input type="text" name="ekosync_mention_prix" class="form-control" value="%s" placeholder="%s">'
                 . '<p class="help-block">%s</p></div>',
                 htmlspecialchars($this->trans('Mention sous le prix', [], 'Modules.Ekosyncimprimerie.Admin')),
-                htmlspecialchars(ServicesProduit::reglage('mention_prix', $idProduct)),
-                htmlspecialchars($this->trans('Tout inclus — Livraison offerte', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('mention_prix', $idProduct)),
+                htmlspecialchars($this->filigrane('mention_prix', $this->trans('Tout inclus — Livraison offerte', [], 'Modules.Ekosyncimprimerie.Admin'))),
                 htmlspecialchars($this->trans(
                     'Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n\'est pas offerte : la mention serait alors fausse.',
                     [],
@@ -581,13 +625,14 @@ class Ekosyncimprimerie extends Module
                 . '<textarea name="ekosync_reassurances" class="form-control" rows="4" placeholder="%s">%s</textarea>'
                 . '<p class="help-block">%s</p></div>',
                 htmlspecialchars($this->trans('Réassurances', [], 'Modules.Ekosyncimprimerie.Admin')),
-                htmlspecialchars(
+                htmlspecialchars($this->filigrane(
+                    'reassurances',
                     "100% Made In Occitanie|/img/cms/occitanie.svg\n"
                     . "Livraison rapide et offerte|livraison\n"
                     . "Vérification gratuite de vos fichiers|fichier\n"
                     . 'Paiement sécurisé|paiement'
-                ),
-                htmlspecialchars(ServicesProduit::reglage('reassurances', $idProduct)),
+                )),
+                htmlspecialchars($this->surchargeProduit('reassurances', $idProduct)),
                 htmlspecialchars($this->trans(
                     'Une ligne par argument : « Libellé|icône ». L\'icône est origine, livraison, fichier ou paiement — ou le chemin d\'une image déposée sur la boutique, pour un logo qui vous appartient.',
                     [],
