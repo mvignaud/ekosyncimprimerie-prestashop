@@ -186,6 +186,9 @@
     var etapes = [];
     /** Le dictionnaire des options : code -> nom, dessin, dimensions. */
     var libelles = {};
+    /** Les prestations de l'imprimeur, et le choix courant. */
+    var services = [];
+    var choixServices = {};
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
     var quantiteChoisie = null;
@@ -204,6 +207,9 @@
       p.set('id_product', r.dataset.idProduct);
       Object.keys(params).forEach(function (k) { p.set(k, params[k]); });
       selection.forEach(function (v) { p.append('selection[]', v); });
+      Object.keys(choixServices).forEach(function (k) {
+        p.set('services[' + k + ']', choixServices[k]);
+      });
 
       return fetch(r.dataset.url + '&' + p.toString(), {
         signal: enCours.signal,
@@ -418,6 +424,19 @@
           // le nom qu'on lui a affiché.
           Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
 
+          if (d.services) {
+            services = d.services;
+
+            // La première option fait défaut, et le back-office impose qu'elle
+            // soit gratuite : démarrer sur une option payante gonflerait le
+            // prix d'appel sans que le visiteur l'ait demandé.
+            services.forEach(function (sv) {
+              if (choixServices[sv.cle] === undefined && sv.options.length) {
+                choixServices[sv.cle] = sv.options[0].nom;
+              }
+            });
+          }
+
           if (d.complete || !d.options.length) {
             chargerGrille();
 
@@ -522,6 +541,7 @@
           choisirDelaiLePlusEconomique();
           rendreQuantites();
           rendreDelais();
+          rendrePrestations();
           rendreResume();
         })
         .catch(function (e) {
@@ -638,6 +658,51 @@
       zoneEtapes.appendChild(l);
     }
 
+    /**
+     * Les prestations de l'imprimeur, en listes déroulantes.
+     *
+     * Elles viennent APRÈS le délai : ce sont des suppléments, et les placer
+     * avant ferait choisir des options avant même de savoir ce que coûte le
+     * produit qu'elles complètent.
+     */
+    function rendrePrestations() {
+      services.forEach(function (sv) {
+        retirerLigne('svc-' + sv.cle);
+
+        var l = document.createElement('div');
+        l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+        l.dataset.ligne = 'svc-' + sv.cle;
+
+        var t = document.createElement('h3');
+        t.className = 'eko-poc__critere';
+        t.textContent = sv.label + ' :';
+        l.appendChild(t);
+
+        var sel = document.createElement('select');
+        sel.className = 'form-control eko-poc__liste';
+
+        sv.options.forEach(function (o) {
+          var op = document.createElement('option');
+          op.value = o.nom;
+          // Le supplément est écrit par le serveur ; ici on ne fait
+          // qu'indiquer qu'il y en a un, sans le mettre en forme nous-mêmes.
+          op.textContent = o.nom;
+          op.selected = choixServices[sv.cle] === o.nom;
+          sel.appendChild(op);
+        });
+
+        sel.addEventListener('change', function () {
+          choixServices[sv.cle] = sel.value;
+          // Un supplément change le PRIX : il faut redemander la grille, pas
+          // l'ajuster dans le navigateur.
+          chargerGrille();
+        });
+
+        l.appendChild(sel);
+        zoneEtapes.appendChild(l);
+      });
+    }
+
     function rendreResume() {
       zoneResume.innerHTML = '';
 
@@ -687,8 +752,28 @@
       var liD = document.createElement('li');
       liD.innerHTML =
         '<span>' + echapper(txt(r, 'livraison', '')) + '</span>' +
-        '<strong>' + echapper(c.delay) + '</strong>';
+        '<strong>' + echapper(nomDe(c.delay)) + '</strong>';
       ul.appendChild(liD);
+
+      services.forEach(function (sv) {
+        var li = document.createElement('li');
+        li.innerHTML =
+          '<span>' + echapper(sv.label) + '</span>' +
+          '<strong>' + echapper(choixServices[sv.cle] || '') + '</strong>';
+        ul.appendChild(li);
+      });
+
+      // Le supplément se lit SÉPARÉMENT bien qu'il soit déjà dans le total :
+      // un client doit pouvoir rapprocher son devis du prix affiché sans
+      // deviner ce qui a été ajouté.
+      if (grille.supplement) {
+        var liS = document.createElement('li');
+        liS.className = 'eko-poc__resume-supplement';
+        liS.innerHTML =
+          '<span>' + echapper(txt(r, 'dontPrestations', 'dont prestations')) + '</span>' +
+          '<strong>' + echapper(grille.supplement) + '</strong>';
+        ul.appendChild(liS);
+      }
 
       zoneResume.appendChild(ul);
 

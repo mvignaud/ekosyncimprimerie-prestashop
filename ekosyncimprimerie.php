@@ -37,6 +37,7 @@ require_once __DIR__ . '/src/Client/DepotEko.php';
 require_once __DIR__ . '/src/Client/Groupes.php';
 require_once __DIR__ . '/src/Client/ImportTiers.php';
 require_once __DIR__ . '/src/Configurateur/ReglesBoutique.php';
+require_once __DIR__ . '/src/Configurateur/ServicesProduit.php';
 require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
 require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
 
@@ -45,6 +46,7 @@ use Eko\SyncImprimerie\Client\DepotEko;
 use Eko\SyncImprimerie\Client\Groupes;
 use Eko\SyncImprimerie\Client\ImportTiers;
 use Eko\SyncImprimerie\Configurateur\LiaisonProduit;
+use Eko\SyncImprimerie\Configurateur\ServicesProduit;
 use Eko\SyncImprimerie\Configurateur\PrixConfigure;
 
 class Ekosyncimprimerie extends Module
@@ -72,7 +74,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.10.0';
+        $this->version = '0.11.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -190,58 +192,200 @@ class Ekosyncimprimerie extends Module
             return '';
         }
 
-        $liaison = new LiaisonProduit();
-        $actuel = $liaison->produitAtelier($idProduct);
+        return '<div class="eko-bo">'
+            . $this->boLiaison($idProduct)
+            . $this->boTechnique($idProduct)
+            . $this->boServices($idProduct)
+            . '</div>';
+    }
 
+    /**
+     * Le choix du produit E-KO : atelier ou sous-traitance.
+     *
+     * Une seule liste pour les deux catalogues, chaque entrée portant sa
+     * source. Deux listes obligeraient à choisir d'abord laquelle regarder,
+     * alors que le marchand cherche un PRODUIT et se moque de savoir qui le
+     * fabrique.
+     *
+     * ⚠️ Un catalogue injoignable ne fait pas disparaître l'autre, ni les
+     * champs qui suivent : ils ne dépendent pas de l'ERP.
+     */
+    private function boLiaison(int $idProduct): string
+    {
+        $liaison = (new LiaisonProduit())->pour($idProduct);
+        $sourceActuelle = $liaison['source'] ?? '';
+        $refActuelle = $liaison['reference'] ?? '';
+
+        $options = '<option value="">'
+            . $this->trans('— aucun, prix géré par PrestaShop —', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</option>';
+
+        $avertissements = '';
+
+        // L'atelier : le prix y est CALCULÉ.
         $r = $this->client()->appeler('GET', '/api/v1/printing/products?per_page=100');
 
-        if (!$r['ok']) {
-            // L'ERP est injoignable : on le DIT plutot que d'afficher une liste
-            // vide, qui se lirait comme « aucun produit d'atelier ».
-            return $this->panneauProduit(
-                '<p class="alert alert-warning">'
-                . $this->trans('Liste des produits d\'atelier indisponible : ', [], 'Modules.Ekosyncimprimerie.Admin')
-                . htmlspecialchars($r['erreur'])
-                . '</p>'
-            );
-        }
+        if ($r['ok']) {
+            $groupe = '';
 
-        $produits = $r['donnees']['data'] ?? [];
-        $options = '<option value="0">' . $this->trans('— aucun, prix géré par PrestaShop —', [], 'Modules.Ekosyncimprimerie.Admin') . '</option>';
+            foreach ((array) ($r['donnees']['data'] ?? []) as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
 
-        foreach (is_array($produits) ? $produits : [] as $p) {
-            if (!is_array($p)) {
-                continue;
+                $valeur = LiaisonProduit::SOURCE_ATELIER . ':' . (int) ($p['id'] ?? 0);
+                $groupe .= sprintf(
+                    '<option value="%s"%s>%s</option>',
+                    htmlspecialchars($valeur),
+                    ($sourceActuelle === LiaisonProduit::SOURCE_ATELIER
+                        && $refActuelle === (string) ($p['id'] ?? '')) ? ' selected' : '',
+                    htmlspecialchars((string) ($p['name'] ?? ''))
+                );
             }
 
-            $id = (int) ($p['id'] ?? 0);
-            $options .= sprintf(
-                '<option value="%d"%s>%s — %s</option>',
-                $id,
-                $id === $actuel ? ' selected' : '',
-                htmlspecialchars((string) ($p['code'] ?? '')),
-                htmlspecialchars((string) ($p['name'] ?? ''))
-            );
+            if ($groupe !== '') {
+                $options .= '<optgroup label="'
+                    . $this->trans('Atelier — prix calculé', [], 'Modules.Ekosyncimprimerie.Admin')
+                    . '">' . $groupe . '</optgroup>';
+            }
+        } else {
+            $avertissements .= '<p class="help-block text-warning">'
+                . $this->trans('Catalogue d\'atelier indisponible : ', [], 'Modules.Ekosyncimprimerie.Admin')
+                . htmlspecialchars($r['erreur']) . '</p>';
         }
 
-        return $this->panneauProduit(
-            '<select name="ekosync_produit_atelier" class="form-control">' . $options . '</select>'
+        // La sous-traitance : le prix y est LU dans une grille.
+        $r2 = $this->client()->appeler('GET', '/api/v1/printoclock/products?per_page=100');
+
+        if ($r2['ok']) {
+            $groupe = '';
+
+            foreach ((array) ($r2['donnees']['data'] ?? []) as $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+
+                $code = (string) ($p['code'] ?? '');
+                $valeur = LiaisonProduit::SOURCE_PRINTOCLOCK . ':' . $code;
+                $groupe .= sprintf(
+                    '<option value="%s"%s>%s%s</option>',
+                    htmlspecialchars($valeur),
+                    ($sourceActuelle === LiaisonProduit::SOURCE_PRINTOCLOCK && $refActuelle === $code) ? ' selected' : '',
+                    htmlspecialchars((string) ($p['name'] ?? '')),
+                    // Un tarif périmé se dit ICI, au moment de lier : le
+                    // marchand choisit alors en connaissance de cause.
+                    ($p['price_stale'] ?? false) ? ' ⚠' : ''
+                );
+            }
+
+            if ($groupe !== '') {
+                $options .= '<optgroup label="'
+                    . $this->trans('Sous-traitance — prix en grille', [], 'Modules.Ekosyncimprimerie.Admin')
+                    . '">' . $groupe . '</optgroup>';
+            }
+        } else {
+            $avertissements .= '<p class="help-block text-warning">'
+                . $this->trans('Catalogue de sous-traitance indisponible : ', [], 'Modules.Ekosyncimprimerie.Admin')
+                . htmlspecialchars($r2['erreur']) . '</p>';
+        }
+
+        return '<div class="form-group"><label class="form-control-label">'
+            . $this->trans('Produit E-KO', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</label>'
+            . '<select name="ekosync_produit" class="form-control">' . $options . '</select>'
+            . $avertissements
             . '<p class="help-block">'
             . $this->trans(
-                'Lier cette fiche à un produit d\'atelier fait venir son prix de l\'ERP. Sans liaison, PrestaShop garde la main.',
+                'Lier cette fiche fait venir son prix de l\'ERP. Sans liaison, PrestaShop garde la main.',
                 [],
                 'Modules.Ekosyncimprimerie.Admin'
             )
-            . '</p>'
-        );
+            . '</p></div>';
     }
 
-    /** L'encadré qui porte le choix, pour n'écrire son gabarit qu'une fois. */
-    private function panneauProduit(string $contenu): string
+    /**
+     * La fiche technique : ce que l'imprimeur attend d'un fichier.
+     *
+     * Laissé vide, un champ retombe sur le réglage de boutique, puis sur
+     * l'usage du métier. Le filigrane montre ce qui s'appliquera — un champ
+     * vide sans filigrane laisserait croire que rien ne s'affiche.
+     */
+    private function boTechnique(int $idProduct): string
     {
-        return '<div class="form-group"><label class="form-control-label">'
-            . $this->trans('Produit d\'atelier E-KO', [], 'Modules.Ekosyncimprimerie.Admin')
-            . '</label>' . $contenu . '</div>';
+        $libelles = [
+            'resolution' => $this->trans('Résolution', [], 'Modules.Ekosyncimprimerie.Admin'),
+            'couleurs' => $this->trans('Couleurs', [], 'Modules.Ekosyncimprimerie.Admin'),
+            'fonds_perdus' => $this->trans('Fonds perdus', [], 'Modules.Ekosyncimprimerie.Admin'),
+            'marge' => $this->trans('Marge de sécurité', [], 'Modules.Ekosyncimprimerie.Admin'),
+        ];
+
+        $champs = '';
+
+        foreach (ServicesProduit::TECHNIQUE as $cle => $defaut) {
+            $valeur = Configuration::get('EKOSYNC_TECH_' . strtoupper($cle) . '_' . $idProduct);
+            $champs .= sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_tech_%s" class="form-control" value="%s" placeholder="%s"></div>',
+                htmlspecialchars($libelles[$cle]),
+                htmlspecialchars($cle),
+                htmlspecialchars(($valeur === false) ? '' : (string) $valeur),
+                htmlspecialchars(ServicesProduit::reglage('tech_' . $cle, 0, $defaut))
+            );
+        }
+
+        return '<fieldset class="eko-bo__bloc"><legend>'
+            . $this->trans('Fiche technique', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</legend>' . $champs . '</fieldset>';
+    }
+
+    /**
+     * Les prestations de l'imprimeur, et leur supplément.
+     *
+     * Une ligne par option, `Libellé|supplément en euros`. C'est ce qu'un
+     * marchand tape le plus vite et relit d'un œil ; un tableau de saisie
+     * coûterait dix fois l'écran pour trois lignes.
+     *
+     * La PREMIÈRE ligne est l'option par défaut : elle doit être la gratuite,
+     * sans quoi le prix d'appel du produit monte sans que personne ne l'ait
+     * demandé.
+     */
+    private function boServices(int $idProduct): string
+    {
+        $defauts = [
+            'bat' => [
+                $this->trans('BAT numérique', [], 'Modules.Ekosyncimprimerie.Admin'),
+                "Non|0\nOui|15",
+            ],
+            'creation' => [
+                $this->trans('Ma création graphique', [], 'Modules.Ekosyncimprimerie.Admin'),
+                "Je dispose de mon fichier|0\nCréation simple|35\nCréation avancée|99",
+            ],
+        ];
+
+        $champs = '';
+
+        foreach ($defauts as $cle => [$libelle, $exemple]) {
+            $valeur = Configuration::get('EKOSYNC_SVC_' . strtoupper($cle) . '_' . $idProduct);
+            $champs .= sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<textarea name="ekosync_svc_%s" class="form-control" rows="3" placeholder="%s">%s</textarea></div>',
+                htmlspecialchars($libelle),
+                htmlspecialchars($cle),
+                htmlspecialchars($exemple),
+                htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
+            );
+        }
+
+        return '<fieldset class="eko-bo__bloc"><legend>'
+            . $this->trans('Prestations', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</legend>'
+            . '<p class="help-block">'
+            . $this->trans(
+                'Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '</p>' . $champs . '</fieldset>';
     }
 
     /**
@@ -257,15 +401,35 @@ class Ekosyncimprimerie extends Module
     {
         $idProduct = (int) ($params['id_product'] ?? 0);
 
-        if ($idProduct <= 0 || !Tools::getIsset('ekosync_produit_atelier')) {
+        if ($idProduct <= 0) {
             return;
         }
 
-        (new LiaisonProduit())->lier(
-            $idProduct,
-            LiaisonProduit::SOURCE_ATELIER,
-            (string) Tools::getValue('ekosync_produit_atelier')
-        );
+        // Chaque champ n'est lu QUE s'il est présent dans la requête : une
+        // sauvegarde déclenchée par un autre écran — import, script, autre
+        // module — ne doit rien effacer de ce à quoi personne n'a touché.
+        if (Tools::getIsset('ekosync_produit')) {
+            $brut = (string) Tools::getValue('ekosync_produit');
+            $parts = explode(':', $brut, 2);
+
+            (new LiaisonProduit())->lier(
+                $idProduct,
+                $parts[0] ?? '',
+                $parts[1] ?? ''
+            );
+        }
+
+        foreach (array_keys(ServicesProduit::TECHNIQUE) as $cle) {
+            if (Tools::getIsset('ekosync_tech_' . $cle)) {
+                ServicesProduit::poser('tech_' . $cle, $idProduct, (string) Tools::getValue('ekosync_tech_' . $cle));
+            }
+        }
+
+        foreach (ServicesProduit::SERVICES as $cle) {
+            if (Tools::getIsset('ekosync_svc_' . $cle)) {
+                ServicesProduit::poser('svc_' . $cle, $idProduct, (string) Tools::getValue('ekosync_svc_' . $cle));
+            }
+        }
     }
 
     /**

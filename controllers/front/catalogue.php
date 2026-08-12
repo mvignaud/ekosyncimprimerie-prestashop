@@ -46,7 +46,42 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
      */
     public function postProcess()
     {
-        $this->ajaxRender((string) json_encode($this->repondre(), JSON_UNESCAPED_UNICODE));
+        // Une fatale dans un contrôleur AJAX de PrestaShop part en 500 SANS
+        // corps ni ligne de journal : ni stderr, ni `var/logs`, rien. Ce garde
+        // écrit ce que PHP a retenu en dernier, dans le seul endroit joignable
+        // depuis une requête web — et il rend au navigateur un JSON honnête au
+        // lieu d'un silence.
+        register_shutdown_function(static function (): void {
+            $e = error_get_last();
+
+            if ($e === null || !in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+                return;
+            }
+
+            @file_put_contents(
+                _PS_ROOT_DIR_ . '/var/logs/ekosync-fatale.log',
+                sprintf("[%s] %s — %s:%d\n", date('c'), $e['message'], $e['file'], $e['line']),
+                FILE_APPEND
+            );
+        });
+
+        // Une exception non rattrapée part en 500 vide : le navigateur n'a
+        // alors ni prix ni raison, et le visiteur voit un configurateur muet.
+        // On la transforme en refus lisible — la boutique dit ce qui ne va pas
+        // plutôt que de se taire.
+        try {
+            $reponse = $this->repondre();
+        } catch (\Throwable $e) {
+            @file_put_contents(
+                _PS_ROOT_DIR_ . '/var/logs/ekosync-fatale.log',
+                sprintf("[%s] %s — %s:%d\n", date('c'), $e->getMessage(), $e->getFile(), $e->getLine()),
+                FILE_APPEND
+            );
+
+            $reponse = $this->refus('Une erreur est survenue pendant le chiffrage.');
+        }
+
+        $this->ajaxRender((string) json_encode($reponse, JSON_UNESCAPED_UNICODE));
     }
 
     /**
@@ -95,6 +130,10 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 )),
                 'labels' => $this->libelles($d['labels'] ?? []),
                 'complete' => (bool) ($d['complete'] ?? false),
+                // Les prestations de l'imprimeur voyagent avec l'arbre : elles
+                // ne changent pas d'une étape à l'autre, et un second appel
+                // pour les obtenir doublerait les allers-retours.
+                'services' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::services($idProduct),
             ];
         }
 
@@ -126,6 +165,11 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         $precision = \Eko\SyncImprimerie\Configurateur\ReglesBoutique::precision();
         $horsTaxe = \Eko\SyncImprimerie\Configurateur\ReglesBoutique::afficheHorsTaxe();
 
+        $supplementHt = \Eko\SyncImprimerie\Configurateur\ServicesProduit::supplement(
+            $idProduct,
+            $this->choixServices()
+        ) / 100;
+
         $cases = [];
 
         foreach ((array) ($d['grid'] ?? []) as $c) {
@@ -139,6 +183,12 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             if ($q <= 0 || $lotHt <= 0) {
                 continue;
             }
+
+            // Le supplément des prestations s'AJOUTE, il ne recalcule rien :
+            // le montant du sous-traitant reste ce qu'il a rendu, au centime.
+            // Et il s'ajoute ICI, côté serveur — additionné dans le navigateur,
+            // ce serait un montant que la boutique n'a pas vérifié.
+            $lotHt += $supplementHt;
 
             $lot = $horsTaxe ? $lotHt : $this->avecTaxe($lotHt, $idProduct);
 
@@ -172,6 +222,13 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             ))),
             'grid' => $cases,
             'stale' => (bool) ($d['price_stale'] ?? false),
+            // Le supplément est rendu SÉPARÉMENT en plus d'être inclus : le
+            // récapitulatif doit pouvoir montrer les deux lignes, pour qu'un
+            // client rapproche son devis du prix affiché sans deviner ce qui a
+            // été ajouté.
+            'supplement' => $supplementHt > 0 ? $this->enLettres(
+                $horsTaxe ? $supplementHt : $this->avecTaxe($supplementHt, $idProduct)
+            ) : '',
         ];
     }
 
@@ -236,6 +293,34 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             }
 
             $sortie[$code] = $entree;
+        }
+
+        return $sortie;
+    }
+
+    /**
+     * Les prestations choisies par le visiteur.
+     *
+     * On ne retient que les clés de prestations connues : une clé inventée
+     * dans la requête ne doit pas pouvoir désigner un supplément, et le calcul
+     * lui-même ne lit de toute façon que les options réellement déclarées.
+     *
+     * @return array<string, string>
+     */
+    private function choixServices(): array
+    {
+        $brut = Tools::getValue('services');
+
+        if (!is_array($brut)) {
+            return [];
+        }
+
+        $sortie = [];
+
+        foreach (\Eko\SyncImprimerie\Configurateur\ServicesProduit::SERVICES as $cle) {
+            if (isset($brut[$cle]) && is_scalar($brut[$cle])) {
+                $sortie[$cle] = (string) $brut[$cle];
+            }
         }
 
         return $sortie;

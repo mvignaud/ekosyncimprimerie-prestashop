@@ -7,6 +7,41 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.11.0] — 2026-08-12
+
+Le back-office rattrape la façade.
+
+### Ajouté
+
+- **Un seul sélecteur pour les deux catalogues.** Atelier et sous-traitance
+  dans la même liste, chacun dans son groupe. Deux listes obligeraient à
+  choisir d'abord laquelle regarder, alors qu'un marchand cherche un **produit**
+  et se moque de savoir qui le fabrique. Un tarif périmé se signale dès le
+  choix, pas après.
+- **La fiche technique se saisit** — résolution, couleurs, fonds perdus, marge.
+  Un champ vide retombe sur le réglage de boutique, puis sur l'usage du métier,
+  et le filigrane montre ce qui s'appliquera.
+- **Les prestations aussi** — bon à tirer, création graphique. Une ligne par
+  option, `Libellé|supplément en euros`. La première ligne est le choix par
+  défaut et doit être gratuite : démarrer sur une option payante gonflerait le
+  prix d'appel sans que le visiteur l'ait demandé.
+
+  Elles s'affichent en façade après le délai — ce sont des suppléments, et les
+  placer avant ferait choisir des options avant de savoir ce que coûte le
+  produit qu'elles complètent. Leur montant s'ajoute **côté serveur**, et le
+  récapitulatif le montre séparément pour qu'un client rapproche son devis du
+  prix affiché sans deviner ce qui a été ajouté.
+
+### Corrigé
+
+- **Un contrôleur AJAX ne rend plus 500 en silence.** Une exception non
+  rattrapée partait en réponse vide : le navigateur n'avait ni prix ni raison,
+  et le visiteur voyait un configurateur muet. Elle devient un refus lisible,
+  et sa trace part dans `var/logs/` — le seul endroit joignable depuis une
+  requête web.
+- Trois libellés de l'ancien sélecteur restaient au catalogue de traduction
+  sans plus exister dans le code. Le générateur les a signalés en orphelins.
+
 ## [0.10.0] — 2026-08-12
 
 Les options portent enfin leur nom.
@@ -523,7 +558,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.10.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.11.0
 [0.10.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.10.0
 [0.9.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.9.0
 [0.8.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.8.0

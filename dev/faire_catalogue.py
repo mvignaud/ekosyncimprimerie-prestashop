@@ -77,11 +77,20 @@ ADMIN_EN = {
     "Enregistrer": "Save",
     "Tester la liaison": "Test the connection",
     "Rechercher": "Search",
-    "Produit d'atelier E-KO": "E-KO workshop product",
     "— aucun, prix géré par PrestaShop —": "— none, price handled by PrestaShop —",
-    "Lier cette fiche à un produit d'atelier fait venir son prix de l'ERP. Sans liaison, PrestaShop garde la main.":
-        "Linking this product to a workshop product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
-    "Liste des produits d'atelier indisponible : ": "Workshop product list unavailable: ",
+    "Produit E-KO": "E-KO product",
+    "Atelier — prix calculé": "Workshop — computed price",
+    "Sous-traitance — prix en grille": "Subcontracting — grid price",
+    "Catalogue d'atelier indisponible : ": "Workshop catalogue unavailable: ",
+    "Catalogue de sous-traitance indisponible : ": "Subcontracting catalogue unavailable: ",
+    "Lier cette fiche fait venir son prix de l'ERP. Sans liaison, PrestaShop garde la main.":
+        "Linking this product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
+    "Fiche technique": "Technical sheet",
+    "Prestations": "Services",
+    "BAT numérique": "Digital proof",
+    "Ma création graphique": "My artwork",
+    "Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.":
+        "One line per option: \u00ab Label|extra in euros \u00bb. The first line is the default choice — it must be free.",
     "Résolution": "Resolution",
     "Couleurs": "Colours",
     "Fonds perdus": "Bleed",
@@ -132,6 +141,7 @@ SHOP_EN = {
     "Fiche technique": "Technical sheet",
     "Gabarits": "Templates",
     "Télécharger le gabarit": "Download the template",
+    "dont prestations": "incl. services",
 }
 
 # Un domaine = un fichier de catalogue, une source d'extraction, une table.
