@@ -39,6 +39,17 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     public $ajax = true;
 
     /**
+     * Ce que l'ensemble des dessins d'une réponse a le droit de peser.
+     *
+     * 24 000 caractères, soit l'ordre de grandeur d'une petite image — pour
+     * une ligne entière de vignettes. Les dessins servis sont ceux que l'ERP
+     * annonce en premier, et les suivants retombent sur le rectangle du
+     * module ; l'ordre étant celui de l'arbre, il ne change pas d'un appel à
+     * l'autre.
+     */
+    private const BUDGET_DESSINS = 24000;
+
+    /**
      * Comme pour le chiffrage d'atelier : tout se joue dans `postProcess()`.
      *
      * `Controller::run()` appelle `initContent()` ensuite, qui meurt sans
@@ -268,6 +279,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     private function libelles(array $brut): array
     {
         $sortie = [];
+        $depense = 0;
 
         foreach ($brut as $code => $l) {
             if (!is_array($l) || !is_string($code)) {
@@ -280,11 +292,11 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 $entree['description'] = (string) $l['description'];
             }
 
-            // Le SVG de l'ERP est rendu tel quel dans la page : on ne garde que
-            // ce qui ressemble à un dessin, et le navigateur l'insère comme du
-            // texte échappé faute de quoi ce serait une porte ouverte.
-            if (isset($l['svg']) && is_string($l['svg']) && str_starts_with(trim($l['svg']), '<svg')) {
-                $entree['svg'] = $l['svg'];
+            $svg = $this->dessin($l['svg'] ?? null, self::BUDGET_DESSINS - $depense);
+
+            if ($svg !== null) {
+                $entree['svg'] = $svg;
+                $depense += mb_strlen($svg);
             }
 
             if (isset($l['width'], $l['height'])) {
@@ -296,6 +308,60 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         }
 
         return $sortie;
+    }
+
+    /**
+     * Un dessin d'option, si on peut raisonnablement l'afficher.
+     *
+     * ─── LE POIDS ──────────────────────────────────────────────────────────
+     *
+     * Ces dessins viennent du fournisseur et pèsent 7 Ko en moyenne, jusqu'à
+     * 65 Ko. Quatorze formats sur une ligne, c'est cent kilo-octets de balisage
+     * pour des vignettes de cinquante pixels — payés par le visiteur, sur son
+     * mobile, avant de voir un prix.
+     *
+     * DEUX plafonds, parce qu'un seul ne tenait pas : un dessin de 5 Ko passe
+     * la limite individuelle sans rien signaler, et quatorze dessins de 5 Ko
+     * font 75 Ko. Le plafond qui compte est donc le CUMUL — c'est lui que la
+     * page paye. Le plafond par dessin reste, il écarte l'aberration isolée.
+     *
+     * Au-delà, on rend `null` et le module retombe sur le rectangle qu'il
+     * dessine lui-même : à cette taille, un tracé détaillé et un rectangle
+     * proportionnel se ressemblent, mais l'un coûte cent fois moins.
+     *
+     * ─── CE QU'ON RETIRE ───────────────────────────────────────────────────
+     *
+     * Un SVG inséré dans une page est du BALISAGE, pas une image : il peut
+     * porter du script et des gestionnaires d'événements. Aucun de ceux du
+     * catalogue n'en contient aujourd'hui — vérifié sur les 321 entrées — mais
+     * le dictionnaire se remplit depuis le site du fournisseur, et « aujourd'hui
+     * il n'y en a pas » n'est pas une garantie sur ce qu'il contiendra demain.
+     *
+     * On retire donc, plutôt que de faire confiance.
+     */
+    private function dessin(mixed $brut, int $reste): ?string
+    {
+        if (!is_string($brut)) {
+            return null;
+        }
+
+        // Un fichier SVG commence rarement par `<svg` : il porte d'abord son
+        // prologue XML, parfois un DOCTYPE, souvent la signature du logiciel qui
+        // l'a produit. Exiger `<svg` en tête revient à tout refuser sans le dire
+        // — c'est ce qui écartait les quatorze dessins d'un coup.
+        $svg = preg_replace('#^(?:\s|<\?xml\b[^>]*\?>|<!DOCTYPE[^>]*>|<!--.*?-->)+#is', '', trim($brut)) ?? '';
+
+        if ($svg === '' || !str_starts_with($svg, '<svg') || mb_strlen($svg) > min(12000, $reste)) {
+            return null;
+        }
+
+        // Scripts, gestionnaires d'événements, ressources externes et liens :
+        // rien de tout cela n'a sa place dans une vignette de format.
+        $svg = preg_replace('#<script\b.*?</script>#is', '', $svg) ?? '';
+        $svg = preg_replace('#\son[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $svg) ?? '';
+        $svg = preg_replace('#<(foreignObject|image|use|a)\b#i', '<!--$1', $svg) ?? '';
+
+        return str_starts_with(trim($svg), '<svg') ? $svg : null;
     }
 
     /**

@@ -254,13 +254,13 @@ body.eko-poc-page #left-column {
   /* L'image cède la place : c'est le configurateur qui porte la décision
      d'achat sur ce type de produit, pas le visuel. */
   .eko-poc-page .product-container > .row > [class*='col-']:first-child {
-    max-width: 38%;
-    flex: 0 0 38%;
+    max-width: 26%;
+    flex: 0 0 26%;
   }
 
   .eko-poc-page .product-container > .row > [class*='col-']:nth-child(2) {
-    max-width: 62%;
-    flex: 0 0 62%;
+    max-width: 74%;
+    flex: 0 0 74%;
   }
 }
 
@@ -273,13 +273,26 @@ body.eko-poc-page #left-column {
 }
 
 @media (min-width: 992px) {
-  /* Le récapitulatif colle en haut plutôt que de fuir vers le bas : sur une
-     grille de vingt quantités, le prix sortirait de l'écran au moment précis
-     où on le compare.
+  /* DEUX COLONNES : les choix à gauche, le récapitulatif à droite, collant.
+     Sur une grille de vingt quantités le prix sortirait sinon de l'écran au
+     moment précis où on le compare — et c'est le récapitulatif qui porte le
+     bouton de commande.
 
-     Pas de seconde grille imbriquée ici — la fiche est DÉJÀ en deux colonnes,
-     et diviser encore réduirait les cartes à des timbres-poste. */
+     Une largeur fixe à droite plutôt qu'une fraction : la colonne contient une
+     liste d'intitulés courts et un montant, et rien n'y gagne à s'étirer. */
+  .eko-poc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19em;
+    gap: 0 2em;
+    align-items: start;
+  }
+
+  .eko-poc__titre {
+    grid-column: 1 / -1;
+  }
+
   .eko-poc__resume {
+    margin-top: 0;
     position: sticky;
     top: 1.5em;
   }
@@ -308,6 +321,19 @@ body.eko-poc-page #left-column {
   width: 3.4em;
   height: 3.4em;
   margin-bottom: 0.25em;
+}
+
+/* Le dessin du fournisseur arrive avec ses propres dimensions — souvent
+   200 × 200. On le contraint à la vignette : c'est une SILHOUETTE de format
+   qu'on montre, et quatorze illustrations pleine taille sur une ligne feraient
+   une mosaïque illisible. */
+.eko-poc__svg--erp {
+  overflow: hidden;
+}
+
+.eko-poc__svg--erp svg {
+  width: 100%;
+  height: 100%;
 }
 
 .eko-poc__svg-forme {
@@ -343,33 +369,9 @@ body.eko-poc-page #left-column {
 }
 
 /* Un critère déjà tranché : le choix se lit, « Modifier » le rouvre. */
-.eko-poc__choix {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0.8em;
-  max-width: 26em;
-  padding: 0.55em 0.9em;
-  border: 1px solid var(--eko-bord);
-  border-radius: var(--eko-rayon);
-  background: var(--eko-fond);
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
-}
 
-.eko-poc__choix:hover {
-  border-color: var(--eko-accent);
-}
 
-.eko-poc__choix > span:first-child {
-  font-weight: 600;
-}
 
-.eko-poc__choix-modifier {
-  color: var(--eko-accent);
-  font-size: 0.82em;
-  text-decoration: underline;
-}
 
 /* ─── Les cartes de livraison ──────────────────────────────────────────────
    Plus hautes que les autres : elles portent un délai, une date estimée et un

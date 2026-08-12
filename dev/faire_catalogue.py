@@ -128,11 +128,9 @@ SHOP_EN = {
     "Détail de ma commande": "Order summary",
     "HT": "excl. VAT",
     "TTC": "incl. VAT",
-    "Modifier": "Change",
     "Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.":
         "These prices have not been refreshed recently. Please confirm before ordering.",
     "Options indisponibles pour le moment.": "Options unavailable right now.",
-    "— Choisir —": "— Choose —",
     "Livraison estimée": "Estimated delivery",
     "Ajouter au panier": "Add to cart",
 

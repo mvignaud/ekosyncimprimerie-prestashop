@@ -9,10 +9,19 @@
  * acheteur de flyers compare des formats et des grammages, et comparer suppose
  * de voir côte à côte. Une liste déroulante cache tout sauf un.
  *
- * Les lignes apparaissent AU FUR ET À MESURE. L'arbre est élagué — chaque choix
- * restreint le suivant, et c'est ce qui fait tomber une carte de visite de
- * 11 760 combinaisons théoriques à 220 réelles. Afficher toutes les lignes d'un
- * coup obligerait à les remplir de choix qui n'existent pas ensemble.
+ * TOUTES LES LIGNES SONT VISIBLES D'EMBLÉE, avec un choix par défaut. Un
+ * configurateur qui les dévoile une par une cache au visiteur ce qu'on va lui
+ * demander : il ne sait pas s'il en a pour trois clics ou pour dix, et il ne
+ * peut pas revenir en arrière sur ce qu'il n'a pas encore vu.
+ *
+ * L'arbre étant ÉLAGUÉ — chaque choix restreint le suivant, ce qui fait tomber
+ * une carte de visite de 11 760 combinaisons à 220 — les options d'une étape
+ * dépendent des précédentes. On descend donc l'arbre une fois au chargement en
+ * prenant la première option à chaque rang, ce qui donne à la fois une
+ * configuration valide par défaut ET la liste des choix de chaque étape.
+ *
+ * Changer un choix au rang N invalide les rangs suivants : on redescend depuis
+ * là, en gardant ce qui reste valide.
  *
  * ─── CE QUE LE NAVIGATEUR NE FAIT PAS ──────────────────────────────────────
  *
@@ -81,14 +90,20 @@
    * un fichier par format, à produire et à maintenir. Le marchand pourra en
    * poser une depuis le back-office s'il veut la sienne ; d'ici là le dessin
    * suffit, et il est juste.
+   *
+   * ⚠️ Les cotes sont reçues, pas relues depuis le code. Cette fonction les a
+   * longtemps redéduites de son côté, et elle n'y arrivait pas pour les formats
+   * dont le code ne porte pas ses mesures — les ronds notamment. La carte
+   * affichait alors « 100 × 100 mm », venu de l'ERP, au-dessus d'un rectangle
+   * générique 42 × 30. Deux sources pour une même mesure en donnent tôt ou tard
+   * deux réponses ; il n'y en a plus qu'une.
    */
-  function vignetteFormat(code, refMax) {
-    var d = dimensions(code);
+  function vignetteFormat(d, refMax, rond) {
     var boite = 58;
+    var ouvre = '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">';
 
     if (!d) {
-      return '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">'
-        + '<rect x="8" y="14" width="42" height="30" rx="2" class="eko-poc__svg-forme"/></svg>';
+      return ouvre + '<rect x="8" y="14" width="42" height="30" rx="2" class="eko-poc__svg-forme"/></svg>';
     }
 
     var plus = Math.max(d.l, d.h);
@@ -96,17 +111,18 @@
     var l = Math.max(6, d.l * echelle);
     var h = Math.max(6, d.h * echelle);
 
-    return '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">'
+    // Un format rond dessiné en carré est une vignette qui ment sur ce qu'on
+    // achète. Le libellé le dit — « 10 cm de diamètre (rond) » — et c'est la
+    // seule source dont on dispose : l'ERP ne fournit pas de dessin ici.
+    if (rond) {
+      return ouvre + '<circle cx="' + (boite / 2) + '" cy="' + (boite / 2) + '"'
+        + ' r="' + (Math.max(l, h) / 2).toFixed(1) + '" class="eko-poc__svg-forme"/></svg>';
+    }
+
+    return ouvre
       + '<rect x="' + ((boite - l) / 2).toFixed(1) + '" y="' + ((boite - h) / 2).toFixed(1) + '"'
       + ' width="' + l.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" class="eko-poc__svg-forme"/>'
       + '</svg>';
-  }
-
-  /** La mesure lisible d'un format, ou son code si on ne sait pas le lire. */
-  function mesure(code) {
-    var d = dimensions(code);
-
-    return d ? d.l + ' × ' + d.h + ' mm' : '';
   }
 
   /** Tous les boutons d'ajout au panier — les thèmes en posent souvent deux. */
@@ -189,6 +205,8 @@
     /** Les prestations de l'imprimeur, et le choix courant. */
     var services = [];
     var choixServices = {};
+    /** Les rangs de l'arbre : leurs options, dans l'ordre d'affichage. */
+    var rangs = [];
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
     var quantiteChoisie = null;
@@ -325,16 +343,23 @@
 
       var cartes = options.map(function (o) {
         var d = dimensionsDe(o);
+        var l = libelles[o];
+        var nom = nomDe(o);
 
         return {
-          nom: nomDe(o),
+          nom: nom,
           note: d ? d.l + ' × ' + d.h + ' mm' : '',
-          svg: vignetteFormat(o, refMax)
+          // Le dessin du fournisseur quand il y en a un — il montre la FORME
+          // réelle, ce qu'un rectangle ne peut pas faire pour un découpé.
+          // À défaut, la vignette proportionnelle, ronde ou rectangulaire.
+          svg: (l && l.svg)
+            ? '<span class="eko-poc__svg eko-poc__svg--erp">' + l.svg + '</span>'
+            : vignetteFormat(d, refMax, /\brond\b|diam[èe]tre/i.test(nom))
         };
       });
 
-      var l = ligne(titre, cartes, choisi === null ? -1 : options.indexOf(choisi), function (i, c) {
-        surChoix(c.nom);
+      var l = ligne(titre, cartes, options.indexOf(choisi), function (i) {
+        surChoix(options[i]);
       });
 
       l.classList.add('eko-poc__ligne--formats');
@@ -357,37 +382,19 @@
       t.textContent = titre;
       l.appendChild(t);
 
-      if (choisi !== null) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'eko-poc__choix';
-        b.innerHTML = '<span>' + echapper(nomDe(choisi)) + '</span>'
-          + '<span class="eko-poc__choix-modifier">' + echapper(txt(r, 'modifier', '')) + '</span>';
-        b.addEventListener('click', function () { surChoix(choisi); });
-        l.appendChild(b);
-
-        return l;
-      }
-
       var sel = document.createElement('select');
       sel.className = 'form-control eko-poc__liste';
-
-      var vide = document.createElement('option');
-      vide.value = '';
-      vide.textContent = txt(r, 'choisir', '—');
-      sel.appendChild(vide);
 
       options.forEach(function (o) {
         var op = document.createElement('option');
         op.value = o;
         op.textContent = nomDe(o);
+        op.selected = (o === choisi);
         sel.appendChild(op);
       });
 
       sel.addEventListener('change', function () {
-        if (sel.value !== '') {
-          surChoix(sel.value);
-        }
+        surChoix(sel.value);
       });
 
       l.appendChild(sel);
@@ -395,76 +402,104 @@
       return l;
     }
 
-    // ─── L'arbre, étape par étape ──────────────────────────────────────────
+    // ─── L'arbre, descendu d'un coup ───────────────────────────────────────
 
-    function chargerEtape() {
+    /**
+     * Descend l'arbre depuis un rang, en prenant la première option à chaque
+     * étape, et note les choix disponibles à chacune.
+     *
+     * Un seul aller-retour par étape, et il n'y en a jamais plus de sept. Les
+     * réponses sont mises en cache par le module : rejouer une descente après
+     * un changement ne recoûte que les étapes réellement invalidées.
+     */
+    function descendre(depuis) {
+      selection = selection.slice(0, depuis);
+      rangs = rangs.slice(0, depuis);
+
+      return appeler({ quoi: 'arbre' }).then(function (d) {
+        if (!d || d.ok !== true) {
+          throw new Error((d && d.message) || txt(r, 'echec', ''));
+        }
+
+        etapes = d.steps || [];
+        Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
+
+        if (d.services && services.length === 0) {
+          services = d.services;
+          services.forEach(function (sv) {
+            if (choixServices[sv.cle] === undefined && sv.options.length) {
+              choixServices[sv.cle] = sv.options[0].nom;
+            }
+          });
+        }
+
+        if (d.complete || !d.options.length) {
+          return true;
+        }
+
+        // Les choix de CE rang, et le premier retenu par défaut. Le premier
+        // plutôt qu'un « au choix » vide : une configuration incomplète ne se
+        // tarifie pas, et une page qui s'ouvre sans prix n'apprend rien.
+        rangs.push({ rang: d.rank || 0, options: d.options });
+        selection.push(d.options[0]);
+
+        return descendre(selection.length);
+      });
+    }
+
+    /** Redessine TOUTES les lignes de l'arbre, dans l'ordre des étapes. */
+    function rendreEtapes() {
+      zoneEtapes.querySelectorAll('.eko-poc__ligne--arbre').forEach(function (l) { l.remove(); });
+
+      rangs.forEach(function (info, i) {
+        var etape = etapes[info.rang] || {};
+        var titre = (etape.label || '') + ' :';
+        var choisi = selection[info.rang];
+
+        function surChoix(valeur) {
+          if (valeur === selection[info.rang]) {
+            return;
+          }
+
+          selection[info.rang] = valeur;
+          recharger(info.rang + 1);
+        }
+
+        var l = estFormat(etape)
+          ? ligneFormats(titre, info.options, choisi, surChoix)
+          : ligneListe(titre, info.options, choisi, surChoix);
+
+        l.classList.add('eko-poc__ligne--arbre');
+        l.dataset.rang = String(i);
+        zoneEtapes.insertBefore(l, zoneEtapes.children[i] || null);
+      });
+    }
+
+    /**
+     * Recharge depuis un rang : l'arbre, puis la grille.
+     *
+     * Tout ce qui suit le rang touché est caduc — les options suivantes
+     * n'existent peut-être pas sous le nouveau choix, et la grille encore
+     * moins. On redescend plutôt que de garder une sélection qui a l'air
+     * valide et ne l'est plus.
+     */
+    function recharger(depuis) {
       grille = null;
-      quantiteChoisie = null;
-      delaiChoisi = null;
       commande(false, txt(r, 'attendez', ''));
+      retirerLigne('quantite');
+      retirerLigne('delai');
+      services.forEach(function (sv) { retirerLigne('svc-' + sv.cle); });
       rendreResume();
 
       var attente = message('attente', txt(r, 'attente', 'Chargement…'));
       zoneEtapes.appendChild(attente);
 
-      appeler({ quoi: 'arbre' })
-        .then(function (d) {
+      descendre(depuis)
+        .then(function () {
           attente.remove();
+          rendreEtapes();
 
-          if (!d || d.ok !== true) {
-            zoneEtapes.appendChild(message('erreur', (d && d.message) || txt(r, 'echec', '')));
-
-            return;
-          }
-
-          etapes = d.steps || [];
-
-          // Le dictionnaire s'ACCUMULE au lieu d'être remplacé : chaque étape
-          // n'apporte que ses propres options, et un choix replié doit garder
-          // le nom qu'on lui a affiché.
-          Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
-
-          if (d.services) {
-            services = d.services;
-
-            // La première option fait défaut, et le back-office impose qu'elle
-            // soit gratuite : démarrer sur une option payante gonflerait le
-            // prix d'appel sans que le visiteur l'ait demandé.
-            services.forEach(function (sv) {
-              if (choixServices[sv.cle] === undefined && sv.options.length) {
-                choixServices[sv.cle] = sv.options[0].nom;
-              }
-            });
-          }
-
-          if (d.complete || !d.options.length) {
-            chargerGrille();
-
-            return;
-          }
-
-          var rang = d.rank || 0;
-          var etape = etapes[rang] || {};
-          var titre = (etape.label || '') + ' :';
-
-          function choisir(valeur) {
-            selection.push(valeur);
-            redessinerDepuis(rang);
-            chargerEtape();
-          }
-
-          // Le format se MONTRE, le reste se choisit dans une liste.
-          //
-          // Un format est une forme : deux rectangles côte à côte se comparent
-          // instantanément, là où « A6 » et « 100x100 » demandent de savoir ce
-          // qu'ils valent. Un grammage ou une finition n'a pas de forme — en
-          // faire des cartes ne donnerait que des libellés dans des cadres,
-          // occupant dix fois la place d'une liste pour rien.
-          if (estFormat(etape)) {
-            zoneEtapes.appendChild(ligneFormats(titre, d.options, null, choisir));
-          } else {
-            zoneEtapes.appendChild(ligneListe(titre, d.options, null, choisir));
-          }
+          return chargerGrille();
         })
         .catch(function (e) {
           if (e.name === 'AbortError') {
@@ -472,49 +507,8 @@
           }
 
           attente.remove();
-          zoneEtapes.appendChild(message('erreur', txt(r, 'echec', '')));
+          zoneEtapes.appendChild(message('erreur', e.message || txt(r, 'echec', '')));
         });
-    }
-
-    /**
-     * Rejouer une étape déjà franchie.
-     *
-     * Tout ce qui suit devient caduc : les choix suivants n'existent peut-être
-     * pas sous le nouveau, et la grille encore moins. On tronque plutôt que de
-     * garder une sélection qui a l'air valide et ne l'est plus.
-     */
-    function redessinerDepuis(rang) {
-      var lignes = zoneEtapes.querySelectorAll('.eko-poc__ligne');
-
-      for (var i = lignes.length - 1; i >= rang; i--) {
-        lignes[i].remove();
-      }
-
-      selection = selection.slice(0, rang + 1);
-
-      var etape = etapes[rang] || {};
-      var titre = (etape.label || '') + ' :';
-      var choix = selection[rang];
-
-      function revenir() {
-        selection = selection.slice(0, rang);
-        var restantes = zoneEtapes.querySelectorAll('.eko-poc__ligne');
-
-        for (var j = restantes.length - 1; j >= rang; j--) {
-          restantes[j].remove();
-        }
-
-        chargerEtape();
-      }
-
-      // Une étape franchie garde SA forme : un format reste une vignette, une
-      // liste reste une liste. Changer d'apparence après le choix ferait
-      // douter d'avoir cliqué au bon endroit.
-      zoneEtapes.appendChild(
-        estFormat(etape)
-          ? ligneFormats(titre, [choix], choix, revenir)
-          : ligneListe(titre, [choix], choix, revenir)
-      );
     }
 
     // ─── La grille ─────────────────────────────────────────────────────────
@@ -523,7 +517,7 @@
       var attente = message('attente', txt(r, 'calcul', 'Calcul…'));
       zoneEtapes.appendChild(attente);
 
-      appeler({ quoi: 'grille' })
+      return appeler({ quoi: 'grille' })
         .then(function (d) {
           attente.remove();
 
@@ -803,7 +797,7 @@
       commande(true);
     }
 
-    chargerEtape();
+    recharger(0);
   }
 
   if (document.readyState === 'loading') {
