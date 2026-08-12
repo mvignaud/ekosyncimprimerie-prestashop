@@ -72,7 +72,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.7.0';
+        $this->version = '0.8.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -338,13 +338,32 @@ class Ekosyncimprimerie extends Module
             return '';
         }
 
-        // Seul l'atelier est configurable ici pour l'instant : le
-        // configurateur Printoclock est d'une autre nature — un arbre de
-        // choix discrets — et arrive dans son propre gabarit.
+        $liaison = (new LiaisonProduit())->pour($idProduct);
+
+        if ($liaison === null) {
+            // Fiche non liee : PrestaShop garde la main, on ne montre rien.
+            return '';
+        }
+
+        // Deux natures de chiffrage, deux configurateurs. L'atelier pose des
+        // champs libres et fait CALCULER un prix ; la sous-traitance descend un
+        // arbre de choix et LIT une grille. Les partager aurait donne un
+        // gabarit plein de conditions, illisible des deux cotes.
+        if ($liaison['source'] === LiaisonProduit::SOURCE_PRINTOCLOCK) {
+            $this->configurateurRendu = true;
+
+            $this->smarty->assign('eko', [
+                'id_product' => $idProduct,
+                'url' => $this->context->link->getBaseLink()
+                    . 'index.php?fc=module&module=' . $this->name . '&controller=catalogue',
+            ]);
+
+            return $this->fetch('module:' . $this->name . '/views/templates/hook/configurateur-poc.tpl');
+        }
+
         $ekoProductId = (new LiaisonProduit())->produitAtelier($idProduct);
 
         if ($ekoProductId === null) {
-            // Fiche non liee : PrestaShop garde la main, on ne montre rien.
             return '';
         }
 
@@ -395,6 +414,29 @@ class Ekosyncimprimerie extends Module
                 'modules/' . $this->name . '/views/js/configurateur.js',
                 ['position' => 'bottom', 'priority' => 200]
             );
+
+            // Le configurateur de sous-traitance a son propre script : il
+            // descend un arbre au lieu de poster des champs libres. Charger les
+            // deux partout couterait un fichier inutile a chaque visiteur ; on
+            // ne pose celui-ci que sur une fiche qui en depend.
+            $idProduct = (int) Tools::getValue('id_product');
+
+            if ($idProduct > 0) {
+                $l = (new LiaisonProduit())->pour($idProduct);
+
+                if ($l !== null && $l['source'] === LiaisonProduit::SOURCE_PRINTOCLOCK) {
+                    $this->context->controller->registerJavascript(
+                        'ekosync-configurateur-poc',
+                        'modules/' . $this->name . '/views/js/configurateur-poc.js',
+                        ['position' => 'bottom', 'priority' => 201]
+                    );
+                    $this->context->controller->registerStylesheet(
+                        'ekosync-configurateur-poc',
+                        'modules/' . $this->name . '/views/css/configurateur-poc.css',
+                        ['media' => 'all', 'priority' => 201]
+                    );
+                }
+            }
 
             // Le module masque le bloc prix du theme sur les fiches liees : il
             // doit donc porter lui-meme le poids visuel d'un prix. Sans cette

@@ -5,16 +5,49 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
-### Outillage
+Rien pour l'instant.
 
-- `dev/injecter-printoclock.php` — crée des fiches boutique à partir du
-  catalogue de sous-traitance, et les lie en source `printoclock`. Il lit un
-  **fichier** plutôt que d'appeler l'ERP : sur un hébergement mutualisé, la
-  ligne de commande n'a pas le réseau sortant du serveur web.
+## [0.8.0] — 2026-08-12
 
-  Les fiches créées portent un prix catalogue de zéro et sont en visibilité
-  « nulle part » — ce ne sont pas des fiches de vente, ce sont des supports de
-  configurateur.
+Le configurateur de sous-traitance, et la page qui le porte.
+
+### Ajouté
+
+- **Un second configurateur**, pour les fiches liées au catalogue de
+  sous-traitance. Il descend un **arbre de choix** — chaque option restreint la
+  suivante — puis affiche la grille tarifaire.
+
+  Une **ligne de cartes par critère**, pas des listes déroulantes : un acheteur
+  de flyers compare des formats et des grammages, et comparer suppose de voir
+  côte à côte. Les lignes apparaissent au fur et à mesure, parce que l'arbre est
+  élagué : une carte de visite tombe de 11 760 combinaisons théoriques à 220
+  réelles, et afficher toutes les lignes d'un coup obligerait à les remplir de
+  choix qui n'existent pas ensemble.
+
+  **Chaque quantité porte son prix**, et le prix montré est celui du délai le
+  moins cher — pour que les quantités se comparent entre elles, et non au délai
+  qui se trouve sélectionné.
+
+  **Le délai devient un choix** quand il y en a plusieurs, avec « Meilleure
+  offre » sur le moins cher. Un seul délai proposé n'est pas un choix : la ligne
+  disparaît plutôt que de demander de trancher entre une option et rien.
+
+- **Un relais côté boutique.** Le navigateur ne peut pas interroger l'ERP :
+  l'appel porterait le jeton de la boutique, lisible dans l'onglet réseau du
+  premier visiteur venu. La boutique parle à l'ERP, le jeton ne sort jamais du
+  serveur, et la réponse est reconstruite par liste blanche.
+
+- **La page produit s'élargit** quand le module la pilote — colonne latérale
+  retirée, image ramenée à 38 %, configurateur à 62 %. Seulement sur ces fiches :
+  les autres gardent la mise en page du thème, intacte.
+
+### Limites connues
+
+- Les options s'affichent avec leur **code brut** (`115CP`, `NOF`) et non leur
+  libellé. L'ERP tient un dictionnaire de libellés que l'API n'expose pas
+  encore.
+- Le bloc **fiche technique** (résolution, couleurs, fonds perdus, gabarits)
+  reste à faire.
 
 ## [0.7.0] — 2026-08-12
 
@@ -417,7 +450,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.7.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.8.0
 [0.7.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.7.0
 [0.6.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.0

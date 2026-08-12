@@ -1,0 +1,294 @@
+/**
+ * EKO Sync — Imprimerie
+ *
+ * Le configurateur de sous-traitance, et la page qui le porte.
+ *
+ * ─── `em`, JAMAIS `rem` ────────────────────────────────────────────────────
+ *
+ * Beaucoup de thèmes posent `html { font-size: 10px }` — Akira le fait. Un
+ * module qui dimensionne en `rem` s'y retrouve à 62 % de sa taille : mesuré,
+ * des libellés à 8,75 px au lieu de 14. `em` hérite de ce que le thème donne
+ * au bloc et suit donc l'habillage. Seules les longueurs qui doivent rester
+ * stables quelle que soit la typographie sont en pixels, assumés.
+ *
+ * ─── LES COULEURS ──────────────────────────────────────────────────────────
+ *
+ * Toutes par variables, redéfinissables depuis un thème enfant sans toucher au
+ * module :
+ *
+ *     .eko-poc { --eko-accent: #b3282d; }
+ */
+
+.eko-poc {
+  --eko-bord: var(--bs-border-color, #dfe3e8);
+  --eko-fond: var(--bs-body-bg, #fff);
+  --eko-fond-doux: #f6f7f9;
+  --eko-texte: var(--bs-body-color, #1f2933);
+  --eko-texte-doux: #6b7480;
+  --eko-accent: var(--bs-primary, #d81b60);
+  --eko-accent-doux: rgba(216, 27, 96, 0.08);
+  --eko-erreur: var(--bs-danger, #b3282d);
+  --eko-rayon: 0.6em;
+
+  margin: 2em 0;
+  color: var(--eko-texte);
+}
+
+.eko-poc__titre {
+  margin: 0 0 1.25em;
+  font-size: 1.5em;
+  font-weight: 700;
+}
+
+/* ─── Une ligne par critère ────────────────────────────────────────────────
+   Le libellé au-dessus, les choix en dessous. Empilés plutôt que côte à côte :
+   sur une fiche produit la colonne est étroite, et un critère qui se replie en
+   deux colonnes fait perdre le fil de la progression. */
+.eko-poc__ligne {
+  margin-bottom: 1.5em;
+}
+
+.eko-poc__critere {
+  margin: 0 0 0.6em;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--eko-texte);
+}
+
+/* Les cartes s'enroulent. Pas de carrousel : une flèche cache des choix, et un
+   acheteur qui ne voit pas une option ne l'achète pas. */
+.eko-poc__cartes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em;
+}
+
+.eko-poc__carte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  min-width: 7.5em;
+  padding: 0.7em 0.9em;
+  border: 2px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.eko-poc__carte:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__carte:focus-visible {
+  outline: 2px solid var(--eko-accent);
+  outline-offset: 2px;
+}
+
+/* L'état choisi se voit à la bordure ET au fond : la couleur seule ne suffit
+   pas à qui la distingue mal. */
+.eko-poc__carte--actif {
+  border-color: var(--eko-accent);
+  background: var(--eko-accent-doux);
+}
+
+.eko-poc__carte-nom {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.eko-poc__carte-prix {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--eko-accent);
+}
+
+.eko-poc__carte-note {
+  font-size: 0.8em;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__badge {
+  position: absolute;
+  top: -0.7em;
+  right: 0.5em;
+  padding: 0.1em 0.5em;
+  border-radius: 1em;
+  background: var(--eko-accent);
+  color: #fff;
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ─── Le récapitulatif ─────────────────────────────────────────────────────
+   Il colle en haut de sa colonne dès qu'il y a la place : sur une grille de
+   vingt quantités, le prix sortirait sinon de l'écran au moment précis où on
+   le compare. */
+.eko-poc__resume {
+  margin-top: 2em;
+  padding: 1.25em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond-doux);
+}
+
+.eko-poc__resume-titre {
+  margin: 0 0 0.6em;
+  font-size: 1.05em;
+  font-weight: 700;
+}
+
+.eko-poc__resume-prix {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  margin: 0;
+}
+
+.eko-poc__resume-total {
+  font-size: 2.2em;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.eko-poc__resume-regime {
+  font-size: 0.9em;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__resume-unite {
+  margin: 0.2em 0 1em;
+  color: var(--eko-texte-doux);
+  font-size: 0.9em;
+}
+
+.eko-poc__resume-liste {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--eko-bord);
+}
+
+.eko-poc__resume-liste li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.45em 0;
+  border-bottom: 1px solid var(--eko-bord);
+  font-size: 0.9em;
+}
+
+.eko-poc__resume-liste span {
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__resume-liste strong {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* ─── États ────────────────────────────────────────────────────────────────
+   L'attente ne clignote pas : une animation attirerait l'œil sur l'attente
+   plutôt que sur le prix qui arrive. */
+.eko-poc__attente {
+  margin: 0.5em 0;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__erreur {
+  margin: 0.5em 0;
+  padding: 0.7em 0.9em;
+  border-left: 3px solid var(--eko-erreur);
+  border-radius: 0 var(--eko-rayon) var(--eko-rayon) 0;
+  background: var(--eko-fond-doux);
+  color: var(--eko-erreur);
+}
+
+/* Un tarif qui n'a pas été rafraîchi se dit, sans crier : le prix EXISTAIT,
+   il n'existe plus forcément. */
+.eko-poc__perime {
+  margin: 1em 0 0;
+  padding: 0.6em 0.8em;
+  border-radius: var(--eko-rayon);
+  background: #fff6e5;
+  color: #8a5b00;
+  font-size: 0.85em;
+}
+
+/* ─── La page produit ──────────────────────────────────────────────────────
+   Un configurateur à vingt quantités ne tient pas dans la colonne étroite que
+   les thèmes réservent au bloc d'achat. La fiche s'élargit donc — quand le
+   module la pilote, et seulement là : la classe est posée par le JS, les autres
+   fiches gardent la mise en page du thème.
+
+   ⚠️ Élargir ne veut PAS dire tout mettre à 100 %. Une première version l'a
+   fait, et les DEUX moitiés de la fiche — l'image et le bloc d'achat — sont
+   passées pleine largeur : sur un produit sans visuel, le cadre « Aucune image
+   disponible » a rempli l'écran et repoussé le configurateur sous la ligne de
+   flottaison. Mesuré. On retire donc la colonne latérale, et on RÉÉQUILIBRE les
+   deux moitiés au lieu de les empiler. */
+/* `body.` en tête, et ce n'est pas de la coquetterie : le thème pose
+   `#content-wrapper { flex: 0 0 calc(100% - 300px) }`, réservant la place d'une
+   colonne latérale. Un sélecteur de même poids ne l'emporterait pas ; l'élément
+   en plus suffit à passer devant, sans recourir à `!important`. */
+body.eko-poc-page #content-wrapper {
+  max-width: 100%;
+  flex: 0 0 100%;
+}
+
+/* La colonne latérale porte LA MÊME CLASSE que le conteneur principal —
+   `right-column` sur les deux. La masquer par sa classe seule masquerait donc
+   la page entière. On l'exclut par son identifiant, qu'elle n'a pas. */
+body.eko-poc-page .right-column:not(#content-wrapper),
+body.eko-poc-page #left-column {
+  display: none;
+}
+
+@media (min-width: 992px) {
+  /* L'image cède la place : c'est le configurateur qui porte la décision
+     d'achat sur ce type de produit, pas le visuel. */
+  .eko-poc-page .product-container > .row > [class*='col-']:first-child {
+    max-width: 38%;
+    flex: 0 0 38%;
+  }
+
+  .eko-poc-page .product-container > .row > [class*='col-']:nth-child(2) {
+    max-width: 62%;
+    flex: 0 0 62%;
+  }
+}
+
+/* Un produit sans visuel ne doit pas manger la page. Le cadre garde une
+   hauteur raisonnable plutôt que de s'étirer sur toute la colonne. */
+.eko-poc-page .images-container .product-cover,
+.eko-poc-page .images-container img {
+  max-height: 32em;
+  object-fit: contain;
+}
+
+@media (min-width: 992px) {
+  /* Le récapitulatif colle en haut plutôt que de fuir vers le bas : sur une
+     grille de vingt quantités, le prix sortirait de l'écran au moment précis
+     où on le compare.
+
+     Pas de seconde grille imbriquée ici — la fiche est DÉJÀ en deux colonnes,
+     et diviser encore réduirait les cartes à des timbres-poste. */
+  .eko-poc__resume {
+    position: sticky;
+    top: 1.5em;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .eko-poc {
+    --eko-fond-doux: rgba(255, 255, 255, 0.05);
+    --eko-texte-doux: #9aa3ab;
+    --eko-accent-doux: rgba(216, 27, 96, 0.18);
+  }
+}

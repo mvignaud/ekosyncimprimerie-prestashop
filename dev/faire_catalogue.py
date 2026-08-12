@@ -100,6 +100,25 @@ SHOP_EN = {
         "The price applies to the quantity selected below.",
     "Le prix de cette configuration est en cours de calcul.":
         "The price for this configuration is being calculated.",
+
+    # Configurateur de sous-traitance.
+    "Je configure mon produit": "Configure my product",
+    "Chargement des options…": "Loading options…",
+    "Calcul des tarifs…": "Calculating prices…",
+    "Quantité": "Quantity",
+    "Je choisis mon délai": "Choose your lead time",
+    "Inclus": "Included",
+    "Supplément": "Extra",
+    "Meilleure offre": "Best value",
+    "Bon plan": "Good deal",
+    "ex.": "units",
+    "Détail de ma commande": "Order summary",
+    "HT": "excl. VAT",
+    "TTC": "incl. VAT",
+    "Modifier": "Change",
+    "Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.":
+        "These prices have not been refreshed recently. Please confirm before ordering.",
+    "Options indisponibles pour le moment.": "Options unavailable right now.",
 }
 
 # Un domaine = un fichier de catalogue, une source d'extraction, une table.
