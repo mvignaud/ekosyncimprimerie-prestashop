@@ -145,6 +145,12 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 // ne changent pas d'une étape à l'autre, et un second appel
                 // pour les obtenir doublerait les allers-retours.
                 'services' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::services($idProduct),
+                // Les raccourcis « vente phare » du marchand. Ils voyagent avec
+                // l'arbre : ils ne changent pas d'une étape à l'autre.
+                'ventes' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::ventesPhares($idProduct),
+                // Les réassurances : elles ne changent pas d'une étape à
+                // l'autre non plus, elles voyagent avec l'arbre.
+                'reassurances' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reassurances($idProduct),
             ];
         }
 
@@ -239,6 +245,15 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             ))),
             'grid' => $cases,
             'stale' => (bool) ($d['price_stale'] ?? false),
+            // L'heure limite de commande, si l'imprimeur en a déclaré une.
+            // Aucune valeur par défaut : « commandé avant 18h » est un
+            // engagement, pas une décoration.
+            'note_delai' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('delai_note', $idProduct),
+            'note_delai_rapide' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('delai_note_rapide', $idProduct),
+            // La mention sous le prix — « Tout inclus, livraison offerte ».
+            // Réglée par le marchand, vide par défaut : c'est une promesse
+            // commerciale, elle n'a pas à être écrite à sa place.
+            'mention_prix' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::reglage('mention_prix', $idProduct),
             // Le supplément est rendu SÉPARÉMENT en plus d'être inclus : le
             // récapitulatif doit pouvoir montrer les deux lignes, pour qu'un
             // client rapproche son devis du prix affiché sans deviner ce qui a

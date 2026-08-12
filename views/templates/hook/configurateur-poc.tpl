@@ -44,7 +44,9 @@
      data-precedent="{l s='Formats précédents' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-suivant="{l s='Formats suivants' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-superieures="{l s='Quantités supérieures' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-je-configure="{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
+     data-je-configure="{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-sur-mesure="{l s='Configuration personnalisée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-plus-vite="{l s='Soyez livré plus rapidement' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
 
   <h2 class="eko-poc__titre">{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'}</h2>
 

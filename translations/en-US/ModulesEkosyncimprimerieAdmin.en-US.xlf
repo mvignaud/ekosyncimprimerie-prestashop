@@ -79,118 +79,170 @@
         <target>One line per option: « Label|extra in euros ». The first line is the default choice — it must be free.</target>
       </trans-unit>
       <trans-unit id="20">
+        <source>Ventes phares</source>
+        <target>Best sellers</target>
+      </trans-unit>
+      <trans-unit id="21">
+        <source>Une ligne par onglet : « Libellé|format ». Le format s'écrit avec son nom tel qu'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n'afficher aucun onglet.</source>
+        <target>One line per tab: « Label|format ». Write the format with the name shown on the shop, or with the supplier code. Leave empty to show no tab.</target>
+      </trans-unit>
+      <trans-unit id="22">
+        <source>Heure limite — offre incluse</source>
+        <target>Cut-off time — included offer</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Si commandé aujourd'hui avant 18h</source>
+        <target>If ordered today before 6pm</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c'est un engagement pris devant le client.</source>
+        <target>Shown under the included lead time. Leave empty to announce nothing: this is a promise made to the customer.</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>Heure limite — livraison accélérée</source>
+        <target>Cut-off time — express delivery</target>
+      </trans-unit>
+      <trans-unit id="26">
+        <source>Si commandé avant demain 11h</source>
+        <target>If ordered before 11am tomorrow</target>
+      </trans-unit>
+      <trans-unit id="27">
+        <source>Affichée sous les délais payants, dont l'heure limite est souvent différente.</source>
+        <target>Shown under the paid lead times, whose cut-off time is often different.</target>
+      </trans-unit>
+      <trans-unit id="28">
+        <source>Mention sous le prix</source>
+        <target>Line under the price</target>
+      </trans-unit>
+      <trans-unit id="29">
+        <source>Tout inclus — Livraison offerte</source>
+        <target>All included — Free delivery</target>
+      </trans-unit>
+      <trans-unit id="30">
+        <source>Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n'est pas offerte : la mention serait alors fausse.</source>
+        <target>Shown in the summary, under the amount. Leave empty if delivery is not free: the line would then be untrue.</target>
+      </trans-unit>
+      <trans-unit id="31">
+        <source>Réassurances</source>
+        <target>Reassurance points</target>
+      </trans-unit>
+      <trans-unit id="32">
+        <source>Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.</source>
+        <target>One line per point: « Label|icon ». The icon is origine, livraison, fichier or paiement — or the path of an image uploaded to the shop, for a logo you own.</target>
+      </trans-unit>
+      <trans-unit id="33">
         <source>non posé</source>
         <target>not set up</target>
       </trans-unit>
-      <trans-unit id="21">
+      <trans-unit id="34">
         <source>Groupes de clients</source>
         <target>Customer groups</target>
       </trans-unit>
-      <trans-unit id="22">
+      <trans-unit id="35">
         <source>Ces groupes ne portent AUCUNE remise. Le prix remisé vient d'E-KO : une remise posée ici serait un second calcul, avec ses propres arrondis, et le site cesserait de coïncider au centime près avec un devis.</source>
         <target>These groups carry NO discount. The discounted price comes from E-KO: a discount set here would be a second calculation, with its own rounding, and the shop would stop matching a quote to the cent.</target>
       </trans-unit>
-      <trans-unit id="23">
+      <trans-unit id="36">
         <source>Groupe</source>
         <target>Group</target>
       </trans-unit>
-      <trans-unit id="24">
+      <trans-unit id="37">
         <source>Correspond à</source>
         <target>Matches</target>
       </trans-unit>
-      <trans-unit id="25">
+      <trans-unit id="38">
         <source>Affichage</source>
         <target>Display</target>
       </trans-unit>
-      <trans-unit id="26">
+      <trans-unit id="39">
         <source>Identifiant boutique</source>
         <target>Shop id</target>
       </trans-unit>
-      <trans-unit id="27">
+      <trans-unit id="40">
         <source>Poser / vérifier les groupes</source>
         <target>Set up / check the groups</target>
       </trans-unit>
-      <trans-unit id="28">
+      <trans-unit id="41">
         <source>L'adresse de l'API n'est pas une URL valide.</source>
         <target>The API address is not a valid URL.</target>
       </trans-unit>
-      <trans-unit id="29">
+      <trans-unit id="42">
         <source>L'API doit être appelée en HTTPS : le jeton transiterait sinon en clair.</source>
         <target>The API must be called over HTTPS, otherwise the token would travel in clear text.</target>
       </trans-unit>
-      <trans-unit id="30">
+      <trans-unit id="43">
         <source>Cette adresse pointe vers le réseau interne du serveur : refusée.</source>
         <target>This address points to the server's internal network: rejected.</target>
       </trans-unit>
-      <trans-unit id="31">
+      <trans-unit id="44">
         <source>Adresse de l'API modifiée : le jeton a été effacé et doit être ressaisi. Un jeton délivré par l'ancienne instance n'a pas à être envoyé à la nouvelle.</source>
         <target>API address changed: the token has been cleared and must be entered again. A token issued by the previous instance has no business being sent to the new one.</target>
       </trans-unit>
-      <trans-unit id="32">
+      <trans-unit id="45">
         <source>Réglages enregistrés.</source>
         <target>Settings saved.</target>
       </trans-unit>
-      <trans-unit id="33">
+      <trans-unit id="46">
         <source>Renseignez une adresse e-mail à rechercher.</source>
         <target>Enter an email address to search for.</target>
       </trans-unit>
-      <trans-unit id="34">
+      <trans-unit id="47">
         <source>Créer le compte boutique</source>
         <target>Create the shop account</target>
       </trans-unit>
-      <trans-unit id="35">
+      <trans-unit id="48">
         <source>Aucun tiers désigné.</source>
         <target>No customer selected.</target>
       </trans-unit>
-      <trans-unit id="36">
+      <trans-unit id="49">
         <source>Posez d'abord les groupes de clients : sans eux, le compte serait créé sans tarif applicable.</source>
         <target>Set up the customer groups first: without them, the account would be created with no applicable pricing.</target>
       </trans-unit>
-      <trans-unit id="37">
+      <trans-unit id="50">
         <source>Liaison avec E-KO</source>
         <target>Connection to E-KO</target>
       </trans-unit>
-      <trans-unit id="38">
+      <trans-unit id="51">
         <source>Adresse de l'API</source>
         <target>API address</target>
       </trans-unit>
-      <trans-unit id="39">
+      <trans-unit id="52">
         <source>Racine du service, sans /api/v1. HTTPS obligatoire.</source>
         <target>Service root, without /api/v1. HTTPS required.</target>
       </trans-unit>
-      <trans-unit id="40">
+      <trans-unit id="53">
         <source>Jeton</source>
         <target>Token</target>
       </trans-unit>
-      <trans-unit id="41">
+      <trans-unit id="54">
         <source>Jeton dédié à ce module, aux portées minimales. Laisser vide pour conserver le jeton actuel.</source>
         <target>Token dedicated to this module, with the narrowest scopes. Leave empty to keep the current token.</target>
       </trans-unit>
-      <trans-unit id="42">
+      <trans-unit id="55">
         <source>Durée du cache (secondes)</source>
         <target>Cache lifetime (seconds)</target>
       </trans-unit>
-      <trans-unit id="43">
+      <trans-unit id="56">
         <source>Le cache ne conserve que des réponses d'E-KO, jamais un calcul local. 0 désactive le cache.</source>
         <target>The cache only keeps E-KO responses, never a local calculation. 0 disables it.</target>
       </trans-unit>
-      <trans-unit id="44">
+      <trans-unit id="57">
         <source>Rechercher un client</source>
         <target>Search for a customer</target>
       </trans-unit>
-      <trans-unit id="45">
+      <trans-unit id="58">
         <source>Adresse e-mail d'un client : affiche le tiers E-KO correspondant et le nombre de documents à son nom. Aucune écriture.</source>
         <target>A customer's email address: shows the matching E-KO customer and how many documents are filed under their name. Nothing is written.</target>
       </trans-unit>
-      <trans-unit id="46">
+      <trans-unit id="59">
         <source>Enregistrer</source>
         <target>Save</target>
       </trans-unit>
-      <trans-unit id="47">
+      <trans-unit id="60">
         <source>Tester la liaison</source>
         <target>Test the connection</target>
       </trans-unit>
-      <trans-unit id="48">
+      <trans-unit id="61">
         <source>Rechercher</source>
         <target>Search</target>
       </trans-unit>

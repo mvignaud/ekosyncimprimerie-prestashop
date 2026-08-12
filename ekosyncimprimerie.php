@@ -75,7 +75,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.13.0';
+        $this->version = '0.14.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -197,6 +197,7 @@ class Ekosyncimprimerie extends Module
             . $this->boLiaison($idProduct)
             . $this->boTechnique($idProduct)
             . $this->boServices($idProduct)
+            . $this->boVentesPhares($idProduct)
             . '</div>';
     }
 
@@ -390,6 +391,94 @@ class Ekosyncimprimerie extends Module
     }
 
     /**
+     * Les ventes phares : des raccourcis vers une configuration courante.
+     *
+     * ⚠️ CE CHAMP N'A PAS DE VALEUR PAR DÉFAUT, et c'est délibéré. « Top vente
+     * A5 » est une affirmation sur ce que les clients achètent : elle appartient
+     * au marchand. La pré-remplir avec les premiers formats de l'arbre
+     * écrirait au client, sur une étiquette qui a l'air d'un conseil, quelque
+     * chose que personne n'a vérifié.
+     */
+    private function boVentesPhares(int $idProduct): string
+    {
+        $valeur = Configuration::get('EKOSYNC_VENTES_' . $idProduct);
+
+        return '<fieldset class="eko-bo__bloc"><legend>'
+            . $this->trans('Ventes phares', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</legend>'
+            . '<p class="help-block">'
+            . $this->trans(
+                'Une ligne par onglet : « Libellé|format ». Le format s\'écrit avec son nom tel qu\'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n\'afficher aucun onglet.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '</p>'
+            . sprintf(
+                '<textarea name="ekosync_ventes" class="form-control" rows="3" placeholder="%s">%s</textarea>',
+                htmlspecialchars("Top vente A5|A5\nTop vente A6|A6"),
+                htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_delai_note" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Heure limite — offre incluse', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars(ServicesProduit::reglage('delai_note', $idProduct)),
+                htmlspecialchars($this->trans('Si commandé aujourd\'hui avant 18h', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->trans(
+                    'Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c\'est un engagement pris devant le client.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_delai_note_rapide" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Heure limite — livraison accélérée', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars(ServicesProduit::reglage('delai_note_rapide', $idProduct)),
+                htmlspecialchars($this->trans('Si commandé avant demain 11h', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->trans(
+                    'Affichée sous les délais payants, dont l\'heure limite est souvent différente.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_mention_prix" class="form-control" value="%s" placeholder="%s">'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Mention sous le prix', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars(ServicesProduit::reglage('mention_prix', $idProduct)),
+                htmlspecialchars($this->trans('Tout inclus — Livraison offerte', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->trans(
+                    'Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n\'est pas offerte : la mention serait alors fausse.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<textarea name="ekosync_reassurances" class="form-control" rows="4" placeholder="%s">%s</textarea>'
+                . '<p class="help-block">%s</p></div>',
+                htmlspecialchars($this->trans('Réassurances', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars(
+                    "100% Made In Occitanie|/img/cms/occitanie.svg\n"
+                    . "Livraison rapide et offerte|livraison\n"
+                    . "Vérification gratuite de vos fichiers|fichier\n"
+                    . 'Paiement sécurisé|paiement'
+                ),
+                htmlspecialchars(ServicesProduit::reglage('reassurances', $idProduct)),
+                htmlspecialchars($this->trans(
+                    'Une ligne par argument : « Libellé|icône ». L\'icône est origine, livraison, fichier ou paiement — ou le chemin d\'une image déposée sur la boutique, pour un logo qui vous appartient.',
+                    [],
+                    'Modules.Ekosyncimprimerie.Admin'
+                ))
+            )
+            . '</fieldset>';
+    }
+
+    /**
      * Enregistre la liaison en même temps que la fiche.
      *
      * Le champ n'est lu QUE s'il est present dans la requete : une sauvegarde
@@ -429,6 +518,16 @@ class Ekosyncimprimerie extends Module
         foreach (ServicesProduit::SERVICES as $cle) {
             if (Tools::getIsset('ekosync_svc_' . $cle)) {
                 ServicesProduit::poser('svc_' . $cle, $idProduct, (string) Tools::getValue('ekosync_svc_' . $cle));
+            }
+        }
+
+        if (Tools::getIsset('ekosync_ventes')) {
+            ServicesProduit::poser('ventes', $idProduct, (string) Tools::getValue('ekosync_ventes'));
+        }
+
+        foreach (['delai_note', 'delai_note_rapide', 'mention_prix', 'reassurances'] as $cle) {
+            if (Tools::getIsset('ekosync_' . $cle)) {
+                ServicesProduit::poser($cle, $idProduct, (string) Tools::getValue('ekosync_' . $cle));
             }
         }
     }

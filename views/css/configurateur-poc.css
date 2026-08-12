@@ -55,12 +55,124 @@
   color: var(--eko-texte);
 }
 
+/* ─── Les onglets de vente phare ───────────────────────────────────────────
+   Des raccourcis vers une configuration courante. Le premier ramène à la
+   configuration libre : sans lui, on entrerait dans une vente phare sans
+   pouvoir en ressortir autrement qu'en rechargeant. */
+.eko-poc__onglets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  margin-bottom: 1.75em;
+  padding-bottom: 1.25em;
+  border-bottom: 1px solid var(--eko-bord);
+}
+
+.eko-poc__onglet {
+  position: relative;
+  padding: 0.7em 1.4em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond);
+  color: var(--eko-texte);
+  font: inherit;
+  cursor: pointer;
+}
+
+.eko-poc__onglet:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__onglet--actif {
+  border-color: var(--eko-accent);
+  background: var(--eko-accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: default;
+}
+
+/* Le petit ergot sous l'onglet actif, comme sur la référence : il rattache
+   l'onglet à ce qu'il commande, au lieu de le laisser flotter. */
+.eko-poc__onglet--actif::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  border: 0.45em solid transparent;
+  border-top-color: var(--eko-accent);
+  transform: translateX(-50%);
+}
+
 /* Le libellé du critère et, à droite, la commande qui déplie la ligne. */
 .eko-poc__ligne-tete {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 1em;
+}
+
+/* ─── Les lignes à liste : libellé à gauche, choix à droite ────────────────
+   Empilés, les libellés et leurs listes formaient une colonne en escalier où
+   rien ne s'alignait. Deux colonnes donnent une arête verticale : l'œil
+   descend la liste des critères d'un côté, celle des réponses de l'autre. */
+@media (min-width: 768px) {
+  /* 32 % / 68 % : les proportions relevées sur la référence, mesurées au
+     pixel (201 px d'étiquette pour 427 px de champ sur 628). En pourcentage
+     plutôt qu'en `em`, pour que l'arête verticale tienne quelle que soit la
+     largeur que le thème laisse au configurateur. */
+  .eko-poc__ligne--liste {
+    display: grid;
+    grid-template-columns: 32% minmax(0, 1fr);
+    align-items: center;
+    gap: 0;
+  }
+
+  .eko-poc__ligne--liste .eko-poc__critere {
+    margin: 0;
+    padding-right: 1em;
+  }
+}
+
+/* ─── Les vignettes de format ──────────────────────────────────────────────
+   La légende vit SOUS le cadre. Le cadre n'encadre donc que le dessin, et tous
+   les dessins d'une rangée s'alignent quelle que soit la longueur des noms —
+   « Carré 14,8 x 14,8 » sur deux lignes déformait sa carte et faisait tanguer
+   toute la rangée. */
+.eko-poc__vignette {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45em;
+  width: 8.6em;
+  text-align: center;
+}
+
+.eko-poc__vignette .eko-poc__carte {
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  padding: 0.7em;
+}
+
+/* Une SEULE ligne, nom et cotes ensemble — « A5 — 148 × 210 mm » — comme sur
+   la référence. Sur deux lignes, les vignettes d'une rangée ne finissaient pas
+   à la même hauteur selon que le nom passait ou non à la ligne. */
+.eko-poc__vignette-legende {
+  display: block;
+  font-size: 0.8em;
+  line-height: 1.3;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__vignette-legende strong {
+  color: var(--eko-texte);
+  font-weight: 600;
+}
+
+.eko-poc__vignette--actif .eko-poc__vignette-legende strong {
+  color: var(--eko-accent);
 }
 
 .eko-poc__cartes {
@@ -105,9 +217,30 @@
   flex-wrap: nowrap;
 }
 
-.eko-poc__ruban .eko-poc__carte {
+/* L'élément qui défile est la vignette entière — cadre ET légende — quand il
+   y en a une, sinon la carte elle-même. */
+.eko-poc__ruban .eko-poc__cartes > * {
   flex: 0 0 auto;
   scroll-snap-align: start;
+}
+
+/* EXACTEMENT QUATRE par vue, comme la référence. La largeur se CALCULE sur
+   celle de la vue — trois intervalles de 0,6em à retrancher — plutôt que de
+   se fixer en `em` : posée en dur, elle donnait sept vignettes serrées sur
+   une largeur et deux sur une autre, selon la place laissée par le thème.
+
+   Quatre, parce que c'est le nombre à partir duquel une vignette redevient
+   assez grande pour qu'on distingue les proportions d'un format. */
+.eko-poc__ruban .eko-poc__vignette {
+  flex: 0 0 calc((100% - 1.8em) / 4);
+  width: auto;
+}
+
+/* Déplié par « Tout voir », on repasse en grille : la largeur calculée n'a
+   plus d'objet, les vignettes reprennent leur taille propre. */
+.eko-poc__ruban--deplie .eko-poc__vignette {
+  flex: 0 0 auto;
+  width: 8.6em;
 }
 
 /* Déplié par « Tout voir », le ruban redevient une grille. Les flèches n'ont
@@ -247,6 +380,158 @@
   white-space: nowrap;
 }
 
+/* ─── Les délais de livraison ──────────────────────────────────────────────
+   L'offre incluse en grand à gauche, les livraisons accélérées empilées à
+   droite. Ce n'est pas de la décoration : ces deux colonnes ne proposent pas la
+   même chose. À gauche, ce que le prix affiché comprend déjà ; à droite, ce
+   qu'on paie en plus pour aller plus vite. Une rangée uniforme mettait les deux
+   sur le même plan et laissait le visiteur chercher laquelle était incluse.
+
+   La grille S'ADAPTE au nombre d'options accélérées : une seule et les colonnes
+   se valent, plusieurs et la droite prend le large pour les empiler sans les
+   écraser. Le nombre est porté par un attribut — le CSS le lit, il n'a pas à
+   connaître les cas un par un. */
+.eko-poc__delais {
+  display: grid;
+  gap: 1em;
+}
+
+@media (min-width: 768px) {
+  .eko-poc__delais {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .eko-poc__delais:not([data-rapides='0']):not([data-rapides='1']) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.9fr);
+  }
+
+  /* Aucune offre accélérée : l'offre incluse ne s'étale pas sur toute la
+     largeur pour autant — un cadre vide à côté se lirait comme un manque. */
+  .eko-poc__delais[data-rapides='0'] {
+    grid-template-columns: minmax(0, 22em);
+  }
+}
+
+.eko-poc__delais-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  min-width: 0;
+}
+
+.eko-poc__delais-titre {
+  margin: 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  color: var(--eko-texte-doux);
+  text-align: center;
+}
+
+.eko-poc__delai {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 1em 1.1em;
+  border: 2px solid transparent;
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond-doux);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eko-poc__delai:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__delai--actif {
+  border-color: var(--eko-accent);
+}
+
+/* L'offre incluse : pleine couleur, en colonne, et son montant en grand. C'est
+   elle qui porte le prix affiché — elle doit se reconnaître sans lire. */
+.eko-poc__delai--phare {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8em;
+  min-height: 11em;
+  background: var(--eko-accent);
+  color: #fff;
+}
+
+.eko-poc__delai--phare.eko-poc__delai--actif {
+  border-color: var(--eko-texte);
+}
+
+.eko-poc__delai-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15em;
+  min-width: 0;
+}
+
+.eko-poc__delai-nom {
+  font-weight: 700;
+}
+
+.eko-poc__delai-mention {
+  font-size: 0.85em;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.eko-poc__delai-date {
+  font-size: 1.05em;
+  font-weight: 700;
+}
+
+.eko-poc__delai--phare .eko-poc__delai-date {
+  font-size: 1.5em;
+  line-height: 1.15;
+}
+
+/* Le montant, séparé du reste par un filet : à droite pour les offres
+   payantes, sous un trait pour l'offre incluse. */
+.eko-poc__delai-sup {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.1em;
+  padding-left: 1em;
+  border-left: 1px solid var(--eko-bord);
+  font-size: 0.9em;
+}
+
+.eko-poc__delai-sup strong {
+  font-size: 1.1em;
+}
+
+.eko-poc__delai-offert {
+  font-size: 1.35em;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.eko-poc__delai--phare .eko-poc__delai-offert {
+  width: 100%;
+  padding-top: 0.6em;
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+/* L'heure limite : une mention, pas une promesse tapageuse. Elle n'apparaît
+   que si le marchand l'a réglée — voir le back-office. */
+.eko-poc__delai-note {
+  margin: 0;
+  font-size: 0.8em;
+  font-style: italic;
+  color: var(--eko-texte-doux);
+  text-align: center;
+}
+
 /* ─── Le récapitulatif ─────────────────────────────────────────────────────
    Il colle en haut de sa colonne dès qu'il y a la place : sur une grille de
    vingt quantités, le prix sortirait sinon de l'écran au moment précis où on
@@ -336,8 +621,12 @@
   margin: 0;
 }
 
+/* Le montant à l'accent de la boutique, et en grand : c'est l'information que
+   le visiteur vient chercher, et le récapitulatif est collant — il le suit tout
+   au long de la page. */
 .eko-poc__resume-total {
-  font-size: 2.2em;
+  color: var(--eko-accent);
+  font-size: 2.7em;
   font-weight: 800;
   line-height: 1.05;
 }
@@ -349,6 +638,16 @@
 
 .eko-poc__resume-unite {
   margin: 0.2em 0 1em;
+  color: var(--eko-texte-doux);
+  font-size: 0.9em;
+}
+
+/* La promesse commerciale, sous le montant. Discrète : elle rassure, elle ne
+   crie pas — et elle n'existe que si le marchand l'a réglée. */
+.eko-poc__resume-mention {
+  margin: -0.5em 0 1em;
+  padding-bottom: 0.9em;
+  border-bottom: 1px solid var(--eko-bord);
   color: var(--eko-texte-doux);
   font-size: 0.9em;
 }
@@ -376,6 +675,35 @@
 .eko-poc__resume-liste strong {
   text-align: right;
   font-weight: 600;
+}
+
+/* ─── Les réassurances ─────────────────────────────────────────────────────
+   Deux colonnes sous le bouton, icône à gauche du texte, comme sur la
+   référence. Elles n'apparaissent que si le marchand en a réglé. */
+.eko-poc__reassure {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9em 1em;
+  margin: 1.2em 0 0;
+  padding: 1.1em 0 0;
+  border-top: 1px solid var(--eko-bord);
+  list-style: none;
+}
+
+.eko-poc__reassure li {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  font-size: 0.82em;
+  line-height: 1.3;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__reassure-icone {
+  flex: 0 0 auto;
+  width: 2em;
+  height: 2em;
+  object-fit: contain;
 }
 
 /* ─── États ────────────────────────────────────────────────────────────────
@@ -479,6 +807,18 @@ body.eko-poc-page #left-column {
    occupait dans la colonne d'achat. */
 .eko-poc-ancre {
   display: inline-block;
+  /* Deux gardes, et ils ne sont pas décoratifs : le thème neutralise ce qu'il
+     n'attend pas dans la colonne d'achat — `visibility: hidden` et une police
+     à zéro. Un bouton invisible qui occupe zéro pixel ne se voit pas non plus
+     dans le code.
+
+     ⚠️ EN PIXELS, pas en `em`. `1em` se mesure sur le parent : sous un parent
+     à zéro, il vaut zéro lui aussi. Le garde ne gardait rien. C'est l'une des
+     rares longueurs de ce fichier qui doit être absolue, précisément parce
+     qu'elle sert à se soustraire à ce que le thème impose. */
+  visibility: visible;
+  font-size: 15px;
+  line-height: 1.2;
   margin: 0.5em 0 1em;
   padding: 0.85em 1.8em;
   border: 0;
@@ -512,9 +852,13 @@ body.eko-poc-page #left-column {
 
      Une largeur fixe à droite plutôt qu'une fraction : la colonne contient une
      liste d'intitulés courts et un montant, et rien n'y gagne à s'étirer. */
+  /* 57 / 43 — les proportions relevées sur la référence (628 px de choix pour
+     474 px de récapitulatif). En fractions plutôt qu'en `em` : posé à 19em, le
+     bloc était deux fois plus étroit que celui qu'il copie, et ses lignes
+     « Ma création graphique » passaient à la ligne une fois sur deux. */
   .eko-poc {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 19em;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
     gap: 0 2em;
     align-items: start;
   }

@@ -152,6 +152,33 @@
     return sortie + '</svg>';
   }
 
+  /**
+   * Les pictogrammes des réassurances, dessinés ici.
+   *
+   * Dessinés plutôt que chargés : quatre fichiers d'icônes, c'est quatre
+   * requêtes de plus et un dossier à maintenir dans un module distribué. Et un
+   * tracé suit la couleur du texte, ce qu'une image ne fait pas.
+   *
+   * Aucun logo officiel ici : une marque territoriale ou un label appartient à
+   * son émetteur. Le marchand pointe le sien depuis le back-office.
+   */
+  function pictogramme(nom) {
+    var traits = {
+      origine: '<path d="M12 2 4 6v6c0 5 3.4 9.1 8 10 4.6-.9 8-5 8-10V6l-8-4Z"/>'
+        + '<path d="m9 12 2 2 4-4"/>',
+      livraison: '<path d="M1 6h13v10H1z"/><path d="M14 9h4l3 3v4h-7z"/>'
+        + '<circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+      fichier: '<path d="M13 2H6a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-6-6Z"/>'
+        + '<path d="M13 2v6h6"/><circle cx="11" cy="14" r="2.5"/><path d="m13 16 2.5 2.5"/>',
+      paiement: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'
+        + '<path d="M6 15h4"/>'
+    };
+
+    return '<svg class="eko-poc__reassure-icone" viewBox="0 0 24 24" fill="none"'
+      + ' stroke="currentColor" stroke-width="1.6" stroke-linecap="round"'
+      + ' stroke-linejoin="round" aria-hidden="true">' + (traits[nom] || traits.origine) + '</svg>';
+  }
+
   /** Tous les boutons d'ajout au panier — les thèmes en posent souvent deux. */
   function boutonsPanier() {
     return document.querySelectorAll('[data-button-action="add-to-cart"]');
@@ -244,7 +271,19 @@
     section.className = 'eko-poc-section';
     section.id = 'eko-configurateur';
 
-    fiche.parentElement.insertBefore(section, fiche.nextSibling);
+    // ⚠️ Juste après la RANGÉE d'en-tête, pas après tout le conteneur produit.
+    // Ce conteneur porte aussi les onglets « Description / Détails du produit »
+    // du thème : poser le configurateur après lui le renvoyait sous des pages
+    // de texte, alors qu'il doit venir avant. On vise donc la rangée, et les
+    // onglets tombent naturellement en dessous.
+    var entete = r.closest('.row') || fiche.firstElementChild;
+
+    if (entete && entete.parentElement) {
+      entete.parentElement.insertBefore(section, entete.nextSibling);
+    } else {
+      fiche.parentElement.insertBefore(section, fiche.nextSibling);
+    }
+
     section.appendChild(r);
 
     // ⚠️ La fiche technique voyage AVEC le configurateur. Elle est rendue par
@@ -268,12 +307,8 @@
    * désormais plus bas.
    */
   function ancreVersConfigurateur(r, section) {
-    // Après les arguments de vente, comme sur la référence : on lit d'abord ce
-    // qu'on achète, on descend configurer ensuite. Placé avant la description,
-    // le bouton demande de choisir avant d'avoir rien lu.
-    var apres = document.querySelector('.product-short-description')
+    var hote = document.querySelector('.summary-container')
       || document.querySelector('.product-prices');
-    var hote = apres && apres.parentElement ? apres.parentElement : null;
 
     if (!hote || !section) {
       return;
@@ -287,7 +322,21 @@
       section.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
 
-    hote.insertBefore(b, apres.nextSibling);
+    // ⚠️ ENFANT DIRECT du conteneur, toujours. Glissé au plus près de la
+    // description, le bouton tombait dans un bloc que le thème neutralise —
+    // `visibility: hidden` et `font-size: 0` sur ce qu'il n'attend pas — et il
+    // occupait zéro pixel sans que rien ne le signale. Mesuré, deux fois.
+    //
+    // On vise donc la position par le bloc SUIVANT — les informations produit
+    // ferment la colonne, le bouton se pose juste avant, donc après les
+    // arguments de vente. Faute de les trouver, il ferme la colonne lui-même.
+    var informations = hote.querySelector(':scope > .product-information');
+
+    if (informations) {
+      hote.insertBefore(b, informations);
+    } else {
+      hote.appendChild(b);
+    }
   }
 
   function demarrer() {
@@ -330,6 +379,10 @@
     var rangs = [];
     /** Le nom du produit, tel que l'ERP le donne. */
     var nomProduit = '';
+    /** Les ventes phares réglées au back-office : nom + format visé. */
+    var ventes = [];
+    /** Les réassurances affichées sous le bouton de commande. */
+    var reassurances = [];
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
     var quantiteChoisie = null;
@@ -470,6 +523,7 @@
     function ligne(titre, cartes, actifIndex, surChoix, options) {
       var defiler = (options || {}).defiler;
       var replier = (options || {}).replier;
+      var legendeDessous = (options || {}).legendeDessous;
       var l = document.createElement('div');
       l.className = 'eko-poc__ligne';
 
@@ -490,6 +544,32 @@
         b.type = 'button';
         b.className = 'eko-poc__carte' + (i === actifIndex ? ' eko-poc__carte--actif' : '');
         b.setAttribute('aria-pressed', i === actifIndex ? 'true' : 'false');
+
+        // Les vignettes de format portent leur légende SOUS le cadre, et non
+        // dedans : le cadre encadre alors le dessin seul, ce qui laisse les
+        // dessins s'aligner entre eux quelle que soit la longueur des noms.
+        // « Carré 14,8 x 14,8 » sur deux lignes déformait sa carte et
+        // désalignait toute la rangée.
+        if (legendeDessous) {
+          b.innerHTML = c.svg || '';
+          b.setAttribute('aria-label', c.nom + (c.note ? ', ' + c.note : ''));
+          b.addEventListener('click', function () { surChoix(i, c); });
+
+          var enveloppe = document.createElement('div');
+          enveloppe.className = 'eko-poc__vignette'
+            + (i === actifIndex ? ' eko-poc__vignette--actif' : '');
+          enveloppe.appendChild(b);
+
+          var leg = document.createElement('span');
+          leg.className = 'eko-poc__vignette-legende';
+          leg.innerHTML = '<strong>' + echapper(c.nom) + '</strong>'
+            + (c.note ? ' — ' + echapper(c.note) : '');
+          enveloppe.appendChild(leg);
+
+          piste.appendChild(enveloppe);
+
+          return;
+        }
 
         var html = (c.svg || '') + '<span class="eko-poc__carte-nom">' + echapper(c.nom) + '</span>';
 
@@ -770,7 +850,7 @@
       // est toute leur raison d'être.
       var l = ligne(titre, cartes, options.indexOf(choisi), function (i) {
         surChoix(options[i]);
-      }, { defiler: 4 });
+      }, { defiler: 4, legendeDessous: true });
 
       l.classList.add('eko-poc__ligne--formats');
 
@@ -835,6 +915,14 @@
         nomProduit = d.name || nomProduit;
         Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
 
+        if (d.ventes && ventes.length === 0) {
+          ventes = d.ventes;
+        }
+
+        if (d.reassurances && reassurances.length === 0) {
+          reassurances = d.reassurances;
+        }
+
         if (d.services && services.length === 0) {
           services = d.services;
           services.forEach(function (sv) {
@@ -856,6 +944,100 @@
 
         return descendre(selection.length);
       });
+    }
+
+    /**
+     * Les onglets de vente phare, au-dessus des critères.
+     *
+     * Un raccourci vers une configuration courante : « Top vente A5 » pose le
+     * format A5 et laisse le reste aux valeurs par défaut. Le premier onglet
+     * ramène à la configuration libre.
+     *
+     * ─── CE QU'ILS DÉSIGNENT ────────────────────────────────────────────────
+     *
+     * Le marchand écrit un nom de format tel qu'il apparaît sur le site, ou le
+     * code du fournisseur ; on accepte les deux, parce qu'un marchand voit les
+     * noms et jamais les codes.
+     *
+     * Un onglet dont la cible n'existe pas dans l'arbre n'est PAS affiché. Une
+     * faute de frappe donnerait sinon un onglet qui ne fait rien — et rien
+     * n'est plus difficile à diagnostiquer qu'un bouton silencieux.
+     */
+    function rendreOnglets() {
+      var ancien = zoneEtapes.querySelector('.eko-poc__onglets');
+
+      if (ancien) {
+        ancien.remove();
+      }
+
+      if (!ventes.length || !rangs.length) {
+        return;
+      }
+
+      var premier = rangs[0].options;
+
+      function cibleDe(v) {
+        var voulu = String(v.cible).toLowerCase();
+
+        for (var i = 0; i < premier.length; i++) {
+          var code = premier[i];
+
+          if (String(code).toLowerCase() === voulu
+            || String(nomDe(code)).toLowerCase() === voulu) {
+            return code;
+          }
+        }
+
+        return null;
+      }
+
+      var utiles = ventes
+        .map(function (v) { return { nom: v.nom, code: cibleDe(v) }; })
+        .filter(function (v) { return v.code !== null; });
+
+      if (!utiles.length) {
+        return;
+      }
+
+      var barre = document.createElement('div');
+      barre.className = 'eko-poc__onglets';
+      barre.setAttribute('role', 'tablist');
+
+      var surMesure = selection.length
+        && !utiles.some(function (v) { return v.code === selection[0]; });
+
+      function onglet(nom, code, actif) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'eko-poc__onglet' + (actif ? ' eko-poc__onglet--actif' : '');
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', actif ? 'true' : 'false');
+        b.textContent = nom;
+
+        if (!actif) {
+          b.addEventListener('click', function () {
+            if (code === null) {
+              return;
+            }
+
+            // Exactement le geste d'un clic sur la carte de format : on pose le
+            // choix du premier rang et on redescend. Rien de particulier à
+            // maintenir en plus.
+            selection[0] = code;
+            recharger(1);
+          });
+        }
+
+        return b;
+      }
+
+      barre.appendChild(onglet(txt(r, 'surMesure', 'Configuration personnalisée'), null, surMesure));
+
+      utiles.forEach(function (v) {
+        barre.appendChild(onglet(v.nom, v.code, v.code === selection[0]));
+      });
+
+      zoneEtapes.insertBefore(barre, zoneEtapes.firstChild);
     }
 
     /** Redessine TOUTES les lignes de l'arbre, dans l'ordre des étapes. */
@@ -884,6 +1066,10 @@
         l.dataset.rang = String(i);
         zoneEtapes.insertBefore(l, zoneEtapes.children[i] || null);
       });
+
+      // APRÈS les lignes : elles s'insèrent par index, et une barre déjà en
+      // tête décalerait chacune d'un cran.
+      rendreOnglets();
     }
 
     /**
@@ -1036,33 +1222,105 @@
         return;
       }
 
-      var base = cases.reduce(function (a, b) { return b.lot < a.lot ? b : a; });
+      // Le moins cher d'abord : c'est l'offre incluse, celle qui ne coûte rien
+      // de plus. Les suivantes se paient pour aller plus vite.
+      var tries = cases.slice().sort(function (a, b) { return a.lot - b.lot; });
+      var base = tries[0];
+      var rapides = tries.slice(1);
+      // L'heure limite de commande, si l'imprimeur en a déclaré une. Elle
+      // n'existe QUE si elle a été réglée : « Si commandé avant 18h » est un
+      // engagement, et un engagement ne s'invente pas à la place du marchand.
 
-      var cartes = cases
-        .slice()
-        .sort(function (a, b) { return a.lot - b.lot; })
-        .map(function (c) {
-          return {
-            nom: nomDe(c.delay),
-            date: c.date_texte,
-            prix: c.lot <= base.lot
-              ? txt(r, 'offert', 'Inclus')
-              : txt(r, 'supplement', 'Supplément') + ' ' + c.lot_texte,
-            badge: c.lot <= base.lot ? txt(r, 'meilleure', '') : '',
-            valeur: c.delay
-          };
+      var l = document.createElement('div');
+      l.className = 'eko-poc__ligne eko-poc__ligne--delais';
+      l.dataset.ligne = 'delai';
+
+      var tete = document.createElement('div');
+      tete.className = 'eko-poc__ligne-tete';
+
+      var t = document.createElement('h3');
+      t.className = 'eko-poc__critere';
+      t.textContent = txt(r, 'livraison', 'Délai') + ' :';
+      tete.appendChild(t);
+      l.appendChild(tete);
+
+      function carteDelai(c, grande) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'eko-poc__delai'
+          + (grande ? ' eko-poc__delai--phare' : '')
+          + (c.delay === delaiChoisi ? ' eko-poc__delai--actif' : '');
+        b.setAttribute('aria-pressed', c.delay === delaiChoisi ? 'true' : 'false');
+
+        var gauche = '<span class="eko-poc__delai-nom">' + echapper(nomDe(c.delay)) + '</span>';
+
+        if (c.date_texte) {
+          gauche += '<span class="eko-poc__delai-mention">' + echapper(txt(r, 'livree', '')) + '</span>'
+            + '<strong class="eko-poc__delai-date">' + echapper(c.date_texte) + '</strong>';
+        }
+
+        var prix = c.lot <= base.lot
+          ? '<span class="eko-poc__delai-offert">' + echapper(txt(r, 'offert', 'Inclus')) + '</span>'
+          : '<span class="eko-poc__delai-sup">'
+            + '<span>' + echapper(txt(r, 'supplement', 'Supplément')) + '</span>'
+            + '<strong>' + echapper(c.lot_texte) + '</strong></span>';
+
+        b.innerHTML = '<span class="eko-poc__delai-corps">' + gauche + '</span>' + prix;
+        b.addEventListener('click', function () {
+          if (c.delay === delaiChoisi) {
+            return;
+          }
+
+          delaiChoisi = c.delay;
+          rendreDelais();
+          rendreResume();
         });
 
-      var actif = cartes.map(function (c) { return c.valeur; }).indexOf(delaiChoisi);
+        return b;
+      }
 
-      var l = ligne(txt(r, 'livraison', 'Délai') + ' :', cartes, actif, function (i, c) {
-        delaiChoisi = c.valeur;
-        rendreDelais();
-        rendreResume();
-      });
+      function colonne(titre, cartes, phare, note) {
+        var col = document.createElement('div');
+        col.className = 'eko-poc__delais-col' + (phare ? ' eko-poc__delais-col--phare' : '');
 
-      l.dataset.ligne = 'delai';
-      l.classList.add('eko-poc__ligne--delais');
+        if (titre) {
+          var h = document.createElement('p');
+          h.className = 'eko-poc__delais-titre';
+          h.textContent = titre;
+          col.appendChild(h);
+        }
+
+        cartes.forEach(function (c) { col.appendChild(carteDelai(c, phare)); });
+
+        if (note) {
+          var n = document.createElement('p');
+          n.className = 'eko-poc__delai-note';
+          n.textContent = note;
+          col.appendChild(n);
+        }
+
+        return col;
+      }
+
+      var grilleDelais = document.createElement('div');
+      // La grille s'adapte au nombre d'options : une seule offre rapide et les
+      // deux colonnes se valent, plusieurs et la colonne de droite prend le
+      // large pour empiler sans écraser. Posé en attribut plutôt qu'en classe
+      // par palier — le CSS lit le nombre, il n'a pas à connaître les cas.
+      grilleDelais.className = 'eko-poc__delais';
+      grilleDelais.dataset.rapides = String(rapides.length);
+
+      grilleDelais.appendChild(
+        colonne(txt(r, 'meilleure', ''), [base], true, grille.note_delai || '')
+      );
+
+      if (rapides.length) {
+        grilleDelais.appendChild(
+          colonne(txt(r, 'plusVite', ''), rapides, false, grille.note_delai_rapide || '')
+        );
+      }
+
+      l.appendChild(grilleDelais);
       zoneEtapes.appendChild(l);
     }
 
@@ -1170,6 +1428,38 @@
       zoneResume.appendChild(boite);
     }
 
+    /**
+     * Les arguments de réassurance, sous le bouton de commande.
+     *
+     * Ils n'existent que si le marchand en a réglé : ce sont des engagements —
+     * « livraison offerte », « paiement sécurisé » — et le module ne promet
+     * rien à sa place.
+     *
+     * Une icône est soit l'un des pictogrammes dessinés par le module, soit une
+     * image de la boutique : le chemin a été validé côté serveur, où seuls un
+     * chemin interne et une adresse http(s) passent.
+     */
+    function rendreReassurances() {
+      if (!reassurances.length) {
+        return;
+      }
+
+      var boite = document.createElement('ul');
+      boite.className = 'eko-poc__reassure';
+
+      reassurances.forEach(function (a) {
+        var li = document.createElement('li');
+        var image = /^(\/|https?:)/.test(a.icone)
+          ? '<img class="eko-poc__reassure-icone" src="' + echapper(a.icone) + '" alt="" loading="lazy">'
+          : pictogramme(a.icone);
+
+        li.innerHTML = image + '<span>' + echapper(a.nom) + '</span>';
+        boite.appendChild(li);
+      });
+
+      zoneResume.appendChild(boite);
+    }
+
     function rendreResume() {
       zoneResume.innerHTML = '';
 
@@ -1198,6 +1488,14 @@
       u.className = 'eko-poc__resume-unite';
       u.textContent = c.unite_texte + ' ' + txt(r, 'unite', '');
       zoneResume.appendChild(u);
+
+      // La promesse commerciale du marchand, s'il en a réglé une.
+      if (grille.mention_prix) {
+        var m = document.createElement('p');
+        m.className = 'eko-poc__resume-mention';
+        m.textContent = grille.mention_prix;
+        zoneResume.appendChild(m);
+      }
 
       // Le nom du produit : le récapitulatif est collant et suit le visiteur
       // pendant qu'il fait défiler ; sans le nom, on finit par lire un prix
@@ -1285,6 +1583,7 @@
       b.addEventListener('click', function () { ajouterAuPanier(b); });
       zoneResume.appendChild(b);
       zoneResume.appendChild(messagePanier);
+      rendreReassurances();
 
       // Le prix est connu pour ce couple exact : la commande peut s'ouvrir.
       commande(true);

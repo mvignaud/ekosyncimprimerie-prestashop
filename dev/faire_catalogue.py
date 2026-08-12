@@ -87,6 +87,24 @@ ADMIN_EN = {
         "Linking this product makes its price come from the ERP. Without a link, PrestaShop keeps control.",
     "Fiche technique": "Technical sheet",
     "Prestations": "Services",
+    "Ventes phares": "Best sellers",
+    "Heure limite — offre incluse": "Cut-off time — included offer",
+    "Si commandé aujourd'hui avant 18h": "If ordered today before 6pm",
+    "Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c'est un engagement pris devant le client.":
+        "Shown under the included lead time. Leave empty to announce nothing: this is a promise made to the customer.",
+    "Heure limite — livraison accélérée": "Cut-off time — express delivery",
+    "Mention sous le prix": "Line under the price",
+    "Réassurances": "Reassurance points",
+    "Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.":
+        "One line per point: \u00ab Label|icon \u00bb. The icon is origine, livraison, fichier or paiement \u2014 or the path of an image uploaded to the shop, for a logo you own.",
+    "Tout inclus — Livraison offerte": "All included — Free delivery",
+    "Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n'est pas offerte : la mention serait alors fausse.":
+        "Shown in the summary, under the amount. Leave empty if delivery is not free: the line would then be untrue.",
+    "Si commandé avant demain 11h": "If ordered before 11am tomorrow",
+    "Affichée sous les délais payants, dont l'heure limite est souvent différente.":
+        "Shown under the paid lead times, whose cut-off time is often different.",
+    "Une ligne par onglet : « Libellé|format ». Le format s'écrit avec son nom tel qu'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n'afficher aucun onglet.":
+        "One line per tab: \u00ab Label|format \u00bb. Write the format with the name shown on the shop, or with the supplier code. Leave empty to show no tab.",
     "BAT numérique": "Digital proof",
     "Ma création graphique": "My artwork",
     "Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.":
@@ -124,6 +142,7 @@ SHOP_EN = {
     "Inclus": "Included",
     "Supplément": "Extra",
     "Meilleure offre": "Best value",
+    "Soyez livré plus rapidement": "Get it faster",
     "Bon plan": "Good deal",
     "ex.": "units",
     "Détail de ma commande": "Order summary",
@@ -135,6 +154,7 @@ SHOP_EN = {
     "Livraison estimée": "Estimated delivery",
     "Ajouter au panier": "Add to cart",
     "Tout voir": "See all",
+    "Configuration personnalisée": "Custom configuration",
     "Quantités supérieures": "Larger quantities",
     "Voir plus": "See more",
     "Formats précédents": "Previous formats",
