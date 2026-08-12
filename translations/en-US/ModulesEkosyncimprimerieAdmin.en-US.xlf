@@ -246,6 +246,14 @@
         <source>Rechercher</source>
         <target>Search</target>
       </trans-unit>
+      <trans-unit id="62">
+        <source>Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.</source>
+        <target>These settings apply to every product linked to the ERP. A product carrying its own value keeps it.</target>
+      </trans-unit>
+      <trans-unit id="63">
+        <source>Réglages de l'imprimerie</source>
+        <target>Print shop settings</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

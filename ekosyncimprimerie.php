@@ -71,11 +71,14 @@ class Ekosyncimprimerie extends Module
      */
     public const CACHE_DEFAUT = 900;
 
+    /** La classe du contrôleur d'administration, et donc de son onglet. */
+    public const ONGLET = 'AdminEkoImprimerie';
+
     public function __construct()
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.14.0';
+        $this->version = '0.15.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -135,6 +138,114 @@ class Ekosyncimprimerie extends Module
             }
         }
 
+        return $this->poserOnglet();
+    }
+
+    /**
+     * L'entrée « EKO Imprimerie » sous Catalogue.
+     *
+     * Rangée là, et non dans la configuration du module : on ne va dans la
+     * configuration d'un module qu'une fois, pour brancher l'API. Ces
+     * réglages-ci — fiche technique, prestations, réassurances, heures limites
+     * — se retouchent en travaillant le catalogue, donc à côté des produits.
+     *
+     * Publique et idempotente : le module est déjà posé sur les boutiques en
+     * service, où `install()` ne repassera pas. Elle peut donc être appelée
+     * après coup sans rien casser.
+     */
+    public function poserOnglet(): bool
+    {
+        if ((int) Tab::getIdFromClassName(self::ONGLET) > 0) {
+            return true;
+        }
+
+        $parent = (int) Tab::getIdFromClassName('AdminCatalog');
+
+        if ($parent <= 0) {
+            return false;
+        }
+
+        $onglet = new Tab();
+        $onglet->class_name = self::ONGLET;
+        $onglet->module = $this->name;
+        $onglet->id_parent = $parent;
+        $onglet->active = true;
+
+        $noms = [];
+
+        foreach (Language::getLanguages(false) as $langue) {
+            $noms[(int) $langue['id_lang']] = 'EKO Imprimerie';
+        }
+
+        $onglet->name = $noms;
+
+        if ($onglet->add()) {
+            return true;
+        }
+
+        // ⚠️ REPLI EN SQL, et il sert vraiment. `Tab::add()` passe par la couche
+        // de droits, qui réclame le conteneur Symfony — absent hors du
+        // back-office. Sur l'hébergement mutualisé de ce projet l'appel échoue
+        // donc en ligne de commande, exactement comme `Module::install()`.
+        // Mesuré : sans ce repli, un module posé par script s'installe sans son
+        // écran de réglages, et rien ne le signale.
+        return $this->poserOngletEnSql($parent);
+    }
+
+    /**
+     * L'onglet écrit directement, avec ses droits.
+     *
+     * ⚠️ Les colonnes sont nommées une par une : `tab` a perdu
+     * `hide_host_mode` en PrestaShop 9, et une insertion qui la cite encore
+     * échoue — en silence, puisque `Db::execute()` rend simplement `false`.
+     */
+    private function poserOngletEnSql(int $parent): bool
+    {
+        $db = Db::getInstance();
+        $prefixe = _DB_PREFIX_;
+        $position = 1 + (int) $db->getValue(
+            'SELECT MAX(position) FROM ' . $prefixe . 'tab WHERE id_parent = ' . $parent
+        );
+
+        $pose = $db->execute(
+            'INSERT INTO ' . $prefixe . 'tab (id_parent, position, module, class_name, active, enabled)'
+            . ' VALUES (' . $parent . ', ' . $position . ', "' . pSQL($this->name) . '",'
+            . ' "' . pSQL(self::ONGLET) . '", 1, 1)'
+        );
+
+        if (!$pose) {
+            return false;
+        }
+
+        $id = (int) $db->Insert_ID();
+
+        foreach (Language::getLanguages(false) as $langue) {
+            $db->execute(
+                'INSERT INTO ' . $prefixe . 'tab_lang (id_tab, id_lang, name)'
+                . ' VALUES (' . $id . ', ' . (int) $langue['id_lang'] . ', "EKO Imprimerie")'
+            );
+        }
+
+        // Sans droits, l'entrée existe mais reste invisible : le back-office
+        // n'affiche que les onglets que le profil a le droit de lire.
+        foreach (['CREATE', 'READ', 'UPDATE', 'DELETE'] as $droit) {
+            $slug = 'ROLE_MOD_TAB_' . strtoupper(self::ONGLET) . '_' . $droit;
+
+            $db->execute('INSERT IGNORE INTO ' . $prefixe . 'authorization_role (slug) VALUES ("' . pSQL($slug) . '")');
+
+            $role = (int) $db->getValue(
+                'SELECT id_authorization_role FROM ' . $prefixe . 'authorization_role'
+                . ' WHERE slug = "' . pSQL($slug) . '"'
+            );
+
+            if ($role > 0) {
+                $db->execute(
+                    'INSERT IGNORE INTO ' . $prefixe . 'access (id_profile, id_authorization_role)'
+                    . ' VALUES (1, ' . $role . ')'
+                );
+            }
+        }
+
         return true;
     }
 
@@ -158,6 +269,14 @@ class Ekosyncimprimerie extends Module
         }
 
         ClientEko::viderCache();
+
+        // L'onglet part avec le module : laissé en place, il mènerait à un
+        // contrôleur qui n'existe plus.
+        $idOnglet = (int) Tab::getIdFromClassName(self::ONGLET);
+
+        if ($idOnglet > 0) {
+            (new Tab($idOnglet))->delete();
+        }
 
         // La correspondance compte boutique -> tiers relie une personne
         // identifiable a un identifiant d'un systeme tiers. La laisser apres

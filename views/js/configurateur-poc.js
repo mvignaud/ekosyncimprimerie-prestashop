@@ -339,6 +339,64 @@
     }
   }
 
+  /**
+   * La hauteur de ce qui reste collé en haut de l'écran.
+   *
+   * Le récapitulatif colle lui aussi, et il passait SOUS l'en-tête du thème :
+   * son titre et son prix disparaissaient derrière le menu dès qu'on faisait
+   * défiler. Mesuré à l'exécution plutôt que codé en dur — la hauteur d'un
+   * en-tête dépend du thème, de sa barre d'annonce, et du fait qu'il se réduise
+   * ou non au défilement.
+   *
+   * On ne retient que ce qui est ancré EN HAUT : un élément collant à mi-page
+   * ne masque rien.
+   */
+  function hauteurCollante() {
+    var haut = 0;
+
+    document.querySelectorAll('header, .header, [class*="sticky"], [class*="fixed"]')
+      .forEach(function (e) {
+        var st = getComputedStyle(e);
+
+        if (st.position !== 'fixed' && st.position !== 'sticky') {
+          return;
+        }
+
+        var b = e.getBoundingClientRect();
+
+        if (b.height === 0 || b.top > 4 || b.bottom <= 0) {
+          return;
+        }
+
+        haut = Math.max(haut, b.bottom);
+      });
+
+    return haut;
+  }
+
+  function suivreEnteteCollant(r) {
+    var dernier = -1;
+
+    function mesurer() {
+      var h = Math.round(hauteurCollante());
+
+      if (h === dernier) {
+        return;
+      }
+
+      dernier = h;
+      r.style.setProperty('--eko-collant', (h + 16) + 'px');
+    }
+
+    mesurer();
+    // L'en-tête n'est souvent collant qu'une fois la page défilée, et il change
+    // de hauteur en se réduisant : on remesure au défilement, mais seulement
+    // quand la valeur bouge réellement.
+    window.addEventListener('scroll', mesurer, { passive: true });
+    window.addEventListener('resize', mesurer);
+    setTimeout(mesurer, 600);
+  }
+
   function demarrer() {
     var r = racine();
 
@@ -364,6 +422,7 @@
 
     masquerNatif();
     ancreVersConfigurateur(r, section);
+    suivreEnteteCollant(r);
     commande(false, txt(r, 'attendez', ''));
 
     /** Les choix faits, dans l'ordre des étapes. */
@@ -1131,8 +1190,8 @@
           quantiteChoisie = d.quantities.length ? Math.min.apply(null, d.quantities) : null;
           choisirDelaiLePlusEconomique();
           rendreQuantites();
-          rendreDelais();
           rendrePrestations();
+          rendreDelais();
           rendreResume();
         })
         .catch(function (e) {
@@ -1173,6 +1232,28 @@
       }
     }
 
+    /**
+     * Pose une ligne À SA PLACE, et pas à la fin.
+     *
+     * ⚠️ Les lignes se redessinent une à une — cliquer une quantité redessine
+     * la quantité, les délais et le récapitulatif. Chacune était retirée puis
+     * AJOUTÉE EN FIN de liste : au premier clic, l'ordre devenait quantités,
+     * prestations, délais… puis quantités à nouveau, tout en bas. L'ordre
+     * n'était juste qu'au premier affichage.
+     *
+     * Le rang est donc porté par la ligne, et l'insertion le respecte. Les
+     * prestations viennent AVANT le délai : on choisit son bon à tirer et sa
+     * création avant de choisir quand on veut être livré.
+     */
+    function poserLigne(l, rang) {
+      l.dataset.rang = String(rang);
+
+      var suivantes = [].slice.call(zoneEtapes.querySelectorAll('[data-ligne]'))
+        .filter(function (x) { return Number(x.dataset.rang) > rang; });
+
+      zoneEtapes.insertBefore(l, suivantes[0] || null);
+    }
+
     function rendreQuantites() {
       retirerLigne('quantite');
 
@@ -1206,7 +1287,7 @@
       }, { replier: 12 });
 
       l.dataset.ligne = 'quantite';
-      zoneEtapes.appendChild(l);
+      poserLigne(l, 10);
     }
 
     function rendreDelais() {
@@ -1321,7 +1402,9 @@
       }
 
       l.appendChild(grilleDelais);
-      zoneEtapes.appendChild(l);
+      // 30 : APRÈS les prestations. Le délai se choisit en dernier, une fois
+      // connu tout ce qui compose la commande.
+      poserLigne(l, 30);
     }
 
     /**
@@ -1332,7 +1415,7 @@
      * produit qu'elles complètent.
      */
     function rendrePrestations() {
-      services.forEach(function (sv) {
+      services.forEach(function (sv, i) {
         retirerLigne('svc-' + sv.cle);
 
         var l = document.createElement('div');
@@ -1365,7 +1448,7 @@
         });
 
         l.appendChild(sel);
-        zoneEtapes.appendChild(l);
+        poserLigne(l, 20 + i);
       });
     }
 
@@ -1488,6 +1571,18 @@
       u.className = 'eko-poc__resume-unite';
       u.textContent = c.unite_texte + ' ' + txt(r, 'unite', '');
       zoneResume.appendChild(u);
+
+      // L'encart prix public : ce qu'un particulier paierait sur cette même
+      // boutique. Il n'apparaît que pour qui achète en hors taxes — revendeur
+      // ou compte B2B. Le serveur ne l'envoie qu'à eux, le front n'a donc pas
+      // à savoir qui est qui.
+      if (c.public_texte) {
+        var pub = document.createElement('p');
+        pub.className = 'eko-poc__resume-public';
+        pub.innerHTML = '<span>' + echapper(txt(r, 'prixPublic', '')) + '</span>'
+          + '<strong>' + echapper(c.public_texte) + '</strong>';
+        zoneResume.appendChild(pub);
+      }
 
       // La promesse commerciale du marchand, s'il en a réglé une.
       if (grille.mention_prix) {

@@ -95,6 +95,9 @@ ADMIN_EN = {
     "Heure limite — livraison accélérée": "Cut-off time — express delivery",
     "Mention sous le prix": "Line under the price",
     "Réassurances": "Reassurance points",
+    "Réglages de l'imprimerie": "Print shop settings",
+    "Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.":
+        "These settings apply to every product linked to the ERP. A product carrying its own value keeps it.",
     "Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.":
         "One line per point: \u00ab Label|icon \u00bb. The icon is origine, livraison, fichier or paiement \u2014 or the path of an image uploaded to the shop, for a logo you own.",
     "Tout inclus — Livraison offerte": "All included — Free delivery",
@@ -143,6 +146,7 @@ SHOP_EN = {
     "Supplément": "Extra",
     "Meilleure offre": "Best value",
     "Soyez livré plus rapidement": "Get it faster",
+    "Prix public TTC": "Retail price incl. VAT",
     "Bon plan": "Good deal",
     "ex.": "units",
     "Détail de ma commande": "Order summary",
@@ -174,7 +178,12 @@ SHOP_EN = {
 DOMAINES = [
     {
         "nom": "ModulesEkosyncimprimerieAdmin",
-        "fichiers": [RACINE / "ekosyncimprimerie.php"],
+        # Le module ET ses contrôleurs d'ADMINISTRATION : les deux écrivent
+        # pour le marchand, donc dans le domaine Admin. Ranger les contrôleurs
+        # d'administration avec ceux du front les enverrait dans le catalogue
+        # boutique — traduits, mais jamais lus par PrestaShop.
+        "fichiers": ([RACINE / "ekosyncimprimerie.php"]
+                     + sorted((RACINE / "controllers" / "admin").rglob("*.php"))),
         # Le premier argument littéral de `$this->trans()`.
         "motif": re.compile(r"\$this->trans\(\s*'((?:[^'\\]|\\.)*)'", re.S),
         "tables": {"en-US": ADMIN_EN},
@@ -187,7 +196,7 @@ DOMAINES = [
         # contrôleurs front — ces derniers écrivent la configuration qui finit
         # sur la FACTURE du client, en sa langue.
         "fichiers": (sorted((RACINE / "views" / "templates").rglob("*.tpl"))
-                     + sorted((RACINE / "controllers").rglob("*.php"))),
+                     + sorted((RACINE / "controllers" / "front").rglob("*.php"))),
         # `{l s='…'}` de Smarty, ou `$this->trans('…')` d'un contrôleur.
         "motif": re.compile(
             r"\{l\s+s='((?:[^'\\]|\\.)*)'"

@@ -232,6 +232,12 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 'lot' => \Eko\SyncImprimerie\Configurateur\ReglesBoutique::montant($lot, $precision),
                 'lot_texte' => $this->enLettres($lot),
                 'unite_texte' => $this->enLettres($lot / $q),
+                // Le prix public, POUR CEUX QUI VOIENT DU HT — revendeurs et
+                // comptes B2B. Eux achètent hors taxes ; le montant qu'un
+                // particulier paierait sur cette même boutique leur dit où ils
+                // se situent. Un client en TTC voit déjà ce montant comme prix
+                // principal : le répéter n'apprendrait rien.
+                'public_texte' => $horsTaxe ? $this->enLettres($this->avecTaxe($lotHt, $idProduct)) : '',
             ];
         }
 
