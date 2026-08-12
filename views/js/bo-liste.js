@@ -42,7 +42,19 @@
     lignes.className = 'eko-liste__lignes';
     boite.appendChild(lignes);
 
-    /** Recompose la zone de texte à partir des lignes : elle reste la source. */
+    /**
+     * Recompose la zone de texte à partir des lignes : elle reste la source.
+     *
+     * ⚠️ ET ON PRÉVIENT LA PAGE. Écrire dans `value` par script ne déclenche
+     * AUCUN événement — c'est la règle du DOM, et elle se paie cher ici : la
+     * fiche produit de PrestaShop n'active « Enregistrer et publier » qu'après
+     * avoir vu le formulaire changer. Une saisie faite dans cet éditeur passait
+     * donc totalement inaperçue, et le bouton restait grisé, sans rien dire.
+     *
+     * `input` pour ce qui écoute la frappe, `change` pour ce qui écoute la
+     * validation d'un champ : les deux, parce qu'on ne sait pas lequel la page
+     * surveille — et qu'un événement de trop ne coûte rien.
+     */
     function ecrire() {
       var sortie = [];
 
@@ -55,7 +67,16 @@
         }
       });
 
+      var avant = zone.value;
       zone.value = sortie.join('\n');
+
+      if (zone.value === avant) {
+        return;
+      }
+
+      ['input', 'change'].forEach(function (nom) {
+        zone.dispatchEvent(new Event(nom, { bubbles: true }));
+      });
     }
 
     function apercu(l, valeur) {
