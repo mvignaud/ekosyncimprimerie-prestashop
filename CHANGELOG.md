@@ -5,7 +5,16 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ## [Non publié]
 
-Rien pour l'instant.
+### Outillage
+
+- `dev/injecter-printoclock.php` — crée des fiches boutique à partir du
+  catalogue de sous-traitance, et les lie en source `printoclock`. Il lit un
+  **fichier** plutôt que d'appeler l'ERP : sur un hébergement mutualisé, la
+  ligne de commande n'a pas le réseau sortant du serveur web.
+
+  Les fiches créées portent un prix catalogue de zéro et sont en visibilité
+  « nulle part » — ce ne sont pas des fiches de vente, ce sont des supports de
+  configurateur.
 
 ## [0.7.0] — 2026-08-12
 
