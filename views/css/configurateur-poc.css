@@ -851,12 +851,74 @@ body.eko-poc-page .product-add-to-cart .product-quantity {
   font-size: 0.85em;
 }
 
-/* La colonne latérale porte LA MÊME CLASSE que le conteneur principal —
-   `right-column` sur les deux. La masquer par sa classe seule masquerait donc
-   la page entière. On l'exclut par son identifiant, qu'elle n'a pas. */
-body.eko-poc-page .right-column:not(#content-wrapper),
+/* ⚠️ Le conteneur PRINCIPAL porte la classe `right-column` ET l'identifiant
+   `content-wrapper` ; le RAIL LATÉRAL, lui, porte l'identifiant `right-column`
+   sans la classe. Viser la classe en excluant `#content-wrapper` ne touchait
+   donc rien du tout : le rail restait affiché, avec son bloc « produits
+   phares » vide. On vise l'identifiant, qui est sans ambiguïté. */
+body.eko-poc-page #right-column,
 body.eko-poc-page #left-column {
   display: none;
+}
+
+/* ─── Les blocs de mise en avant, sur une fiche qui n'en a pas ─────────────
+   « Produits phares », « Vous aimerez aussi », « Produits de la même
+   catégorie » : ces fiches sont hors catalogue — invisibles en catégorie et en
+   recherche — donc ces blocs n'ont jamais rien à montrer. Ils affichaient trois
+   grands titres suivis chacun d'un « aucun produit », ce qui donne d'une fiche
+   l'impression d'une boutique vide.
+
+   On s'accroche au message d'absence, pas aux identifiants du constructeur de
+   pages : ceux-ci sont engendrés et changent au premier enregistrement de la
+   mise en page. Et on ne retire QUE la section qui ne contient aucun produit —
+   `:not(:has(.js-product-miniature))` — pour ne jamais emporter un bloc qui
+   aurait, lui, quelque chose à dire. */
+body.eko-poc-page .elementor-section:has(.alert-info):not(:has(.js-product-miniature)),
+body.eko-poc-page .elementor-column:has(.alert-info):not(:has(.js-product-miniature)) {
+  display: none;
+}
+
+/* Les réassurances non configurées du thème — « Security policy (edit with the
+   Customer Reassurance module) ». Le module a les siennes, réglées et
+   traduites, dans le récapitulatif ; ces textes de démonstration en anglais
+   n'apportent rien et font négligé. */
+body.eko-poc-page .block-reassurance {
+  display: none;
+}
+
+/* Le « Size Guide » du thème sert le MÊME contenu à toutes les fiches — il
+   n'en existe qu'un pour la boutique entière. Sur une imprimerie il ne veut
+   rien dire : un guide des tailles n'a de sens que sur du textile. Le module
+   en apporte un, réglable PAR PRODUIT, dans le bloc « Gabarits & instructions ».
+   On masque donc celui du thème plutôt que d'en modifier le module — un module
+   tiers retouché se paie à sa première mise à jour. */
+/* ⚠️ Le sélecteur RECOPIE celui du thème, préfixé par `body.eko-poc-page`.
+   `body.eko-poc-page .btn-size-chart` ne suffisait pas : le thème pose
+   `.summary-container .product-additional-info > .btn-action.btn-size-chart`,
+   plus spécifique, qui l'emportait en silence. Même piège que pour le
+   conteneur principal — et la même parade, sans recourir à `!important`. */
+body.eko-poc-page .summary-container .product-additional-info > .btn-action.btn-size-chart,
+body.eko-poc-page .btn-size-chart {
+  display: none;
+}
+
+/* Le guide du produit : du HTML saisi par le marchand, qu'on laisse respirer
+   sans lui imposer une mise en forme qu'il n'a pas demandée. */
+.eko-tech__guide {
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.eko-tech__guide table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.eko-tech__guide th,
+.eko-tech__guide td {
+  padding: 0.4em 0.6em;
+  border: 1px solid var(--bs-border-color, #dfe3e8);
+  text-align: left;
 }
 
 /* ─── L'en-tête de fiche, et le configurateur en dessous ───────────────────

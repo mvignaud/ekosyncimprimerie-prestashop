@@ -79,7 +79,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.17.0';
+        $this->version = '0.18.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -688,6 +688,43 @@ class Ekosyncimprimerie extends Module
                     'Modules.Ekosyncimprimerie.Admin'
                 ))
             )
+            . '</fieldset>'
+            . $this->boGuide($idProduct);
+    }
+
+    /**
+     * Le guide propre au produit — remplace le « Size Guide » du thème.
+     *
+     * Deux champs et rien de plus : un intitulé et un contenu. Laisser le
+     * contenu vide, c'est ne pas afficher de guide — inutile d'ajouter une case
+     * à cocher pour dire la même chose deux fois.
+     */
+    private function boGuide(int $idProduct): string
+    {
+        return '<fieldset class="eko-bo__bloc"><legend>'
+            . $this->trans('Guide du produit', [], 'Modules.Ekosyncimprimerie.Admin')
+            . '</legend>'
+            . '<p class="help-block">'
+            . $this->trans(
+                'Remplace le « Size Guide » du thème, qui est le même pour toute la boutique. Laisser le contenu vide pour n\'afficher aucun guide sur cette fiche — un guide des tailles n\'a pas de sens sur un flyer, il en a un sur un textile.',
+                [],
+                'Modules.Ekosyncimprimerie.Admin'
+            )
+            . '</p>'
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<input type="text" name="ekosync_guide_titre" class="form-control" value="%s" placeholder="%s"></div>',
+                htmlspecialchars($this->trans('Intitulé', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('guide_titre', $idProduct)),
+                htmlspecialchars($this->filigrane('guide_titre', $this->trans('Guide des tailles', [], 'Modules.Ekosyncimprimerie.Admin')))
+            )
+            . sprintf(
+                '<div class="form-group"><label class="form-control-label">%s</label>'
+                . '<textarea name="ekosync_guide_contenu" class="form-control" rows="6" placeholder="%s">%s</textarea></div>',
+                htmlspecialchars($this->trans('Contenu', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->trans('Texte ou tableau HTML. Vide = pas de guide sur cette fiche.', [], 'Modules.Ekosyncimprimerie.Admin')),
+                htmlspecialchars($this->surchargeProduit('guide_contenu', $idProduct))
+            )
             . '</fieldset>';
     }
 
@@ -738,9 +775,14 @@ class Ekosyncimprimerie extends Module
             ServicesProduit::poser('ventes', $idProduct, (string) Tools::getValue('ekosync_ventes'));
         }
 
-        foreach (['delai_note', 'delai_note_rapide', 'mention_prix', 'reassurances'] as $cle) {
+        foreach (['delai_note', 'delai_note_rapide', 'mention_prix', 'reassurances', 'guide_titre', 'guide_contenu'] as $cle) {
             if (Tools::getIsset('ekosync_' . $cle)) {
-                ServicesProduit::poser($cle, $idProduct, (string) Tools::getValue('ekosync_' . $cle));
+                ServicesProduit::poser(
+                    $cle,
+                    $idProduct,
+                    (string) Tools::getValue('ekosync_' . $cle),
+                    in_array($cle, ServicesProduit::RICHES, true)
+                );
             }
         }
     }
@@ -855,7 +897,12 @@ class Ekosyncimprimerie extends Module
             }
         }
 
-        return ['lignes' => $lignes, 'gabarits' => $gabarits];
+        return [
+            'lignes' => $lignes,
+            'gabarits' => $gabarits,
+            // Le guide propre à ce produit, quand le marchand en a écrit un.
+            'guide' => ServicesProduit::guide($idProduct),
+        ];
     }
 
     /**

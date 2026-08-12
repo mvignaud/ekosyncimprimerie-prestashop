@@ -89,10 +89,22 @@ final class ServicesProduit
         return $defaut;
     }
 
-    public static function poser(string $nom, int $idProduct, string $valeur): void
+    /**
+     * Enregistre un réglage.
+     *
+     * ⚠️ `$html` n'est pas une commodité : `Configuration::updateValue()` RETIRE
+     * les balises par défaut. Un guide saisi avec un tableau ressortait en
+     * « FormatZone utileA2400 x 570 mm » — les cellules recollées les unes aux
+     * autres, illisibles, et sans que rien ne l'annonce. Seuls les réglages qui
+     * portent réellement du HTML l'activent.
+     */
+    public static function poser(string $nom, int $idProduct, string $valeur, bool $html = false): void
     {
-        \Configuration::updateValue(self::cle($nom, $idProduct), $valeur);
+        \Configuration::updateValue(self::cle($nom, $idProduct), $valeur, $html);
     }
+
+    /** Les réglages dont le contenu est du HTML, et doit le rester. */
+    public const RICHES = ['guide_contenu'];
 
     /**
      * La fiche technique d'un produit.
@@ -188,6 +200,41 @@ final class ServicesProduit
         }
 
         return $sortie;
+    }
+
+    /**
+     * Le guide du produit — tailles, gabarits, ce que le marchand veut.
+     *
+     * ─── POURQUOI DANS CE MODULE, ET PAS DANS CELUI DU THÈME ───────────────
+     *
+     * Le thème apporte un « Size Guide » global : le MÊME contenu pour toutes
+     * les fiches. Sur une imprimerie, cela n'a de sens nulle part — un guide
+     * des tailles ne veut rien dire pour un flyer — et cela en aurait sur les
+     * textiles, où chaque coupe a ses mesures.
+     *
+     * Modifier ce module tiers pour lui ajouter un contenu par produit se
+     * paierait à sa première mise à jour. On écrit donc le nôtre, et le lien du
+     * thème est masqué sur les fiches que ce module pilote.
+     *
+     * Vide, le bloc n'existe pas : c'est ainsi qu'on « désactive » le guide sur
+     * un produit qui n'en a pas besoin — sans case à cocher de plus.
+     *
+     * @return array{titre: string, contenu: string}|null
+     */
+    public static function guide(int $idProduct): ?array
+    {
+        $contenu = trim(self::reglage('guide_contenu', $idProduct));
+
+        if ($contenu === '') {
+            return null;
+        }
+
+        $titre = trim(self::reglage('guide_titre', $idProduct));
+
+        return [
+            'titre' => $titre !== '' ? $titre : 'Guide',
+            'contenu' => $contenu,
+        ];
     }
 
     /**
