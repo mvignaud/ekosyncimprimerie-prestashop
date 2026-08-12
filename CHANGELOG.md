@@ -7,6 +7,21 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.6.1] — 2026-08-12
+
+### Corrigé
+
+- **Le bloc de personnalisation natif est masqué.** PrestaShop identifie une
+  configuration par une « customization », et le module s'en sert comme
+  support : il y range la configuration en clair, qui suit jusqu'à la facture.
+  Mais le thème rendait aussi ce champ au client, avec sa zone de texte et son
+  « N'oubliez pas de sauvegarder votre personnalisation ». C'est de la
+  plomberie, pas une question à poser à un acheteur — et ce qu'il y aurait
+  écrit **aurait écrasé** la configuration, donc le libellé de sa facture.
+
+  Le champ n'étant pas obligatoire, le masquer ne bloque aucun ajout au panier.
+  Le configurateur devient la seule saisie.
+
 ## [0.6.0] — 2026-08-12
 
 Le configurateur ressemble enfin à un configurateur.
@@ -366,7 +381,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.6.0...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.1
 [0.6.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.0
 [0.5.2]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.2
 [0.5.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.1

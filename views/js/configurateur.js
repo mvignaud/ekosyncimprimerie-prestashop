@@ -136,6 +136,33 @@
     bloc.style.display = 'none';
   }
 
+  /**
+   * Masquer le bloc de personnalisation natif.
+   *
+   * PrestaShop identifie une configuration par une « customization », et le
+   * module s'en sert comme support : il y range la configuration en clair, qui
+   * suit ensuite jusqu'au panier, à la commande et à la facture.
+   *
+   * Mais le thème rend AUSSI ce champ au client, avec sa zone de texte et son
+   * « N'oubliez pas de sauvegarder votre personnalisation ». Deux problèmes :
+   *
+   *   — c'est de la plomberie, pas une question à poser à un acheteur ;
+   *   — ce qu'il y écrirait ÉCRASERAIT la configuration que le module y a
+   *     rangée, donc le libellé qui part sur sa facture.
+   *
+   * Le champ n'est pas obligatoire (vérifié : `required = 0`), le masquer ne
+   * bloque donc aucun ajout au panier. Le configurateur est la seule saisie.
+   */
+  function masquerPersonnalisationNative() {
+    var bloc =
+      document.querySelector('.product-customization') ||
+      document.querySelector('#product-customization');
+
+    if (bloc) {
+      bloc.style.display = 'none';
+    }
+  }
+
   function demarrer() {
     var racine = document.querySelector('.eko-configurateur');
 
@@ -167,6 +194,7 @@
     // Le thème vient peut-être de re-rendre son bloc : on le remasque, et on
     // reverrouille la commande jusqu'au prochain prix connu.
     masquerPrixNatif();
+    masquerPersonnalisationNative();
     commande(false, racine.dataset.attendezPrix || '');
 
     var enCours = null;
@@ -325,6 +353,7 @@
       // réapparaîtrait — avec le prix catalogue. On remasque d'abord, on
       // réinitialise ensuite.
       masquerPrixNatif();
+      masquerPersonnalisationNative();
       demarrer();
     });
   }
