@@ -55,12 +55,133 @@
   color: var(--eko-texte);
 }
 
-/* Les cartes s'enroulent. Pas de carrousel : une flèche cache des choix, et un
-   acheteur qui ne voit pas une option ne l'achète pas. */
+/* Le libellé du critère et, à droite, la commande qui déplie la ligne. */
+.eko-poc__ligne-tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+}
+
 .eko-poc__cartes {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6em;
+}
+
+/* ─── Le ruban défilant ────────────────────────────────────────────────────
+   Réservé aux FORMATS. Leurs vignettes doivent rester grandes — c'est leur
+   comparaison qui fait tout leur intérêt — donc on ne peut pas les rétrécir
+   pour les faire tenir. On les fait défiler.
+
+   Le défilement est celui du navigateur, pas un `transform` : le glissement au
+   doigt, la molette horizontale du pavé tactile et l'amenée dans le champ de
+   vision au focus clavier viennent alors gratuitement et se comportent comme
+   partout ailleurs. */
+.eko-poc__ruban {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.eko-poc__vue {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  /* ⚠️ `scroll-snap-type` va sur le conteneur QUI DÉFILE, jamais sur la piste
+     qu'il contient. Posé sur l'enfant, il ne fait rien — et ne dit rien. */
+  scroll-snap-type: x proximity;
+  /* Barre masquée : elle traverserait les libellés des cartes. Les flèches et
+     le glissement au doigt restent, eux. */
+  scrollbar-width: none;
+}
+
+.eko-poc__vue::-webkit-scrollbar {
+  display: none;
+}
+
+.eko-poc__ruban .eko-poc__cartes {
+  flex-wrap: nowrap;
+}
+
+.eko-poc__ruban .eko-poc__carte {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+/* Déplié par « Tout voir », le ruban redevient une grille. Les flèches n'ont
+   alors plus d'objet. */
+.eko-poc__ruban--deplie .eko-poc__vue {
+  overflow: visible;
+}
+
+.eko-poc__ruban--deplie .eko-poc__cartes {
+  flex-wrap: wrap;
+}
+
+.eko-poc__ruban--deplie .eko-poc__fleche {
+  display: none;
+}
+
+/* Le défilement fluide se tait pour qui a demandé moins d'animation — et les
+   flèches marchent quand même, puisqu'elles ne dépendent pas de l'animation. */
+@media (prefers-reduced-motion: reduce) {
+  .eko-poc__vue {
+    scroll-behavior: auto;
+  }
+}
+
+.eko-poc__fleche {
+  flex: 0 0 auto;
+  width: 1.9em;
+  height: 1.9em;
+  padding: 0;
+  border: 1px solid var(--eko-bord);
+  border-radius: 50%;
+  background: var(--eko-fond);
+  color: var(--eko-texte);
+  font-size: 1.2em;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.eko-poc__fleche:hover:not(:disabled) {
+  border-color: var(--eko-accent);
+  color: var(--eko-accent);
+}
+
+/* En butée, la flèche s'éteint au lieu de rester cliquable sans effet. */
+.eko-poc__fleche:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ─── Les commandes de dépliage ────────────────────────────────────────────
+   Discrètes : elles servent une minorité de visiteurs, et ne doivent pas
+   entrer en concurrence avec les choix eux-mêmes. */
+.eko-poc__tout-voir,
+.eko-poc__voir-plus {
+  padding: 0.35em 0.8em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: transparent;
+  color: var(--eko-texte-doux);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.eko-poc__tout-voir:hover,
+.eko-poc__voir-plus:hover {
+  border-color: var(--eko-accent);
+  color: var(--eko-accent);
+}
+
+/* Le « Voir plus » des quantités prend la place d'une carte, dans la grille. */
+.eko-poc__voir-plus {
+  align-self: stretch;
+  min-width: 7.5em;
 }
 
 .eko-poc__carte {
@@ -138,10 +259,74 @@
   background: var(--eko-fond-doux);
 }
 
+/* Une barre de titre pleine largeur, à l'accent de la boutique : elle sépare
+   le récapitulatif du reste de la page, qui est un fond clair du haut en bas. */
 .eko-poc__resume-titre {
-  margin: 0 0 0.6em;
+  margin: -1.25em -1.25em 0.9em;
+  padding: 0.75em 1.25em;
+  border-radius: var(--eko-rayon) var(--eko-rayon) 0 0;
+  background: var(--eko-accent);
+  color: #fff;
   font-size: 1.05em;
   font-weight: 700;
+}
+
+.eko-poc__resume-produit {
+  margin: 0 0 0.5em;
+  font-weight: 700;
+}
+
+/* La date de livraison ressort : c'est, avec le prix, ce qui fait décider. */
+.eko-poc__resume-date strong {
+  color: var(--eko-accent);
+}
+
+/* ─── Les quantités supérieures ────────────────────────────────────────────
+   L'impression est dégressive, et un visiteur qui a choisi sa quantité ne
+   regarde plus la grille. On lui remet le palier suivant sous les yeux au
+   moment où il décide. */
+.eko-poc__superieures-titre {
+  margin: 1.1em 0 0.5em;
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+.eko-poc__superieures {
+  display: flex;
+  gap: 0.5em;
+}
+
+.eko-poc__superieure {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.1em;
+  padding: 0.5em 0.6em;
+  border: 1px solid var(--eko-bord);
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eko-poc__superieure:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__superieure-qte {
+  font-size: 0.85em;
+  color: var(--eko-texte-doux);
+}
+
+.eko-poc__superieure-prix {
+  font-weight: 700;
+}
+
+.eko-poc__superieure-unite {
+  font-size: 0.75em;
+  color: var(--eko-texte-doux);
 }
 
 .eko-poc__resume-prix {
@@ -242,6 +427,31 @@ body.eko-poc-page #content-wrapper {
   flex: 0 0 100%;
 }
 
+/* ─── Les commandes natives du thème ───────────────────────────────────────
+   Le thème pose son propre sélecteur de quantité et ses boutons « Ajouter au
+   panier » / « Buy Now ». Sur une fiche configurée, ils demandent un nombre
+   d'exemplaires que le configurateur porte DÉJÀ : deux quantités à l'écran, et
+   le visiteur ne sait pas laquelle compte.
+
+   ⚠️ MASQUÉS, JAMAIS RETIRÉS. Le formulaire qui les entoure porte le jeton,
+   l'identifiant produit, l'identifiant de configuration et la quantité — et
+   c'est ce bouton-là que le module déclenche. Le sortir du document casserait
+   l'ajout au panier au lieu de le nettoyer. On masque donc le bloc de
+   commandes, et rien au-dessus. */
+body.eko-poc-page .product-add-to-cart .product-quantity {
+  display: none;
+}
+
+.eko-poc__panier-refus {
+  margin: 0.75em 0 0;
+  padding: 0.6em 0.8em;
+  border-left: 3px solid var(--eko-erreur);
+  border-radius: 0 var(--eko-rayon) var(--eko-rayon) 0;
+  background: var(--eko-fond);
+  color: var(--eko-erreur);
+  font-size: 0.85em;
+}
+
 /* La colonne latérale porte LA MÊME CLASSE que le conteneur principal —
    `right-column` sur les deux. La masquer par sa classe seule masquerait donc
    la page entière. On l'exclut par son identifiant, qu'elle n'a pas. */
@@ -250,18 +460,40 @@ body.eko-poc-page #left-column {
   display: none;
 }
 
-@media (min-width: 992px) {
-  /* L'image cède la place : c'est le configurateur qui porte la décision
-     d'achat sur ce type de produit, pas le visuel. */
-  .eko-poc-page .product-container > .row > [class*='col-']:first-child {
-    max-width: 26%;
-    flex: 0 0 26%;
-  }
+/* ─── L'en-tête de fiche, et le configurateur en dessous ───────────────────
+   Le configurateur est SORTI de la colonne d'achat par le JavaScript et posé
+   dans cette section, sous la fiche. L'en-tête retrouve donc sa forme normale
+   — image à gauche, titre, description et appel à l'action à droite — et le
+   configurateur prend toute la largeur.
 
-  .eko-poc-page .product-container > .row > [class*='col-']:nth-child(2) {
-    max-width: 74%;
-    flex: 0 0 74%;
-  }
+   Une première version le laissait dans la colonne : il y écrasait l'image, la
+   description et les arguments de vente, qui passaient sous la ligne de
+   flottaison. C'est ce que l'utilisateur a vu, et il avait raison. */
+.eko-poc-section {
+  margin: 2.5em 0 1em;
+  padding-top: 2em;
+  border-top: 1px solid var(--bs-border-color, #dfe3e8);
+}
+
+/* Le bouton qui descend vers le configurateur, à la place que celui-ci
+   occupait dans la colonne d'achat. */
+.eko-poc-ancre {
+  display: inline-block;
+  margin: 0.5em 0 1em;
+  padding: 0.85em 1.8em;
+  border: 0;
+  border-radius: 0.3em;
+  background: var(--bs-body-color, #1f2933);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.eko-poc-ancre:hover {
+  background: var(--bs-primary, #d81b60);
 }
 
 /* Un produit sans visuel ne doit pas manger la page. Le cadre garde une
@@ -312,15 +544,35 @@ body.eko-poc-page #left-column {
    d'un regard. */
 .eko-poc__ligne--formats .eko-poc__carte {
   align-items: center;
-  min-width: 6.5em;
+  min-width: 8.5em;
+  max-width: 10em;
   text-align: center;
 }
 
 .eko-poc__svg {
   display: block;
-  width: 3.4em;
-  height: 3.4em;
-  margin-bottom: 0.25em;
+  width: 5.6em;
+  height: 5.6em;
+  margin-bottom: 0.3em;
+}
+
+/* Le format de référence, en pointillés derrière la silhouette : c'est lui qui
+   donne l'échelle. Sans repère, un A6 et un A4 se ressemblent. */
+.eko-poc__svg-repere {
+  fill: none;
+  stroke: var(--eko-bord);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+
+/* Le nom écrit dans la silhouette. `em` sur un SVG à `viewBox` suivrait la
+   taille du texte du bloc et non celle du dessin : ici l'unité est celle du
+   repère de coordonnées, qui vaut 96 de côté quelle que soit la taille rendue. */
+/* La taille est posée par le dessin lui-même, en attribut : elle dépend de la
+   place que la silhouette laisse, qui varie d'un format à l'autre. */
+.eko-poc__svg-nom {
+  fill: var(--eko-fond);
+  font-weight: 700;
 }
 
 /* Le dessin du fournisseur arrive avec ses propres dimensions — souvent
@@ -336,16 +588,16 @@ body.eko-poc-page #left-column {
   height: 100%;
 }
 
+/* Silhouette PLEINE et sombre, comme la référence : c'est ce qui permet
+   d'écrire le nom du format dedans, en blanc, et de le lire. Une forme claire
+   à filet fin ne porte pas de texte. */
 .eko-poc__svg-forme {
-  fill: var(--eko-fond-doux);
-  stroke: var(--eko-texte-doux);
-  stroke-width: 1.5;
+  fill: var(--eko-texte);
+  stroke: none;
 }
 
 .eko-poc__carte--actif .eko-poc__svg-forme {
-  fill: var(--eko-fond);
-  stroke: var(--eko-accent);
-  stroke-width: 2;
+  fill: var(--eko-accent);
 }
 
 /* ─── Les listes déroulantes ───────────────────────────────────────────────

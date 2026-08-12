@@ -79,64 +79,92 @@
         <target>Add to cart</target>
       </trans-unit>
       <trans-unit id="20">
+        <source>L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.</source>
+        <target>Adding to the cart did not go through. Check your configuration and try again.</target>
+      </trans-unit>
+      <trans-unit id="21">
+        <source>Tout voir</source>
+        <target>See all</target>
+      </trans-unit>
+      <trans-unit id="22">
+        <source>Voir plus</source>
+        <target>See more</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Formats précédents</source>
+        <target>Previous formats</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>Formats suivants</source>
+        <target>Next formats</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>Quantités supérieures</source>
+        <target>Larger quantities</target>
+      </trans-unit>
+      <trans-unit id="26">
         <source>Je configure mon produit</source>
         <target>Configure my product</target>
       </trans-unit>
-      <trans-unit id="21">
+      <trans-unit id="27">
         <source>Gabarits &amp; instructions</source>
         <target>Templates &amp; instructions</target>
       </trans-unit>
-      <trans-unit id="22">
+      <trans-unit id="28">
         <source>Fiche technique</source>
         <target>Technical sheet</target>
       </trans-unit>
-      <trans-unit id="23">
+      <trans-unit id="29">
         <source>Gabarits</source>
         <target>Templates</target>
       </trans-unit>
-      <trans-unit id="24">
+      <trans-unit id="30">
         <source>Télécharger le gabarit</source>
         <target>Download the template</target>
       </trans-unit>
-      <trans-unit id="25">
+      <trans-unit id="31">
         <source>Calcul du prix…</source>
         <target>Calculating the price…</target>
       </trans-unit>
-      <trans-unit id="26">
+      <trans-unit id="32">
         <source>Délai indicatif</source>
         <target>Estimated lead time</target>
       </trans-unit>
-      <trans-unit id="27">
+      <trans-unit id="33">
         <source>jour(s) ouvré(s)</source>
         <target>working day(s)</target>
       </trans-unit>
-      <trans-unit id="28">
+      <trans-unit id="34">
         <source>Configuration impossible à chiffrer.</source>
         <target>This configuration cannot be priced.</target>
       </trans-unit>
-      <trans-unit id="29">
+      <trans-unit id="35">
         <source>Le prix n’a pas pu être obtenu.</source>
         <target>The price could not be retrieved.</target>
       </trans-unit>
-      <trans-unit id="30">
+      <trans-unit id="36">
         <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
         <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
       </trans-unit>
-      <trans-unit id="31">
+      <trans-unit id="37">
         <source>Le prix de cette configuration est en cours de calcul.</source>
         <target>The price for this configuration is being calculated.</target>
       </trans-unit>
-      <trans-unit id="32">
+      <trans-unit id="38">
         <source>Configurez votre produit</source>
         <target>Configure your product</target>
       </trans-unit>
-      <trans-unit id="33">
+      <trans-unit id="39">
         <source>— au choix —</source>
         <target>— your choice —</target>
       </trans-unit>
-      <trans-unit id="34">
+      <trans-unit id="40">
         <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
         <target>The price applies to the quantity selected below.</target>
+      </trans-unit>
+      <trans-unit id="41">
+        <source>Délai</source>
+        <target>Lead time</target>
       </trans-unit>
     </body>
   </file>

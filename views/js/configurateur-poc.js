@@ -98,36 +98,75 @@
    * générique 42 × 30. Deux sources pour une même mesure en donnent tôt ou tard
    * deux réponses ; il n'y en a plus qu'une.
    */
-  function vignetteFormat(d, refMax, rond) {
-    var boite = 58;
-    var ouvre = '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '" aria-hidden="true">';
+  function vignetteFormat(d, refMax, rond, nom, repere) {
+    var boite = 96;
+    var ouvre = '<svg class="eko-poc__svg" viewBox="0 0 ' + boite + ' ' + boite + '"'
+      + ' role="img" aria-hidden="true">';
 
     if (!d) {
-      return ouvre + '<rect x="8" y="14" width="42" height="30" rx="2" class="eko-poc__svg-forme"/></svg>';
+      return ouvre + '<rect x="14" y="24" width="68" height="48" rx="3" class="eko-poc__svg-forme"/></svg>';
     }
 
-    var plus = Math.max(d.l, d.h);
-    var echelle = (boite - 8) / Math.max(refMax || plus, 1);
-    var l = Math.max(6, d.l * echelle);
-    var h = Math.max(6, d.h * echelle);
+    var marge = 10;
+    var echelle = (boite - marge * 2) / Math.max(refMax || Math.max(d.l, d.h), 1);
+    var l = Math.max(10, d.l * echelle);
+    var h = Math.max(10, d.h * echelle);
+    var sortie = ouvre;
 
-    // Un format rond dessiné en carré est une vignette qui ment sur ce qu'on
-    // achète. Le libellé le dit — « 10 cm de diamètre (rond) » — et c'est la
-    // seule source dont on dispose : l'ERP ne fournit pas de dessin ici.
-    if (rond) {
-      return ouvre + '<circle cx="' + (boite / 2) + '" cy="' + (boite / 2) + '"'
-        + ' r="' + (Math.max(l, h) / 2).toFixed(1) + '" class="eko-poc__svg-forme"/></svg>';
+    // Le format de RÉFÉRENCE, en pointillés derrière : c'est lui qui donne
+    // l'échelle. Un rectangle seul dit ses proportions, pas sa taille — « A6 »
+    // et « A4 » se ressemblent tant qu'on n'a rien à quoi les rapporter.
+    if (repere && (repere.l !== d.l || repere.h !== d.h)) {
+      var rl = repere.l * echelle;
+      var rh = repere.h * echelle;
+
+      sortie += '<rect x="' + ((boite - rl) / 2).toFixed(1) + '" y="' + ((boite - rh) / 2).toFixed(1) + '"'
+        + ' width="' + rl.toFixed(1) + '" height="' + rh.toFixed(1) + '" rx="2"'
+        + ' class="eko-poc__svg-repere"/>';
     }
 
-    return ouvre
-      + '<rect x="' + ((boite - l) / 2).toFixed(1) + '" y="' + ((boite - h) / 2).toFixed(1) + '"'
-      + ' width="' + l.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="1.5" class="eko-poc__svg-forme"/>'
-      + '</svg>';
+    sortie += rond
+      ? '<circle cx="' + (boite / 2) + '" cy="' + (boite / 2) + '"'
+        + ' r="' + (Math.max(l, h) / 2).toFixed(1) + '" class="eko-poc__svg-forme"/>'
+      : '<rect x="' + ((boite - l) / 2).toFixed(1) + '" y="' + ((boite - h) / 2).toFixed(1) + '"'
+        + ' width="' + l.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="2" class="eko-poc__svg-forme"/>';
+
+    // Le nom DANS la silhouette, comme sur la référence — à condition qu'il y
+    // tienne. Un « 10 cm de diamètre (rond) » écrit dans un rond de trente
+    // pixels déborderait de partout ; le libellé sous la carte le porte déjà.
+    //
+    // La taille du texte se DÉDUIT de la place disponible. Une taille fixe
+    // débordait : « 20x15 » s'affichait « 0x1 », rogné des deux côtés par sa
+    // propre silhouette. On compte 0,62 de large par caractère pour une grasse,
+    // et on renonce en dessous de 8 — illisible, autant ne rien écrire.
+    var court = String(nom || '');
+    var taille = court === '' ? 0 : Math.min(22, (l * 0.92) / (court.length * 0.62), h * 0.55);
+
+    if (court !== '' && court.length <= 6 && taille >= 8) {
+      sortie += '<text x="' + (boite / 2) + '" y="' + (boite / 2) + '"'
+        + ' class="eko-poc__svg-nom" font-size="' + taille.toFixed(1) + '"'
+        + ' text-anchor="middle" dominant-baseline="central">'
+        + echapper(court) + '</text>';
+    }
+
+    return sortie + '</svg>';
   }
 
   /** Tous les boutons d'ajout au panier — les thèmes en posent souvent deux. */
   function boutonsPanier() {
     return document.querySelectorAll('[data-button-action="add-to-cart"]');
+  }
+
+  /**
+   * Le formulaire d'ajout au panier de PrestaShop.
+   *
+   * Il est MASQUÉ sur les fiches que le module pilote, jamais retiré : il porte
+   * le jeton, l'identifiant produit, l'identifiant de configuration et la
+   * quantité. Un élément masqué reste dans le document et reste déclenchable
+   * par script — le retirer casserait l'ajout au panier au lieu de le nettoyer.
+   */
+  function formulairePanier() {
+    return document.querySelector('#add-to-cart-or-refresh');
   }
 
   function commande(autorisee, motif) {
@@ -175,6 +214,82 @@
     }
   }
 
+  /**
+   * Sort le configurateur de la colonne d'achat et le pose SOUS la fiche.
+   *
+   * ─── POURQUOI DÉPLACER PLUTÔT QUE CHANGER DE HOOK ──────────────────────
+   *
+   * Le module s'accroche à `displayProductPriceBlock`, qui rend le bloc dans la
+   * colonne étroite réservée au prix. Un configurateur à quatorze formats et
+   * vingt-trois quantités n'y tient pas : il écrasait l'image du produit, sa
+   * description et ses arguments de vente, qui se retrouvaient tous sous la
+   * ligne de flottaison — ou nulle part.
+   *
+   * Changer de hook ne réglerait pas le problème : les hooks produit d'un thème
+   * rendent tous DANS une colonne. Il faut sortir de la grille, ce que seul le
+   * navigateur peut faire une fois la page bâtie.
+   *
+   * La fiche retrouve ainsi sa forme habituelle — image à gauche, texte et
+   * appel à l'action à droite — et le configurateur prend toute la largeur
+   * juste en dessous, comme sur la référence.
+   */
+  function deplacerSousLaFiche(r) {
+    var fiche = document.querySelector('.product-container');
+
+    if (!fiche || !fiche.parentElement || fiche.contains(r) === false) {
+      return null;
+    }
+
+    var section = document.createElement('section');
+    section.className = 'eko-poc-section';
+    section.id = 'eko-configurateur';
+
+    fiche.parentElement.insertBefore(section, fiche.nextSibling);
+    section.appendChild(r);
+
+    // ⚠️ La fiche technique voyage AVEC le configurateur. Elle est rendue par
+    // le même hook, donc dans le même bloc prix — et ce bloc est masqué juste
+    // après. La laisser sur place l'aurait fait disparaître de la page en même
+    // temps, alors qu'elle avait été demandée expressément.
+    var tech = document.querySelector('.eko-tech');
+
+    if (tech) {
+      section.appendChild(tech);
+    }
+
+    return section;
+  }
+
+  /**
+   * Le bouton qui descend vers le configurateur, à la place qu'il occupait.
+   *
+   * Sans lui, le visiteur qui arrive sur la fiche voit une image, un texte, et
+   * rien qui indique où l'on choisit et où l'on achète — le configurateur étant
+   * désormais plus bas.
+   */
+  function ancreVersConfigurateur(r, section) {
+    // Après les arguments de vente, comme sur la référence : on lit d'abord ce
+    // qu'on achète, on descend configurer ensuite. Placé avant la description,
+    // le bouton demande de choisir avant d'avoir rien lu.
+    var apres = document.querySelector('.product-short-description')
+      || document.querySelector('.product-prices');
+    var hote = apres && apres.parentElement ? apres.parentElement : null;
+
+    if (!hote || !section) {
+      return;
+    }
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'eko-poc-ancre';
+    b.textContent = txt(r, 'jeConfigure', 'Je configure mon produit');
+    b.addEventListener('click', function () {
+      section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+
+    hote.insertBefore(b, apres.nextSibling);
+  }
+
   function demarrer() {
     var r = racine();
 
@@ -193,7 +308,13 @@
     var zoneEtapes = r.querySelector('.eko-poc__etapes');
     var zoneResume = r.querySelector('.eko-poc__resume');
 
+    // Déplacer AVANT de masquer : une fois le configurateur sorti du bloc prix,
+    // ce bloc n'a plus rien à montrer que le prix catalogue — nul sur ces
+    // fiches — et `masquerNatif()` peut le masquer en entier.
+    var section = deplacerSousLaFiche(r);
+
     masquerNatif();
+    ancreVersConfigurateur(r, section);
     commande(false, txt(r, 'attendez', ''));
 
     /** Les choix faits, dans l'ordre des étapes. */
@@ -207,18 +328,109 @@
     var choixServices = {};
     /** Les rangs de l'arbre : leurs options, dans l'ordre d'affichage. */
     var rangs = [];
+    /** Le nom du produit, tel que l'ERP le donne. */
+    var nomProduit = '';
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
     var quantiteChoisie = null;
     var delaiChoisi = null;
     var enCours = null;
 
-    function appeler(params) {
-      if (enCours) {
-        enCours.abort();
+    /** Le mot que le récapitulatif dit quand l'ajout au panier échoue. */
+    var messagePanier = document.createElement('p');
+    messagePanier.className = 'eko-poc__panier-refus';
+    messagePanier.hidden = true;
+
+    /**
+     * Ajoute la configuration au panier.
+     *
+     * ─── POURQUOI UN ALLER-RETOUR AVANT DE DÉCLENCHER ────────────────────
+     *
+     * Le prix affiché vient de l'ERP ; PrestaShop, lui, ne connaît que le prix
+     * catalogue de la fiche. Tant que la boutique n'a pas RETENU la
+     * configuration et enregistré son prix, ajouter au panier ajoute au prix
+     * catalogue. Mesuré : le configurateur affichait 68,04 €, la ligne au
+     * panier valait 0,00 €.
+     *
+     * On demande donc au serveur de retenir la configuration — il rappelle
+     * l'ERP, vérifie que la case choisie existe encore, et rend l'identifiant
+     * de configuration. C'est seulement ensuite qu'on déclenche le formulaire.
+     *
+     * Le montant ne voyage jamais depuis le navigateur : un prix venu du client
+     * serait un prix que la boutique n'a pas vérifié.
+     */
+    function ajouterAuPanier(bouton) {
+      var f = formulairePanier();
+
+      if (!f || quantiteChoisie === null || delaiChoisi === null) {
+        return;
       }
 
-      enCours = new AbortController();
+      bouton.disabled = true;
+      messagePanier.hidden = true;
+
+      appeler({ quoi: 'retenir', quantite: quantiteChoisie, delai: delaiChoisi }, true)
+        .then(function (d) {
+          if (!d || d.ok !== true || !d.id_customization) {
+            throw new Error((d && d.message) || txt(r, 'echecPanier', ''));
+          }
+
+          var champ = f.querySelector('input[name="id_customization"]');
+
+          if (champ) {
+            champ.value = d.id_customization;
+          }
+
+          // UN lot, pas N exemplaires : le nombre d'exemplaires est porté par
+          // la configuration, et le sous-traitant tarife le lot entier.
+          var qte = f.querySelector('#quantity_wanted, input[name="qty"]');
+
+          if (qte) {
+            qte.value = d.quantite_panier || 1;
+          }
+
+          var natif = f.querySelector('[data-button-action="add-to-cart"]');
+
+          if (!natif) {
+            throw new Error(txt(r, 'echecPanier', ''));
+          }
+
+          // Le bouton du thème est masqué mais bien présent : le déclencher
+          // laisse PrestaShop faire son propre travail — jeton, contrôle de
+          // stock, mise à jour du panier volant.
+          natif.disabled = false;
+          natif.click();
+        })
+        .catch(function (e) {
+          messagePanier.textContent = e.message || txt(r, 'echecPanier', '');
+          messagePanier.hidden = false;
+        })
+        .then(function () {
+          bouton.disabled = false;
+        });
+    }
+
+    /**
+     * Un appel au relais.
+     *
+     * `seul` détache l'appel du contrôleur partagé. Les appels de navigation
+     * s'annulent l'un l'autre — c'est voulu, une réponse périmée ne doit pas
+     * écraser la suivante. L'ajout au panier, lui, ne doit JAMAIS être annulé
+     * par un rendu qui passe : le visiteur a cliqué.
+     */
+    function appeler(params, seul) {
+      var signal;
+
+      if (seul) {
+        signal = undefined;
+      } else {
+        if (enCours) {
+          enCours.abort();
+        }
+
+        enCours = new AbortController();
+        signal = enCours.signal;
+      }
 
       var p = new URLSearchParams();
       p.set('ajax', '1');
@@ -230,7 +442,7 @@
       });
 
       return fetch(r.dataset.url + '&' + p.toString(), {
-        signal: enCours.signal,
+        signal: signal,
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }).then(function (x) { return x.json(); });
@@ -238,14 +450,37 @@
 
     // ─── Le rendu ──────────────────────────────────────────────────────────
 
-    function ligne(titre, cartes, actifIndex, surChoix) {
+    /**
+     * Une ligne de cartes.
+     *
+     * Deux façons de contenir une ligne trop longue, et elles ne servent pas
+     * la même chose :
+     *
+     *   `defiler` — la ligne devient un ruban à flèches, avec « Tout voir ».
+     *     Pour les FORMATS : leurs vignettes doivent rester assez grandes pour
+     *     se comparer, donc on ne peut pas en réduire la taille.
+     *
+     *   `replier` — les premières cartes seulement, le reste derrière « Voir + ».
+     *     Pour les QUANTITÉS : elles se lisent en colonne de chiffres, et les
+     *     grosses quantités n'intéressent qu'une minorité de visiteurs.
+     *
+     * Vingt-trois quantités et quatorze formats posés d'un coup repoussaient le
+     * deuxième critère sous la ligne de flottaison.
+     */
+    function ligne(titre, cartes, actifIndex, surChoix, options) {
+      var defiler = (options || {}).defiler;
+      var replier = (options || {}).replier;
       var l = document.createElement('div');
       l.className = 'eko-poc__ligne';
+
+      var tete = document.createElement('div');
+      tete.className = 'eko-poc__ligne-tete';
 
       var t = document.createElement('h3');
       t.className = 'eko-poc__critere';
       t.textContent = titre;
-      l.appendChild(t);
+      tete.appendChild(t);
+      l.appendChild(tete);
 
       var piste = document.createElement('div');
       piste.className = 'eko-poc__cartes';
@@ -280,9 +515,162 @@
         piste.appendChild(b);
       });
 
+      if (defiler && cartes.length > defiler) {
+        l.appendChild(ruban(piste, tete, actifIndex));
+
+        return l;
+      }
+
       l.appendChild(piste);
 
+      if (replier && cartes.length > replier) {
+        replierApres(piste, replier, actifIndex);
+      }
+
       return l;
+    }
+
+    /**
+     * Ne montre que les premières cartes, le reste derrière un « Voir + ».
+     *
+     * Le bouton dit COMBIEN il en reste. « Voir + » seul ne dit pas si l'on
+     * déplie deux cartes ou quinze, et un visiteur qui cherche 5 000
+     * exemplaires doit savoir qu'ils existent avant de quitter la page.
+     *
+     * Si le choix courant est parmi les cartes cachées — ce qui arrive après un
+     * changement en amont qui réduit la grille — on déplie d'emblée : cacher
+     * ce qui est sélectionné donnerait un récapitulatif sans origine visible.
+     */
+    function replierApres(piste, combien, actifIndex) {
+      if (actifIndex >= combien) {
+        return;
+      }
+
+      var caches = [].slice.call(piste.children, combien);
+
+      caches.forEach(function (c) { c.hidden = true; });
+
+      var plus = document.createElement('button');
+      plus.type = 'button';
+      plus.className = 'eko-poc__voir-plus';
+      plus.textContent = txt(r, 'voirPlus', 'Voir plus') + ' (' + caches.length + ')';
+      plus.addEventListener('click', function () {
+        caches.forEach(function (c) { c.hidden = false; });
+        plus.remove();
+      });
+
+      piste.appendChild(plus);
+    }
+
+    /**
+     * Enferme une piste de cartes dans un ruban défilant.
+     *
+     * ─── POURQUOI LE DÉFILEMENT NATIF, ET PAS UN `transform` ───────────────
+     *
+     * Un carousel bâti sur `transform` doit réimplémenter ce que le navigateur
+     * sait déjà faire : le glissement au doigt, la molette horizontale du
+     * pavé tactile, le défilement au clavier, et l'amenée dans le champ de
+     * vision d'un élément qui reçoit le focus. Un conteneur `overflow-x` donne
+     * tout cela gratuitement, et les flèches ne sont plus qu'un `scrollBy`.
+     *
+     * C'est aussi ce qui rend le ruban utilisable sans JavaScript actif sur
+     * les cartes : si le script échoue après le rendu, on peut encore défiler.
+     */
+    function ruban(piste, tete, actifIndex) {
+      var cadre = document.createElement('div');
+      cadre.className = 'eko-poc__ruban';
+
+      var vue = document.createElement('div');
+      vue.className = 'eko-poc__vue';
+      vue.appendChild(piste);
+
+      var avant = fleche('avant', '‹');
+      var apres = fleche('apres', '›');
+
+      cadre.appendChild(avant);
+      cadre.appendChild(vue);
+      cadre.appendChild(apres);
+
+      function pas(sens) {
+        // D'une vue entière moins une carte : le repère visuel de la carte
+        // partiellement vue survit au défilement, sinon on ne sait plus où
+        // l'on en est.
+        var carte = piste.firstElementChild;
+        var large = carte ? carte.getBoundingClientRect().width + 10 : 160;
+
+        vue.scrollBy({ left: sens * Math.max(large, vue.clientWidth - large), behavior: 'smooth' });
+      }
+
+      avant.addEventListener('click', function () { pas(-1); });
+      apres.addEventListener('click', function () { pas(1); });
+
+      // Une flèche qui ne mène nulle part se désactive plutôt que de rester
+      // cliquable sans effet — c'est ce que fait la référence.
+      function butees() {
+        var reste = vue.scrollWidth - vue.clientWidth - vue.scrollLeft;
+
+        avant.disabled = vue.scrollLeft <= 1;
+        apres.disabled = reste <= 1;
+      }
+
+      vue.addEventListener('scroll', butees, { passive: true });
+
+      // Les butées se recalculent dès que la vue a une largeur. Un appel unique
+      // au montage ne suffit pas : quand le ruban est bâti il n'est pas encore
+      // dans le document, `clientWidth` vaut zéro, et les deux flèches restent
+      // actives alors qu'on est en butée gauche. Mesuré. L'observateur couvre
+      // aussi le redimensionnement et l'arrivée des polices.
+      if (typeof ResizeObserver === 'function') {
+        new ResizeObserver(butees).observe(vue);
+      } else {
+        window.addEventListener('resize', butees);
+      }
+
+      // Le bouton « Tout voir » déplie le ruban en grille. Une fois déplié, il
+      // ne se replie pas : quelqu'un qui a demandé à tout voir ne veut pas
+      // que ça se referme sous ses yeux.
+      var tout = document.createElement('button');
+      tout.type = 'button';
+      tout.className = 'eko-poc__tout-voir';
+      tout.textContent = txt(r, 'toutVoir', 'Tout voir');
+      tout.addEventListener('click', function () {
+        cadre.classList.add('eko-poc__ruban--deplie');
+        tout.remove();
+      });
+      tete.appendChild(tout);
+
+      // Le choix courant doit être visible d'emblée : après un changement en
+      // amont, le format retenu peut se retrouver au douzième rang.
+      //
+      // ⚠️ Un minuteur, pas `requestAnimationFrame`. Le ruban n'est pas encore
+      // dans le document quand on le bâtit, il faut donc attendre — mais les
+      // trames d'animation ET les observateurs de taille sont suspendus dans un
+      // onglet masqué, alors que les minuteurs continuent. Mesuré : les deux
+      // flèches restaient actives en butée gauche.
+      setTimeout(function () {
+        var actif = piste.children[actifIndex];
+
+        if (actif) {
+          // `scrollIntoView` plutôt qu'un calcul d'offset : `offsetLeft` se
+          // mesure depuis le premier ancêtre positionné, qui n'est pas la piste
+          // — la carte étant elle-même en `position: relative`.
+          actif.scrollIntoView({ block: 'nearest', inline: 'center' });
+        }
+
+        butees();
+      }, 0);
+
+      return cadre;
+    }
+
+    function fleche(sens, glyphe) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'eko-poc__fleche eko-poc__fleche--' + sens;
+      b.textContent = glyphe;
+      b.setAttribute('aria-label', txt(r, sens === 'avant' ? 'precedent' : 'suivant', ''));
+
+      return b;
     }
 
     function message(classe, texte) {
@@ -341,26 +729,48 @@
         return d ? Math.max(m, d.l, d.h) : m;
       }, 0);
 
+      // Le format de référence : le plus courant de la ligne, pris comme repère
+      // pour tous les autres. Le MÉDIAN plutôt que le plus grand — un repère qui
+      // est aussi le maximum ne donne aucune échelle aux petits formats, qui
+      // sont justement ceux qu'on distingue le plus mal.
+      var mesures = options.map(dimensionsDe).filter(Boolean)
+        .sort(function (a, b) { return (a.l * a.h) - (b.l * b.h); });
+      var repere = mesures.length ? mesures[Math.floor(mesures.length / 2)] : null;
+
+      // ⚠️ TOUT OU RIEN. Les dessins du fournisseur sont plafonnés en poids :
+      // sur quatorze formats, trois passaient et onze retombaient sur la
+      // vignette du module. Trois cartes d'un style et onze d'un autre, sur la
+      // même ligne, se lisent comme un affichage cassé — bien plus mal que
+      // n'importe lequel des deux styles appliqué partout.
+      //
+      // On n'emploie donc les dessins de l'ERP que s'il en a un pour CHAQUE
+      // option de la ligne.
+      var tousDessines = options.every(function (o) {
+        return libelles[o] && libelles[o].svg;
+      });
+
       var cartes = options.map(function (o) {
         var d = dimensionsDe(o);
-        var l = libelles[o];
         var nom = nomDe(o);
 
         return {
           nom: nom,
           note: d ? d.l + ' × ' + d.h + ' mm' : '',
-          // Le dessin du fournisseur quand il y en a un — il montre la FORME
-          // réelle, ce qu'un rectangle ne peut pas faire pour un découpé.
-          // À défaut, la vignette proportionnelle, ronde ou rectangulaire.
-          svg: (l && l.svg)
-            ? '<span class="eko-poc__svg eko-poc__svg--erp">' + l.svg + '</span>'
-            : vignetteFormat(d, refMax, /\brond\b|diam[èe]tre/i.test(nom))
+          // Le dessin du fournisseur montre la FORME réelle, ce qu'un rectangle
+          // ne peut pas faire pour un découpé. À défaut, la vignette du module :
+          // silhouette pleine sur le format de référence, nom écrit dedans.
+          svg: tousDessines
+            ? '<span class="eko-poc__svg eko-poc__svg--erp">' + libelles[o].svg + '</span>'
+            : vignetteFormat(d, refMax, /\brond\b|diam[èe]tre/i.test(nom), nom, repere)
         };
       });
 
+      // Quatre visibles, comme la référence : au-delà, les vignettes deviennent
+      // trop petites pour que deux formats se comparent d'un coup d'œil, ce qui
+      // est toute leur raison d'être.
       var l = ligne(titre, cartes, options.indexOf(choisi), function (i) {
         surChoix(options[i]);
-      });
+      }, { defiler: 4 });
 
       l.classList.add('eko-poc__ligne--formats');
 
@@ -422,6 +832,7 @@
         }
 
         etapes = d.steps || [];
+        nomProduit = d.name || nomProduit;
         Object.keys(d.labels || {}).forEach(function (k) { libelles[k] = d.labels[k]; });
 
         if (d.services && services.length === 0) {
@@ -597,13 +1008,16 @@
 
       var actif = grille.quantities.indexOf(quantiteChoisie);
 
+      // Douze : deux rangées pleines sur la largeur de la colonne. Au-delà on
+      // entre dans les quantités d'imprimerie — 10 000, 20 000 — que peu de
+      // visiteurs cherchent et qui, affichées, noient les petites.
       var l = ligne(txt(r, 'quantite', 'Quantité') + ' :', cartes, actif, function (i, c) {
         quantiteChoisie = c.valeur;
         choisirDelaiLePlusEconomique();
         rendreQuantites();
         rendreDelais();
         rendreResume();
-      });
+      }, { replier: 12 });
 
       l.dataset.ligne = 'quantite';
       zoneEtapes.appendChild(l);
@@ -697,6 +1111,65 @@
       });
     }
 
+    /**
+     * Les deux quantités supérieures, sous le récapitulatif.
+     *
+     * L'impression est dégressive : passer de 100 à 250 exemplaires coûte
+     * souvent quelques euros. Le visiteur ne le sait pas s'il a déjà choisi sa
+     * quantité et ne regarde plus la grille — il faut le lui remettre sous les
+     * yeux au moment où il décide.
+     *
+     * ⚠️ On montre les montants du serveur, JAMAIS un écart calculé ici. Le
+     * navigateur ne sait ni la devise ni le nombre de décimales de la boutique,
+     * et une soustraction faite là produirait un « + 3.0000000004 € ».
+     */
+    function rendreQuantitesSuperieures() {
+      var plus = grille.quantities
+        .filter(function (q) { return q > quantiteChoisie; })
+        .sort(function (a, b) { return a - b; })
+        .slice(0, 2)
+        .map(function (q) {
+          var cases = casesPour(q).filter(function (x) { return x.delay === delaiChoisi; });
+
+          return cases.length ? { quantite: q, c: cases[0] } : null;
+        })
+        .filter(Boolean);
+
+      if (plus.length === 0) {
+        return;
+      }
+
+      var titre = document.createElement('p');
+      titre.className = 'eko-poc__superieures-titre';
+      titre.textContent = txt(r, 'superieures', '') + ' :';
+      zoneResume.appendChild(titre);
+
+      var boite = document.createElement('div');
+      boite.className = 'eko-poc__superieures';
+
+      plus.forEach(function (p) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'eko-poc__superieure';
+        b.innerHTML =
+          '<span class="eko-poc__superieure-qte">' +
+          echapper(p.quantite.toLocaleString() + ' ' + txt(r, 'exemplaires', '')) + '</span>' +
+          '<span class="eko-poc__superieure-prix">' + echapper(p.c.lot_texte) + '</span>' +
+          '<span class="eko-poc__superieure-unite">' +
+          echapper(p.c.unite_texte + ' ' + txt(r, 'unite', '')) + '</span>';
+        b.addEventListener('click', function () {
+          quantiteChoisie = p.quantite;
+          choisirDelaiLePlusEconomique();
+          rendreQuantites();
+          rendreDelais();
+          rendreResume();
+        });
+        boite.appendChild(b);
+      });
+
+      zoneResume.appendChild(boite);
+    }
+
     function rendreResume() {
       zoneResume.innerHTML = '';
 
@@ -726,6 +1199,16 @@
       u.textContent = c.unite_texte + ' ' + txt(r, 'unite', '');
       zoneResume.appendChild(u);
 
+      // Le nom du produit : le récapitulatif est collant et suit le visiteur
+      // pendant qu'il fait défiler ; sans le nom, on finit par lire un prix
+      // sans savoir de quoi.
+      if (nomProduit) {
+        var np = document.createElement('p');
+        np.className = 'eko-poc__resume-produit';
+        np.textContent = nomProduit;
+        zoneResume.appendChild(np);
+      }
+
       var ul = document.createElement('ul');
       ul.className = 'eko-poc__resume-liste';
 
@@ -748,6 +1231,17 @@
         '<span>' + echapper(txt(r, 'livraison', '')) + '</span>' +
         '<strong>' + echapper(nomDe(c.delay)) + '</strong>';
       ul.appendChild(liD);
+
+      // La date estimée, en toutes lettres. « J+5 » demande au visiteur de
+      // compter les jours ouvrés lui-même ; « vendredi 21 août » se lit.
+      if (c.date_texte) {
+        var liL = document.createElement('li');
+        liL.className = 'eko-poc__resume-date';
+        liL.innerHTML =
+          '<span>' + echapper(txt(r, 'livree', '')) + '</span>' +
+          '<strong>' + echapper(c.date_texte) + '</strong>';
+        ul.appendChild(liL);
+      }
 
       services.forEach(function (sv) {
         var li = document.createElement('li');
@@ -775,23 +1269,22 @@
         zoneResume.appendChild(message('perime', txt(r, 'perime', '')));
       }
 
-      // Le bouton d'ajout au panier vit ICI, sous le prix. Celui du thème est
-      // plus bas, hors de vue une fois la grille dépliée : un visiteur qui
-      // vient de choisir sa quantité doit pouvoir commander sans chercher.
-      // Il ne double pas le bouton du thème — il le DÉCLENCHE, pour que le
-      // panier reçoive exactement ce que PrestaShop attend.
+      rendreQuantitesSuperieures();
+
+      // Le SEUL bouton d'ajout au panier de la fiche. Celui du thème et son
+      // sélecteur de quantité sont masqués par la feuille de style : ils
+      // demandaient un nombre d'exemplaires que le configurateur porte déjà,
+      // et un visiteur devant deux quantités ne sait pas laquelle compte.
+      //
+      // Masqués, pas retirés : le formulaire qui les entoure porte le jeton et
+      // l'identifiant de configuration, et c'est lui qu'on déclenche.
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'eko-poc__resume-panier';
       b.textContent = txt(r, 'ajouter', 'Ajouter au panier');
-      b.addEventListener('click', function () {
-        var natif = boutonsPanier()[0];
-
-        if (natif && !natif.disabled) {
-          natif.click();
-        }
-      });
+      b.addEventListener('click', function () { ajouterAuPanier(b); });
       zoneResume.appendChild(b);
+      zoneResume.appendChild(messagePanier);
 
       // Le prix est connu pour ce couple exact : la commande peut s'ouvrir.
       commande(true);

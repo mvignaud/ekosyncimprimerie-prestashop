@@ -119,6 +119,7 @@ SHOP_EN = {
     "Chargement des options…": "Loading options…",
     "Calcul des tarifs…": "Calculating prices…",
     "Quantité": "Quantity",
+    "Délai": "Lead time",
     "Je choisis mon délai": "Choose your lead time",
     "Inclus": "Included",
     "Supplément": "Extra",
@@ -133,6 +134,13 @@ SHOP_EN = {
     "Options indisponibles pour le moment.": "Options unavailable right now.",
     "Livraison estimée": "Estimated delivery",
     "Ajouter au panier": "Add to cart",
+    "Tout voir": "See all",
+    "Quantités supérieures": "Larger quantities",
+    "Voir plus": "See more",
+    "Formats précédents": "Previous formats",
+    "Formats suivants": "Next formats",
+    "L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.":
+        "Adding to the cart did not go through. Check your configuration and try again.",
 
     # Fiche technique.
     "Gabarits & instructions": "Templates & instructions",
@@ -153,9 +161,19 @@ DOMAINES = [
     },
     {
         "nom": "ModulesEkosyncimprimerieShop",
-        "fichiers": sorted((RACINE / "views" / "templates").rglob("*.tpl")),
-        # Le premier argument de `{l s='…' d='…'}` de Smarty.
-        "motif": re.compile(r"\{l\s+s='((?:[^'\\]|\\.)*)'", re.S),
+        # DEUX sources, et c'est le point faible historique de ce script : il
+        # n'en balayait qu'une, si bien qu'un texte ajouté dans l'autre passait
+        # le garde sans être traduit. Les gabarits d'abord, puis les
+        # contrôleurs front — ces derniers écrivent la configuration qui finit
+        # sur la FACTURE du client, en sa langue.
+        "fichiers": (sorted((RACINE / "views" / "templates").rglob("*.tpl"))
+                     + sorted((RACINE / "controllers").rglob("*.php"))),
+        # `{l s='…'}` de Smarty, ou `$this->trans('…')` d'un contrôleur.
+        "motif": re.compile(
+            r"\{l\s+s='((?:[^'\\]|\\.)*)'"
+            r"|\$this->trans\(\s*'((?:[^'\\]|\\.)*)'",
+            re.S,
+        ),
         "tables": {"en-US": SHOP_EN},
     },
 ]
@@ -169,7 +187,14 @@ def sources(domaine):
         texte = fichier.read_text(encoding="utf-8")
 
         for m in domaine["motif"].finditer(texte):
-            s = m.group(1).replace("\\'", "'").replace("\\\\", "\\")
+            # Un motif peut porter plusieurs alternatives : on prend celle qui
+            # a mordu. Lire `group(1)` en dur rendrait `None` sur les autres.
+            brut = next((g for g in m.groups() if g is not None), None)
+
+            if brut is None:
+                continue
+
+            s = brut.replace("\\'", "'").replace("\\\\", "\\")
             if s not in vues:
                 vues.append(s)
 
