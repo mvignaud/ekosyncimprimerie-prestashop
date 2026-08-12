@@ -89,7 +89,7 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
             return $this->refus('Panier indisponible.');
         }
 
-        $idCustomization = $this->configurationEnCours($panier, $idProduct, $variables);
+        $idCustomization = $this->configurationEnCours($panier, $idProduct, $variables, $ekoProductId);
 
         if ($idCustomization <= 0) {
             return $this->refus(
@@ -150,6 +150,12 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
             'unit_price_ht' => ReglesBoutique::montant($centimes / 100, $precision),
             'unit_price' => ReglesBoutique::montant($unitaire, $precision),
             'total_price' => ReglesBoutique::total($unitaire, $quantite, $precision),
+            // Les mêmes montants, écrits comme la boutique les écrit : séparateur
+            // décimal, symbole, et sa place. Le navigateur affichait « 36.13 € »
+            // sur une boutique française — le JavaScript ne sait pas quelle
+            // langue ni quelle devise il sert, PrestaShop si.
+            'unit_price_texte' => $this->enLettres(ReglesBoutique::montant($unitaire, $precision)),
+            'total_price_texte' => $this->enLettres(ReglesBoutique::total($unitaire, $quantite, $precision)),
             'lead_days' => $delai,
         ];
     }
@@ -211,7 +217,7 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
      *
      * @param  array<string,mixed>  $variables
      */
-    private function configurationEnCours(Cart $panier, int $idProduct, array $variables): int
+    private function configurationEnCours(Cart $panier, int $idProduct, array $variables, int $ekoProductId = 0): int
     {
         $champ = (int) Db::getInstance()->getValue(
             'SELECT cf.`id_customization_field` FROM `' . _DB_PREFIX_ . 'customization_field` cf'
@@ -224,17 +230,81 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
             return 0;
         }
 
-        // La configuration est écrite dans le champ texte : le panier et la
-        // facture l'affichent, et le client voit sur quoi il s'est engagé.
+        // La configuration est écrite dans le champ texte : le panier, la
+        // commande ET LA FACTURE l'affichent. Elle doit donc SE LIRE.
+        //
+        // Elle y allait en JSON brut — « {"width":"1000","height":"700"} » —
+        // affiché tel quel au client sous « Votre personnalisation », et promis
+        // à finir sur un document comptable. On la met en toutes lettres.
         $id = $panier->addTextFieldToProduct(
             $idProduct,
             $champ,
             Product::CUSTOMIZE_TEXTFIELD,
-            (string) json_encode($variables, JSON_UNESCAPED_UNICODE),
+            $this->configurationLisible($variables, $ekoProductId),
             true
         );
 
         return is_numeric($id) ? (int) $id : 0;
+    }
+
+    /**
+     * La configuration en toutes lettres, avec les libellés de l'ERP.
+     *
+     * « Largeur : 1000 mm · Hauteur : 700 mm · Bâche : POWERJET 440g »
+     *
+     * Les libellés, unités et intitulés d'options viennent du même endroit que
+     * les champs du formulaire — l'ERP. L'appel est mis en cache par le client
+     * HTTP du module, donc il ne coûte rien après le premier chiffrage.
+     *
+     * Si l'ERP est injoignable au moment où l'on écrit, on retombe sur les
+     * clés brutes plutôt que de refuser : mieux vaut « width : 1000 » qu'une
+     * commande sans sa configuration.
+     *
+     * @param  array<string,mixed>  $variables
+     */
+    private function configurationLisible(array $variables, int $ekoProductId): string
+    {
+        if ($variables === []) {
+            return '';
+        }
+
+        $modele = [];
+
+        if ($ekoProductId > 0) {
+            /** @var Ekosyncimprimerie $module */
+            $module = $this->module;
+            $r = $module->client()->appeler('GET', '/api/v1/printing/products/' . $ekoProductId . '/variables');
+
+            foreach (($r['ok'] ? ($r['donnees']['data'] ?? []) : []) as $v) {
+                if (is_array($v) && isset($v['key'])) {
+                    $modele[(string) $v['key']] = $v;
+                }
+            }
+        }
+
+        $morceaux = [];
+
+        foreach ($variables as $cle => $valeur) {
+            $def = $modele[(string) $cle] ?? [];
+            $libelle = (string) ($def['label'] ?? $cle);
+            $texte = (string) $valeur;
+
+            // Une liste de choix stocke un identifiant : on écrit le nom.
+            foreach ((array) ($def['options'] ?? []) as $o) {
+                if (is_array($o) && (string) ($o['value'] ?? '') === $texte) {
+                    $texte = (string) ($o['label'] ?? $texte);
+                    break;
+                }
+            }
+
+            $unite = (string) ($def['unit'] ?? '');
+
+            $morceaux[] = $libelle . ' : ' . $texte . ($unite === '' ? '' : ' ' . $unite);
+        }
+
+        // 255 caractères : la colonne `customized_data.value` n'en prend pas
+        // plus, et une troncature muette perdrait la fin de la configuration.
+        return mb_substr(implode(' · ', $morceaux), 0, 255);
     }
 
     /** Le tiers E-KO du client connecté, s'il en a un. */
@@ -270,6 +340,27 @@ class EkosyncimprimeriePrixModuleFrontController extends ModuleFrontController
             ReglesBoutique::adresseFiscale($this->context->cart),
             (int) Product::getIdTaxRulesGroupByIdProduct($idProduct)
         )->getTaxCalculator()->addTaxes($ht);
+    }
+
+    /**
+     * Un montant écrit comme la boutique l'écrit.
+     *
+     * `formatPrice()` du « locale » PrestaShop connaît la langue du visiteur,
+     * la devise en cours, le séparateur décimal et la place du symbole. Un
+     * `number_format()` de notre cru aurait à redevenir juste pour chaque
+     * langue et chaque devise — c'est du travail déjà fait, et mieux.
+     */
+    private function enLettres(float $montant): string
+    {
+        $devise = $this->context->currency->iso_code ?? 'EUR';
+
+        try {
+            return (string) $this->context->getCurrentLocale()->formatPrice($montant, (string) $devise);
+        } catch (\Throwable $e) {
+            // Un thème ou une version sans « locale » ne doit pas faire échouer
+            // le chiffrage : on rend le nombre nu, le prix reste juste.
+            return (string) $montant;
+        }
     }
 
     /** @return array{ok: false, message: string} */

@@ -7,6 +7,45 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.6.0] — 2026-08-12
+
+Le configurateur ressemble enfin à un configurateur.
+
+### Ajouté
+
+- **Une feuille de style.** Le module n'en embarquait aucune : dix classes
+  référencées, zéro règle. Le configurateur portait ce que le thème voulait
+  bien lui donner, et le prix se perdait au milieu du formulaire.
+- **Le montant est écrit par PrestaShop**, pas par le navigateur. Il affichait
+  « 36.13 € » sur une boutique française ; le JavaScript ne sait ni quelle
+  langue ni quelle devise il sert, `formatPrice()` si.
+
+### Corrigé
+
+- **Le configurateur s'affichait SOUS le bouton d'ajout au panier.** Il faut
+  configurer avant de commander. Il se rend désormais là où le thème affiche
+  son prix (`displayProductPriceBlock` / `after_price`), donc en tête de fiche.
+  L'ancien point d'accroche reste enregistré comme repli pour les thèmes qui
+  n'exposent pas le premier — un garde interdit le double affichage.
+- **Un seul des deux boutons d'ajout au panier était verrouillé.** Les thèmes
+  modernes en posent deux — « Ajouter au panier » et « Acheter maintenant » —
+  avec le même attribut. Le verrou de la 0.5.1 n'en fermait qu'un, et le second
+  menait droit au paiement.
+- **La configuration partait en JSON sur la commande et la facture.** Le client
+  lisait `{"width":"1000","height":"700"}` sous « Votre personnalisation ».
+  Elle s'écrit maintenant en toutes lettres, avec les libellés et les unités de
+  l'ERP : « Largeur : 1000 mm · Hauteur : 700 mm · Bâche : POWERJET 440g ».
+- **Le bloc était dimensionné en `rem`.** Beaucoup de thèmes posent
+  `html { font-size: 10px }` : le configurateur s'y retrouvait à 62 % de sa
+  taille — libellés à 8,75 px, prix total à 17,5 px. Tout est en `em`, qui
+  hérite du thème au lieu de parier sur sa racine.
+
+### Note d'exploitation
+
+Vider les paquets concaténés d'une boutique **en exploitation** la laisse sans
+style le temps d'une requête, celle qui les régénère. Le faire aux heures
+creuses, ou accepter ce battement.
+
 ## [0.5.2] — 2026-08-11
 
 Le dernier champ B2B que la boutique ne savait pas remplir.
@@ -327,7 +366,8 @@ la structure client ; il ne touche encore ni au catalogue, ni au panier.
 - Un compte ne porte qu'un contact, PrestaShop n'attachant qu'un état civil par
   compte client.
 
-[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.5.2...HEAD
+[Non publié]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.6.0
 [0.5.2]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.2
 [0.5.1]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.1
 [0.5.0]: https://github.com/mvignaud/ekosyncimprimerie-prestashop/releases/tag/v0.5.0

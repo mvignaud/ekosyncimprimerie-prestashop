@@ -72,7 +72,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.5.2';
+        $this->version = '0.6.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -118,6 +118,7 @@ class Ekosyncimprimerie extends Module
             'actionProductSave',
             // Le configurateur lui-meme, sur la fiche produit.
             'displayProductAdditionalInfo',
+            'displayProductPriceBlock',
             'actionFrontControllerSetMedia',
         ];
 
@@ -272,8 +273,61 @@ class Ekosyncimprimerie extends Module
      *
      * @param  array<string,mixed>  $params
      */
+    /**
+     * Le configurateur, rendu LA OU ETAIT LE PRIX.
+     *
+     * `displayProductAdditionalInfo` le posait SOUS le bouton d'ajout au
+     * panier : le client voyait un formulaire de personnalisation et un bouton
+     * « Ajouter au panier », et ne decouvrait le configurateur — donc le prix —
+     * qu'en descendant. Il faut configurer AVANT de commander, pas apres.
+     *
+     * `displayProductPriceBlock` en `after_price` place le bloc exactement ou
+     * le theme affiche son prix, que le module masque par ailleurs. C'est un
+     * hook du cœur, present dans les gabarits de tous les themes qui heritent
+     * du formulaire produit standard.
+     *
+     * ⚠️ Ce hook est AUSSI appele pour chaque vignette d'une liste de produits.
+     * Sans le garde sur `ProductController`, une categorie de trente articles
+     * declencherait trente rendus du configurateur — et autant d'appels a
+     * l'ERP pour construire les champs.
+     *
+     * @param  array<string,mixed>  $params
+     */
+    public function hookDisplayProductPriceBlock(array $params): string
+    {
+        if (($params['type'] ?? '') !== 'after_price') {
+            return '';
+        }
+
+        if (!($this->context->controller instanceof ProductController)) {
+            return '';
+        }
+
+        return $this->hookDisplayProductAdditionalInfo($params);
+    }
+
+    /**
+     * Le configurateur n'est rendu QU'UNE fois par page.
+     *
+     * Les deux hooks restent enregistres, et c'est voulu : `after_price` place
+     * le bloc au bon endroit sur les themes qui heritent du formulaire produit
+     * standard, `displayProductAdditionalInfo` sert de repli sur ceux qui ne
+     * l'exposent pas. Sans ce drapeau, un theme qui a les DEUX affiche deux
+     * configurateurs — mesure sur Akira — et le second ecrase le premier dans
+     * le JS, qui ne s'accroche qu'a la premiere racine trouvee.
+     *
+     * Le premier qui parle gagne. Comme `product-prices.tpl` precede
+     * `product-additional-info.tpl` dans le gabarit, c'est naturellement celui
+     * du bon endroit.
+     */
+    private bool $configurateurRendu = false;
+
     public function hookDisplayProductAdditionalInfo(array $params): string
     {
+        if ($this->configurateurRendu) {
+            return '';
+        }
+
         $idProduct = $this->produitAffiche($params);
 
         if ($idProduct <= 0) {
@@ -315,6 +369,8 @@ class Ekosyncimprimerie extends Module
                 . 'index.php?fc=module&module=' . $this->name . '&controller=prix',
         ]);
 
+        $this->configurateurRendu = true;
+
         return $this->fetch('module:' . $this->name . '/views/templates/hook/configurateur.tpl');
     }
 
@@ -331,6 +387,16 @@ class Ekosyncimprimerie extends Module
                 'ekosync-configurateur',
                 'modules/' . $this->name . '/views/js/configurateur.js',
                 ['position' => 'bottom', 'priority' => 200]
+            );
+
+            // Le module masque le bloc prix du theme sur les fiches liees : il
+            // doit donc porter lui-meme le poids visuel d'un prix. Sans cette
+            // feuille, le configurateur herite de ce que le theme veut bien
+            // donner — et le montant se perd au milieu du formulaire.
+            $this->context->controller->registerStylesheet(
+                'ekosync-configurateur',
+                'modules/' . $this->name . '/views/css/configurateur.css',
+                ['media' => 'all', 'priority' => 200]
             );
         }
     }

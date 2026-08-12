@@ -49,14 +49,19 @@
   }
 
   /**
-   * Le bouton d'ajout au panier du thème.
+   * TOUS les boutons d'ajout au panier du thème.
    *
    * `[data-button-action="add-to-cart"]` est une convention du cœur, respectée
-   * par tous les thèmes qui héritent du formulaire produit standard — c'est
-   * l'attribut que PrestaShop lui-même cible dans son propre JavaScript.
+   * par les thèmes qui héritent du formulaire produit standard.
+   *
+   * Au PLURIEL, et c'est le point : les thèmes modernes en posent DEUX —
+   * « Ajouter au panier » et « Acheter maintenant » — avec le même attribut.
+   * Un `querySelector` au singulier n'en verrouillait qu'un, et le second
+   * restait cliquable : le trou qu'on croyait fermé restait grand ouvert sur
+   * le bouton le plus direct, celui qui mène droit au paiement.
    */
-  function boutonPanier() {
-    return document.querySelector('[data-button-action="add-to-cart"]');
+  function boutonsPanier() {
+    return document.querySelectorAll('[data-button-action="add-to-cart"]');
   }
 
   /**
@@ -76,21 +81,17 @@
    * Se taire n'était pas suffisant : il faut aussi empêcher.
    */
   function commande(autorisee, motif) {
-    var b = boutonPanier();
+    boutonsPanier().forEach(function (b) {
+      b.disabled = !autorisee;
 
-    if (!b) {
-      return;
-    }
-
-    b.disabled = !autorisee;
-
-    if (autorisee) {
-      b.removeAttribute('aria-disabled');
-      b.removeAttribute('title');
-    } else {
-      b.setAttribute('aria-disabled', 'true');
-      b.setAttribute('title', motif || '');
-    }
+      if (autorisee) {
+        b.removeAttribute('aria-disabled');
+        b.removeAttribute('title');
+      } else {
+        b.setAttribute('aria-disabled', 'true');
+        b.setAttribute('title', motif || '');
+      }
+    });
   }
 
   /**
@@ -109,9 +110,30 @@
   function masquerPrixNatif() {
     var bloc = document.querySelector('.product-prices');
 
-    if (bloc) {
-      bloc.style.display = 'none';
+    if (!bloc) {
+      return;
     }
+
+    var racine = document.querySelector('.eko-configurateur');
+
+    // Le configurateur est rendu DANS le bloc prix quand le thème expose le
+    // point d'accroche `after_price` — c'est justement le bon endroit, juste
+    // sous le prix et au-dessus du panier. Masquer le bloc entier masquerait
+    // donc AUSSI le configurateur : mesuré, hauteur zéro, invisible.
+    //
+    // On masque alors ses VOISINS, pas le bloc. Structurel plutôt que fondé
+    // sur des sélecteurs de thème : ça vaut pour n'importe quel habillage.
+    if (racine && bloc.contains(racine)) {
+      Array.prototype.forEach.call(bloc.children, function (enfant) {
+        if (!enfant.contains(racine)) {
+          enfant.style.display = 'none';
+        }
+      });
+
+      return;
+    }
+
+    bloc.style.display = 'none';
   }
 
   function demarrer() {
@@ -218,11 +240,17 @@
             return;
           }
 
+          // Le montant DÉJÀ ÉCRIT par PrestaShop — bonne langue, bonne devise,
+          // bon séparateur, symbole à sa place. Le nombre nu ne sert que de
+          // repli : le JavaScript ne sait pas quelle boutique il sert.
+          var total = d.total_price_texte || (String(d.total_price) + ' €');
+          var unitaire = d.unit_price_texte || (String(d.unit_price) + ' €');
+
           var lignes =
             '<p class="eko-configurateur__prix">' +
-            '<span class="eko-configurateur__total">' + echapper(String(d.total_price)) + ' €</span>' +
+            '<span class="eko-configurateur__total">' + echapper(total) + '</span>' +
             '<span class="eko-configurateur__unitaire">' +
-            echapper(String(d.unit_price)) + ' € ' + echapper(racine.dataset.unite || 'l’unité') +
+            echapper(unitaire) + ' ' + echapper(racine.dataset.unite || 'l’unité') +
             '</span></p>';
 
           if (d.lead_days) {
