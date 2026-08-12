@@ -123,6 +123,24 @@ class AdminEkoImprimerieController extends ModuleAdminController
         ];
     }
 
+    /**
+     * Le dépôt d'une icône, appelé par l'éditeur en liste.
+     *
+     * Il vit dans un contrôleur d'ADMINISTRATION : PrestaShop y exige déjà un
+     * employé connecté et un jeton valide. Le même point de dépôt ouvert côté
+     * boutique laisserait n'importe qui écrire dans `img/`.
+     */
+    public function ajaxProcessTeleverserIcone(): void
+    {
+        $fichier = $_FILES['icone'] ?? null;
+
+        $r = is_array($fichier)
+            ? \Eko\SyncImprimerie\Configurateur\IconeSvg::deposer($fichier)
+            : ['ok' => false, 'message' => $this->trans('Aucun fichier reçu.', [], 'Modules.Ekosyncimprimerie.Admin')];
+
+        $this->ajaxRender((string) json_encode($r, JSON_UNESCAPED_UNICODE));
+    }
+
     public function postProcess()
     {
         if (!Tools::isSubmit('ekosync_enregistrer')) {

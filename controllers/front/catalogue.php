@@ -612,23 +612,19 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             return null;
         }
 
-        // Un fichier SVG commence rarement par `<svg` : il porte d'abord son
-        // prologue XML, parfois un DOCTYPE, souvent la signature du logiciel qui
-        // l'a produit. Exiger `<svg` en tête revient à tout refuser sans le dire
-        // — c'est ce qui écartait les quatorze dessins d'un coup.
-        $svg = preg_replace('#^(?:\s|<\?xml\b[^>]*\?>|<!DOCTYPE[^>]*>|<!--.*?-->)+#is', '', trim($brut)) ?? '';
+        // ⚠️ LA MÊME DÉFINITION QUE POUR LES ICÔNES DÉPOSÉES, et ce n'est pas
+        // de l'économie : le ménage écrit ici remplaçait `<image` par
+        // `<!--image`, un commentaire jamais refermé qui avalait tout ce qui
+        // suivait. Inséré dans une page, il aurait mangé la suite du document.
+        // Deux frontières qui filtrent le même danger doivent le filtrer de la
+        // même façon, sinon la plus faible décide.
+        $svg = \Eko\SyncImprimerie\Configurateur\IconeSvg::assainir($brut);
 
-        if ($svg === '' || !str_starts_with($svg, '<svg') || mb_strlen($svg) > min(12000, $reste)) {
+        if ($svg === null || mb_strlen($svg) > min(12000, $reste)) {
             return null;
         }
 
-        // Scripts, gestionnaires d'événements, ressources externes et liens :
-        // rien de tout cela n'a sa place dans une vignette de format.
-        $svg = preg_replace('#<script\b.*?</script>#is', '', $svg) ?? '';
-        $svg = preg_replace('#\son[a-z]+\s*=\s*("[^"]*"|\'[^\']*\'|[^\s>]+)#i', '', $svg) ?? '';
-        $svg = preg_replace('#<(foreignObject|image|use|a)\b#i', '<!--$1', $svg) ?? '';
-
-        return str_starts_with(trim($svg), '<svg') ? $svg : null;
+        return $svg;
     }
 
     /**

@@ -41,6 +41,7 @@ require_once __DIR__ . '/src/Configurateur/ServicesProduit.php';
 require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
 require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
 require_once __DIR__ . '/src/Configurateur/Personnalisation.php';
+require_once __DIR__ . '/src/Configurateur/IconeSvg.php';
 
 use Eko\SyncImprimerie\Client\ClientEko;
 use Eko\SyncImprimerie\Client\DepotEko;
@@ -78,7 +79,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.16.0';
+        $this->version = '0.17.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -126,6 +127,9 @@ class Ekosyncimprimerie extends Module
             'displayProductAdditionalInfo',
             'displayProductPriceBlock',
             'actionFrontControllerSetMedia',
+            // L'editeur en liste du back-office : fiche produit et ecran de
+            // reglages s'en servent tous les deux.
+            'actionAdminControllerSetMedia',
         ];
 
         if (!parent::install()) {
@@ -464,6 +468,39 @@ class Ekosyncimprimerie extends Module
         return $boutique !== '' ? $boutique : $exemple;
     }
 
+    /**
+     * Les attributs que l'éditeur en liste lit sur une zone de texte.
+     *
+     * Tous les libellés passent par `trans()` : l'éditeur en est dépourvu, et
+     * un texte écrit dans le JavaScript resterait français sur un back-office
+     * anglais. `$icones` est vide quand la liste ne porte pas d'icônes — c'est
+     * ce qui distingue les réassurances des prestations, sans deux éditeurs.
+     */
+    private function attributsListe(string $icones): string
+    {
+        return sprintf(
+            'data-icones="%s" data-depot="%s" data-libelle-ajouter="%s"'
+            . ' data-libelle-retirer="%s" data-libelle-depot="%s" data-libelle-icone="%s"'
+            . ' data-echec-depot="%s"',
+            htmlspecialchars($icones),
+            htmlspecialchars($icones === '' ? '' : $this->urlDepotIcone()),
+            htmlspecialchars($this->trans('Ajouter une ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Retirer cette ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Déposer un SVG', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Icône…', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Dépôt refusé.', [], 'Modules.Ekosyncimprimerie.Admin'))
+        );
+    }
+
+    /** L'adresse du dépôt d'icône, jeton d'administration compris. */
+    private function urlDepotIcone(): string
+    {
+        return $this->context->link->getAdminLink(self::ONGLET, true, [], [
+            'ajax' => 1,
+            'action' => 'televerserIcone',
+        ]);
+    }
+
     private function boTechnique(int $idProduct): string
     {
         $libelles = [
@@ -527,7 +564,9 @@ class Ekosyncimprimerie extends Module
 
             $champs .= sprintf(
                 '<div class="form-group"><label class="form-control-label">%s</label>'
-                . '<textarea name="ekosync_svc_%s" class="form-control" rows="4" placeholder="%s">%s</textarea></div>',
+                . '<textarea name="ekosync_svc_%s" class="form-control eko-bo-liste" rows="4"'
+                . ' ' . $this->attributsListe('')
+                . ' placeholder="%s">%s</textarea></div>',
                 htmlspecialchars($libelle),
                 htmlspecialchars($cle),
                 htmlspecialchars($boutique !== '' ? $boutique : $exemple),
@@ -577,7 +616,9 @@ class Ekosyncimprimerie extends Module
             )
             . '</p>'
             . sprintf(
-                '<textarea name="ekosync_ventes" class="form-control" rows="3" placeholder="%s">%s</textarea>',
+                '<textarea name="ekosync_ventes" class="form-control eko-bo-liste" rows="3"'
+                . ' ' . $this->attributsListe('')
+                . ' placeholder="%s">%s</textarea>',
                 htmlspecialchars("Top vente A5|A5\nTop vente A6|A6"),
                 htmlspecialchars(($valeur === false) ? '' : (string) $valeur)
             )
@@ -622,7 +663,9 @@ class Ekosyncimprimerie extends Module
             )
             . sprintf(
                 '<div class="form-group"><label class="form-control-label">%s</label>'
-                . '<textarea name="ekosync_reassurances" class="form-control" rows="4" placeholder="%s">%s</textarea>'
+                . '<textarea name="ekosync_reassurances" class="form-control eko-bo-liste" rows="4"'
+                . ' ' . $this->attributsListe('origine,livraison,fichier,paiement')
+                . ' placeholder="%s">%s</textarea>'
                 . '<p class="help-block">%s</p></div>',
                 htmlspecialchars($this->trans('Réassurances', [], 'Modules.Ekosyncimprimerie.Admin')),
                 htmlspecialchars($this->filigrane(
@@ -906,6 +949,26 @@ class Ekosyncimprimerie extends Module
      * Le poser sur toutes les pages ferait payer a chaque visiteur un fichier
      * qui ne concerne que les fiches configurables.
      */
+    /**
+     * L'éditeur en liste, dans le back-office.
+     *
+     * Chargé sur les seuls écrans qui en ont un — la fiche produit et l'écran
+     * de réglages. Un module qui pose ses fichiers sur tout le back-office
+     * ralentit des pages qui n'en font rien, et finit par entrer en conflit
+     * avec un autre.
+     */
+    public function hookActionAdminControllerSetMedia(): void
+    {
+        $ecran = (string) (Tools::getValue('controller') ?: '');
+
+        if (!in_array($ecran, ['AdminProducts', self::ONGLET], true)) {
+            return;
+        }
+
+        $this->context->controller->addCSS($this->_path . 'views/css/bo-liste.css');
+        $this->context->controller->addJS($this->_path . 'views/js/bo-liste.js');
+    }
+
     public function hookActionFrontControllerSetMedia(): void
     {
         if ($this->context->controller instanceof ProductController) {

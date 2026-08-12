@@ -96,6 +96,12 @@ ADMIN_EN = {
     "Mention sous le prix": "Line under the price",
     "Réassurances": "Reassurance points",
     "Réglages de l'imprimerie": "Print shop settings",
+    "Ajouter une ligne": "Add a row",
+    "Retirer cette ligne": "Remove this row",
+    "Déposer un SVG": "Upload an SVG",
+    "Icône…": "Icon…",
+    "Dépôt refusé.": "Upload rejected.",
+    "Aucun fichier reçu.": "No file received.",
     "Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c'est ici qu'on l'ajuste, fiche par fiche.":
         "Leave empty to use the shop-wide setting, shown as a hint. Artwork does not take the same work on a flyer and on a folded leaflet: this is where you adjust it, product by product.",
     "Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.":

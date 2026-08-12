@@ -196,18 +196,43 @@
     return document.querySelector('#add-to-cart-or-refresh');
   }
 
-  function commande(autorisee, motif) {
-    boutonsPanier().forEach(function (b) {
-      b.disabled = !autorisee;
+  /**
+   * Ouvre ou ferme la commande.
+   *
+   * ⚠️ On ne RÉOUVRE que ce qu'on a soi-même fermé. `boutonsPanier()` ramène
+   * tous les boutons d'ajout du document, et certains sont désactivés par la
+   * boutique pour de bonnes raisons — rupture de stock, produit non
+   * commandable. Les rouvrir en bloc laisserait commander ce que PrestaShop
+   * refuse. On note donc ceux qu'on ferme, et eux seuls sont rouverts.
+   */
+  var fermesParNous = [];
 
-      if (autorisee) {
-        b.removeAttribute('aria-disabled');
-        b.removeAttribute('title');
-      } else {
+  function commande(autorisee, motif) {
+    if (!autorisee) {
+      boutonsPanier().forEach(function (b) {
+        if (b.disabled) {
+          return;
+        }
+
+        b.disabled = true;
         b.setAttribute('aria-disabled', 'true');
         b.setAttribute('title', motif || '');
-      }
+
+        if (fermesParNous.indexOf(b) === -1) {
+          fermesParNous.push(b);
+        }
+      });
+
+      return;
+    }
+
+    fermesParNous.forEach(function (b) {
+      b.disabled = false;
+      b.removeAttribute('aria-disabled');
+      b.removeAttribute('title');
     });
+
+    fermesParNous = [];
   }
 
   /**
@@ -440,6 +465,15 @@
     var nomProduit = '';
     /** Les ventes phares réglées au back-office : nom + format visé. */
     var ventes = [];
+    /**
+     * Le numéro de la demande en cours.
+     *
+     * Deux réponses peuvent revenir dans le désordre — un réseau lent sur la
+     * première, rapide sur la seconde. Sans ce jeton, la plus ancienne écrase
+     * la plus récente et le visiteur se retrouve avec le prix d'une
+     * configuration qu'il vient de quitter.
+     */
+    var generation = 0;
     /** Les réassurances affichées sous le bouton de commande. */
     var reassurances = [];
     /** La grille de la configuration complète, une fois obtenue. */
@@ -965,7 +999,15 @@
       selection = selection.slice(0, depuis);
       rangs = rangs.slice(0, depuis);
 
+      var mien = ++generation;
+
       return appeler({ quoi: 'arbre' }).then(function (d) {
+        // Une descente dépassée n'écrit rien : le visiteur a déjà changé
+        // d'avis, et ses options ne sont plus celles-là.
+        if (mien !== generation) {
+          return true;
+        }
+
         if (!d || d.ok !== true) {
           throw new Error((d && d.message) || txt(r, 'echec', ''));
         }
@@ -1140,6 +1182,9 @@
      * valide et ne l'est plus.
      */
     function recharger(depuis) {
+      // Les lignes qui dépendent de la grille disparaissent le temps du
+      // rechargement ; l'invalidation du PRIX, elle, vit dans `chargerGrille`,
+      // point unique que tous les chemins traversent.
       grille = null;
       commande(false, txt(r, 'attendez', ''));
       retirerLigne('quantite');
@@ -1169,16 +1214,61 @@
 
     // ─── La grille ─────────────────────────────────────────────────────────
 
+    /**
+     * La grille n'est pas venue : on retire ce qui en dépendait, et on le dit
+     * LÀ OÙ ÉTAIT LE PRIX.
+     *
+     * Écrite en fin de zone, sous vingt-trois cartes de quantité, l'erreur se
+     * retrouvait hors de l'écran : le visiteur voyait un configurateur qui ne
+     * répondait plus, sans savoir pourquoi.
+     */
+    function echecDeGrille(motif) {
+      grille = null;
+      quantiteChoisie = null;
+      delaiChoisi = null;
+
+      retirerLigne('quantite');
+      retirerLigne('delai');
+      services.forEach(function (sv) { retirerLigne('svc-' + sv.cle); });
+
+      commande(false, motif);
+      rendreResume();
+      zoneResume.appendChild(message('erreur', motif));
+    }
+
+    /**
+     * Demande la grille, et INVALIDE tout ce qui en dépend en attendant.
+     *
+     * ⚠️ L'invalidation est ICI, en entrée, et non chez l'appelant. C'est le
+     * point unique que tous les chemins traversent — changement d'option,
+     * changement de prestation, premier chargement. Posée chez l'appelant, elle
+     * manquait à celui qui vient des prestations : changer un bon à tirer
+     * laissait l'ancien prix affiché ET le bouton armé pendant le recalcul. Le
+     * visiteur pouvait commander un prix que le serveur allait démentir.
+     */
     function chargerGrille() {
+      grille = null;
+      commande(false, txt(r, 'attendez', ''));
+      rendreResume();
+
       var attente = message('attente', txt(r, 'calcul', 'Calcul…'));
       zoneEtapes.appendChild(attente);
 
+      var mien = ++generation;
+
       return appeler({ quoi: 'grille' })
         .then(function (d) {
+          // ⚠️ Le jeton se teste APRÈS la réponse, jamais avant l'appel :
+          // `abort()` sur une requête déjà résolue ne fait rien, et une réponse
+          // arrivée entre-temps écraserait une sélection plus récente.
+          if (mien !== generation) {
+            return;
+          }
+
           attente.remove();
 
           if (!d || d.ok !== true) {
-            zoneEtapes.appendChild(message('erreur', (d && d.message) || txt(r, 'echec', '')));
+            echecDeGrille((d && d.message) || txt(r, 'echec', ''));
 
             return;
           }
@@ -1195,12 +1285,12 @@
           rendreResume();
         })
         .catch(function (e) {
-          if (e.name === 'AbortError') {
+          if (e.name === 'AbortError' || mien !== generation) {
             return;
           }
 
           attente.remove();
-          zoneEtapes.appendChild(message('erreur', txt(r, 'echec', '')));
+          echecDeGrille(txt(r, 'echec', ''));
         });
     }
 
@@ -1680,8 +1770,12 @@
       zoneResume.appendChild(messagePanier);
       rendreReassurances();
 
-      // Le prix est connu pour ce couple exact : la commande peut s'ouvrir.
-      commande(true);
+      // ⚠️ On n'ouvre la commande QUE sur un tarif frais. Le bandeau disait
+      // « Confirmez avant de commander » et le bouton restait armé : personne
+      // n'était tenu de confirmer quoi que ce soit. Sur un tarif périmé, le
+      // bouton reste fermé et son infobulle dit pourquoi.
+      commande(!grille.stale, txt(r, 'perime', ''));
+
     }
 
     recharger(0);

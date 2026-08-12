@@ -1,0 +1,85 @@
+/**
+ * EKO Sync — Imprimerie
+ *
+ * L'éditeur en liste du back-office.
+ *
+ * En `em` comme le reste du module : le back-office de PrestaShop change de
+ * taille de police d'un écran à l'autre, et une ligne figée en pixels y
+ * détonne au premier thème d'administration un peu différent.
+ */
+
+.eko-liste__lignes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  margin-bottom: 0.6em;
+}
+
+.eko-liste__ligne {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+/* Le libellé prend la place : c'est lui qu'on lit et qu'on retouche. La valeur
+   — un mot-clé ou un chemin — est plus courte et plus stable. */
+.eko-liste__nom {
+  flex: 1 1 55%;
+  min-width: 0;
+}
+
+.eko-liste__valeur {
+  flex: 1 1 30%;
+  min-width: 0;
+}
+
+.eko-liste__icones {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 9em;
+}
+
+/* L'aperçu montre CE QUI SERA AFFICHÉ. Sans lui, on saisit un chemin d'image
+   et l'on n'apprend qu'il est faux qu'en allant voir la fiche. */
+.eko-liste__apercu {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  height: 2.2em;
+  overflow: hidden;
+  font-size: 0.75em;
+  color: #6b7480;
+  text-align: center;
+  word-break: break-all;
+}
+
+.eko-liste__apercu img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.eko-liste__apercu--erreur {
+  width: auto;
+  max-width: 16em;
+  color: #b3282d;
+}
+
+.eko-liste__depot {
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.eko-liste__depot--encours {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.eko-liste__retirer {
+  flex: 0 0 auto;
+  padding: 0 0.6em;
+  font-size: 1.2em;
+  line-height: 1.6;
+}
