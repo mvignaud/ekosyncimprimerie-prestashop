@@ -95,6 +95,13 @@ ADMIN_EN = {
     "Heure limite — livraison accélérée": "Cut-off time — express delivery",
     "Mention sous le prix": "Line under the price",
     "Réassurances": "Reassurance points",
+    "Guide du produit": "Product guide",
+    "Guide des tailles": "Size guide",
+    "Intitulé": "Label",
+    "Contenu": "Content",
+    "Texte ou tableau HTML. Vide = pas de guide sur cette fiche.": "Text or HTML table. Empty = no guide on this product.",
+    "Remplace le « Size Guide » du thème, qui est le même pour toute la boutique. Laisser le contenu vide pour n'afficher aucun guide sur cette fiche — un guide des tailles n'a pas de sens sur un flyer, il en a un sur un textile.":
+        "Replaces the theme's Size Guide, which is the same shop-wide. Leave the content empty to show no guide on this product — a size guide makes no sense on a flyer, it does on a garment.",
     "Réglages de l'imprimerie": "Print shop settings",
     "Ajouter une ligne": "Add a row",
     "Retirer cette ligne": "Remove this row",

@@ -69,7 +69,7 @@
  * Le bloc ne s'affiche que s'il a quelque chose à dire : un cadre vide sur une
  * fiche produit se lit comme un oubli.
  *}
-{if $eko.technique.lignes|@count || $eko.technique.gabarits|@count}
+{if $eko.technique.lignes|@count || $eko.technique.gabarits|@count || $eko.technique.guide}
   <section class="eko-tech">
     <h2 class="eko-tech__titre">
       {l s='Gabarits & instructions' d='Modules.Ekosyncimprimerie.Shop'}
@@ -87,6 +87,23 @@
               </div>
             {/foreach}
           </dl>
+        </div>
+      {/if}
+
+      {**
+       * Le guide propre au produit.
+       *
+       * Il remplace le « Size Guide » du thème, qui sert le MÊME contenu à
+       * toutes les fiches. Sur une imprimerie, un guide des tailles n'a de sens
+       * que sur les textiles ; ailleurs il vaut mieux ne rien afficher.
+       *
+       * Le contenu est saisi au back-office par le marchand : on le rend en
+       * HTML, comme une description produit — même confiance, même origine.
+       *}
+      {if $eko.technique.guide}
+        <div class="eko-tech__bloc">
+          <h3 class="eko-tech__sous-titre">{$eko.technique.guide.titre|escape:'html':'UTF-8'}</h3>
+          <div class="eko-tech__guide">{$eko.technique.guide.contenu nofilter}</div>
         </div>
       {/if}
 
