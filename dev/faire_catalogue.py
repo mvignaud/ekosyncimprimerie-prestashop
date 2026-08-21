@@ -142,6 +142,11 @@ ADMIN_EN = {
 }
 
 SHOP_EN = {
+    "Votre fichier d’impression": "Your print file",
+    "Déposez-le après avoir choisi vos options. Il est contrôlé avant fabrication.":
+        "Upload it once you have chosen your options. It is checked before production.",
+    "Fichier reçu. Il sera contrôlé avant fabrication.":
+        "File received. It will be checked before production.",
     "Configurez votre produit": "Configure your product",
     "— au choix —": "— your choice —",
     "Choisissez vos options pour obtenir un prix.": "Choose your options to get a price.",

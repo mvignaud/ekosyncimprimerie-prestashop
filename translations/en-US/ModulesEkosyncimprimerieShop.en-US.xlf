@@ -171,12 +171,24 @@
         <target>— your choice —</target>
       </trans-unit>
       <trans-unit id="43">
+        <source>Votre fichier d’impression</source>
+        <target>Your print file</target>
+      </trans-unit>
+      <trans-unit id="44">
+        <source>Déposez-le après avoir choisi vos options. Il est contrôlé avant fabrication.</source>
+        <target>Upload it once you have chosen your options. It is checked before production.</target>
+      </trans-unit>
+      <trans-unit id="45">
         <source>Le prix s’applique à la quantité choisie ci-dessous.</source>
         <target>The price applies to the quantity selected below.</target>
       </trans-unit>
-      <trans-unit id="44">
+      <trans-unit id="46">
         <source>Délai</source>
         <target>Lead time</target>
+      </trans-unit>
+      <trans-unit id="47">
+        <source>Fichier reçu. Il sera contrôlé avant fabrication.</source>
+        <target>File received. It will be checked before production.</target>
       </trans-unit>
     </body>
   </file>

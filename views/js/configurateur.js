@@ -342,6 +342,76 @@
     demarrer();
   }
 
+  // ── Le dépôt du fichier d'impression ─────────────────────────────────
+  //
+  // L'envoi part vers la BOUTIQUE, jamais vers l'ERP : le jeton d'API ne doit
+  // pas exister dans cette page. Le contrôleur relaie.
+  //
+  // Le fichier ne part qu'après le premier chiffrage : la référence qui le
+  // reliera à la commande n'existe pas avant qu'une configuration ait été
+  // retenue. Envoyer plus tôt donnerait un refus incompréhensible.
+  function brancherDepot() {
+    var bloc = document.querySelector('.eko-depot');
+
+    if (!bloc || bloc.dataset.branche === '1') {
+      return;
+    }
+
+    bloc.dataset.branche = '1';
+
+    var champ = bloc.querySelector('.eko-depot__champ');
+    var etat = bloc.querySelector('.eko-depot__etat');
+
+    if (!champ || !etat) {
+      return;
+    }
+
+    champ.addEventListener('change', function () {
+      var fichier = champ.files && champ.files[0];
+
+      if (!fichier) {
+        return;
+      }
+
+      etat.textContent = 'Envoi en cours…';
+      etat.className = 'eko-depot__etat eko-depot__etat--attente';
+      champ.disabled = true;
+
+      var corps = new FormData();
+      corps.append('fichier', fichier);
+      corps.append('id_product', bloc.dataset.produit || '');
+
+      fetch(bloc.dataset.url, { method: 'POST', body: corps, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.ok) {
+            etat.textContent = j.message || 'Fichier reçu.';
+            etat.className = 'eko-depot__etat eko-depot__etat--ok';
+
+            return;
+          }
+
+          // Le message vient du serveur : « type non accepté », « fichier trop
+          // lourd ». Le remplacer par une formule générique priverait le
+          // client de ce qui lui permet de corriger.
+          etat.textContent = (j && j.erreur) || 'Envoi refusé.';
+          etat.className = 'eko-depot__etat eko-depot__etat--refus';
+        })
+        .catch(function () {
+          etat.textContent = 'Envoi interrompu, merci de réessayer.';
+          etat.className = 'eko-depot__etat eko-depot__etat--refus';
+        })
+        .finally(function () {
+          champ.disabled = false;
+          // On vide le champ : sans cela, redéposer LE MÊME fichier ne
+          // déclenche aucun évènement, et le client croit que rien ne marche.
+          champ.value = '';
+        });
+    });
+  }
+
+  brancherDepot();
+
   // Changer la quantité fait re-rendre le bloc produit par PrestaShop : notre
   // bloc est alors remplacé par un neuf, sans ses écouteurs. Sans cette
   // reprise, le configurateur meurt au premier changement de quantité — et
@@ -355,6 +425,7 @@
       masquerPrixNatif();
       masquerPersonnalisationNative();
       demarrer();
+      brancherDepot();
     });
   }
 })();

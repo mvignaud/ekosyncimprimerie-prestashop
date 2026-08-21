@@ -164,6 +164,81 @@ class ClientEko
     }
 
     /**
+     * Pousse le CONTENU d'un fichier vers l'ERP, en multipart.
+     *
+     * ─── POURQUOI UNE MÉTHODE À PART ───────────────────────────────────────
+     *
+     * `appeler()` sérialise son corps en JSON. Envoyer des octets binaires
+     * par ce chemin les ferait passer en base64 dans une chaîne JSON : un
+     * tiers de poids en plus, et une mémoire occupée deux fois — une fois par
+     * la chaîne, une fois par le corps encodé. Sur un visuel de quarante
+     * mégaoctets, c'est la limite mémoire de PHP qu'on touche, pas l'ERP.
+     *
+     * `CURLFile` lit le fichier DEPUIS LE DISQUE au moment de l'envoi, sans
+     * jamais le charger en mémoire.
+     *
+     * ─── LE DÉLAI ──────────────────────────────────────────────────────────
+     *
+     * Généreux ici, et c'est voulu : un client sur une connexion lente met du
+     * temps à téléverser, et couper à quinze secondes lui ferait recommencer
+     * un envoi qui se passait bien.
+     *
+     * @return array<string, mixed>
+     */
+    public function televerser(
+        string $chemin,
+        string $fichierLocal,
+        string $nomOrigine,
+        string $mime,
+        int $delaiTotal = 120
+    ): array {
+        if (!is_file($fichierLocal) || !is_readable($fichierLocal)) {
+            return $this->echec(0, 'fichier temporaire illisible', 0);
+        }
+
+        $debut = microtime(true);
+        $ch = curl_init($this->base . $chemin);
+
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
+            CURLOPT_TIMEOUT => $delaiTotal,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_HTTPHEADER => [
+                'Accept: application/json',
+                'Authorization: Bearer ' . $this->jeton,
+            ],
+            // Le nom d'origine et le type voyagent avec le fichier : l'ERP
+            // les recoupe avec ce qui a été annoncé, et refuse l'écart.
+            CURLOPT_POSTFIELDS => ['file' => new \CURLFile($fichierLocal, $mime, $nomOrigine)],
+        ]);
+
+        $reponse = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $erreurCurl = curl_error($ch);
+        curl_close($ch);
+
+        $duree = (int) round((microtime(true) - $debut) * 1000);
+
+        if ($reponse === false) {
+            return $this->echec($code, $erreurCurl ?: 'aucune réponse', $duree);
+        }
+
+        $donnees = json_decode((string) $reponse, true);
+
+        if (!is_array($donnees)) {
+            return $this->echec($code, 'réponse illisible : ' . mb_substr(strip_tags((string) $reponse), 0, 120), $duree);
+        }
+
+        if ($code < 200 || $code >= 300) {
+            return $this->echec($code, (string) ($donnees['message'] ?? 'HTTP ' . $code), $duree, $donnees);
+        }
+
+        return ['ok' => true, 'code' => $code, 'donnees' => $donnees, 'erreur' => '', 'duree_ms' => $duree];
+    }
+
+    /**
      * @param  array<int, string>  $entetesSupp  en-têtes bruts, « Nom: valeur »
      * @param  int|null  $delaiTotal  secondes ; à défaut, la valeur de la classe
      * @return array<string, mixed>

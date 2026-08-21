@@ -7,6 +7,41 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.20.0] — 2026-08-21
+
+Le client dépose son fichier d'impression.
+
+### Ajouté
+
+- **Un champ de dépôt sur la fiche produit configurable.** Le fichier part vers
+  la boutique, qui le relaie à E-KO — jamais directement vers l'ERP : cela
+  imposerait de confier le jeton d'API au navigateur, où il serait lisible par
+  n'importe qui.
+- **Le fichier porte la même référence que la ligne de commande.** C'est par
+  elle, et par elle seule, qu'il rejoindra son dossier de fabrication. La
+  calculer à deux endroits différents produirait deux références qui ne se
+  rencontrent jamais, et le fichier resterait en transit sans que rien ne le
+  signale.
+
+### Détails qui comptent
+
+- **Le fichier est annoncé avant d'être envoyé.** E-KO refuse alors un type
+  interdit ou un poids excessif AVANT le transfert : sur une connexion lente,
+  le client l'apprend en une seconde au lieu de téléverser quarante mégaoctets
+  pour rien.
+- **Le type est lu dans les octets, pas dans le nom du fichier.** Celui que le
+  navigateur annonce se déduit de l'extension, que n'importe qui choisit.
+- **Le message de refus vient d'E-KO et s'affiche tel quel** — « type non
+  accepté », « fichier trop lourd ». Le remplacer par une formule générique
+  priverait le client de ce qui lui permet de corriger.
+- Un fichier trop lourd pour la boutique elle-même le dit clairement, plutôt
+  que de laisser chercher l'erreur du côté de l'ERP.
+- Le champ n'apparaît pas tant que la fonction est fermée : un champ qui
+  refuserait chaque envoi vaut moins que pas de champ du tout.
+- Redéposer le même fichier après un refus fonctionne — le champ est vidé après
+  chaque tentative, sans quoi le navigateur n'émettrait plus rien et le client
+  croirait la page morte.
+
 ## [0.19.0] — 2026-08-21
 
 Les commandes de la boutique arrivent dans l'ERP.

@@ -77,6 +77,23 @@
     <p class="eko-configurateur__attente">{l s='Choisissez vos options pour obtenir un prix.' d='Modules.Ekosyncimprimerie.Shop'}</p>
   </div>
 
+  {* Le dépôt du fichier d'impression. Il n'apparaît que si la fonction est
+     ouverte côté boutique : un champ qui refuserait chaque envoi vaut moins
+     que pas de champ du tout. *}
+  {if $eko.url_depot}
+    <div class="eko-depot" data-url="{$eko.url_depot|escape:'html':'UTF-8'}"
+         data-produit="{$eko.id_product|escape:'html':'UTF-8'}">
+      <label class="eko-depot__label" for="eko-depot-fichier">
+        {l s='Votre fichier d’impression' d='Modules.Ekosyncimprimerie.Shop'}
+      </label>
+      <input type="file" id="eko-depot-fichier" class="eko-depot__champ">
+      <p class="eko-depot__aide">
+        {l s='Déposez-le après avoir choisi vos options. Il est contrôlé avant fabrication.' d='Modules.Ekosyncimprimerie.Shop'}
+      </p>
+      <p class="eko-depot__etat" aria-live="polite"></p>
+    </div>
+  {/if}
+
   <p class="eko-configurateur__note">
     {l s='Le prix s’applique à la quantité choisie ci-dessous.' d='Modules.Ekosyncimprimerie.Shop'}
   </p>

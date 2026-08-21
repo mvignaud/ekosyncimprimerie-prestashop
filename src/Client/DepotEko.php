@@ -138,6 +138,73 @@ class DepotEko
     }
 
     /**
+     * Annonce un fichier à l'ERP, avant d'en envoyer les octets.
+     *
+     * ─── POURQUOI ANNONCER D'ABORD ─────────────────────────────────────────
+     *
+     * L'ERP refuse ici ce qu'il ne veut pas — type interdit, poids excessif —
+     * AVANT que le fichier ne traverse le réseau. Un client sur une connexion
+     * lente apprend en une seconde que son fichier ne convient pas, au lieu
+     * de téléverser quarante mégaoctets pour se le voir refuser à l'arrivée.
+     *
+     * @return array{ok: bool, id: int, max: int, erreur: string, http: int}
+     */
+    public function annoncerFichier(string $reference, string $nom, int $taille, string $mime): array
+    {
+        $r = $this->client->appeler('POST', '/api/v1/printing/uploads', [
+            'external_ref' => mb_substr($reference, 0, 64),
+            'filename' => mb_substr($nom, 0, 255),
+            'size' => $taille,
+            'mime' => $mime,
+        ], [], 10);
+
+        $http = (int) ($r['code'] ?? 0);
+
+        if (!$r['ok']) {
+            return ['ok' => false, 'id' => 0, 'max' => 0, 'erreur' => (string) ($r['erreur'] ?? ''), 'http' => $http];
+        }
+
+        $donnees = is_array($r['donnees'] ?? null) ? $r['donnees'] : [];
+        $depot = is_array($donnees['data'] ?? null) ? $donnees['data'] : [];
+
+        return [
+            'ok' => true,
+            'id' => (int) ($depot['id'] ?? 0),
+            // Le plafond RÉEL, mesuré par l'ERP sur sa machine : la boutique
+            // ne le suppose pas, elle le demande.
+            'max' => (int) ($depot['max_bytes'] ?? 0),
+            'erreur' => '',
+            'http' => $http,
+        ];
+    }
+
+    /**
+     * Pousse les octets du fichier déjà annoncé.
+     *
+     * @return array{ok: bool, statut: string, erreur: string, http: int}
+     */
+    public function pousserFichier(int $idDepot, string $fichierLocal, string $nomOrigine, string $mime): array
+    {
+        $r = $this->client->televerser(
+            '/api/v1/printing/uploads/' . $idDepot . '/content',
+            $fichierLocal,
+            $nomOrigine,
+            $mime
+        );
+
+        $http = (int) ($r['code'] ?? 0);
+
+        if (!$r['ok']) {
+            return ['ok' => false, 'statut' => '', 'erreur' => (string) ($r['erreur'] ?? ''), 'http' => $http];
+        }
+
+        $donnees = is_array($r['donnees'] ?? null) ? $r['donnees'] : [];
+        $depot = is_array($donnees['data'] ?? null) ? $donnees['data'] : [];
+
+        return ['ok' => true, 'statut' => (string) ($depot['status'] ?? ''), 'erreur' => '', 'http' => $http];
+    }
+
+    /**
      * Documents d'un tiers, tous types confondus.
      *
      * @return array<string, array{ok: bool, nombre: int, lignes: list<array<string,mixed>>, erreur: string}>

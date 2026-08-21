@@ -96,7 +96,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.19.0';
+        $this->version = '0.20.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -1011,6 +1011,13 @@ class Ekosyncimprimerie extends Module
             // dependre de l'etat du fichier de reecriture du marchand.
             'url' => $this->context->link->getBaseLink()
                 . 'index.php?fc=module&module=' . $this->name . '&controller=prix',
+            // Le dépôt de fichier, même forme d'adresse et pour la même
+            // raison. Vide quand la fonction est fermée : le gabarit n'affiche
+            // alors rien, plutôt qu'un champ qui refuserait chaque envoi.
+            'url_depot' => (bool) Configuration::get(self::CLE_COMMANDES)
+                ? $this->context->link->getBaseLink()
+                    . 'index.php?fc=module&module=' . $this->name . '&controller=depot'
+                : '',
         ]);
 
         $this->configurateurRendu = true;
