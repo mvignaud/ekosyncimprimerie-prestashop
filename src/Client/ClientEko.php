@@ -163,8 +163,18 @@ class ClientEko
         return count($lignes);
     }
 
-    public function appeler(string $methode, string $chemin, ?array $corps = null): array
-    {
+    /**
+     * @param  array<int, string>  $entetesSupp  en-têtes bruts, « Nom: valeur »
+     * @param  int|null  $delaiTotal  secondes ; à défaut, la valeur de la classe
+     * @return array<string, mixed>
+     */
+    public function appeler(
+        string $methode,
+        string $chemin,
+        ?array $corps = null,
+        array $entetesSupp = [],
+        ?int $delaiTotal = null
+    ): array {
         $lisible = strtoupper($methode) === 'GET' && $corps === null;
         $cle = $lisible ? $this->cleCache($chemin) : '';
 
@@ -191,7 +201,10 @@ class ClientEko
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $methode,
             CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
-            CURLOPT_TIMEOUT => self::DELAI_TOTAL,
+            // Le délai se règle par appel : quinze secondes conviennent à
+            // une synchronisation d'arrière-plan, jamais à la page de retour
+            // de paiement — un client qui attend reclique.
+            CURLOPT_TIMEOUT => $delaiTotal ?? self::DELAI_TOTAL,
             CURLOPT_FOLLOWLOCATION => false,
         ];
 
@@ -200,7 +213,11 @@ class ClientEko
             $entetes[] = 'Content-Type: application/json';
         }
 
-        $options[CURLOPT_HTTPHEADER] = $entetes;
+        // Les en-têtes supplémentaires en DERNIER : c'est par eux que passe
+        // la clé d'idempotence, sans laquelle l'anti-doublon de l'ERP reste
+        // inerte — il est facultatif côté serveur, c'est à l'appelant de le
+        // réclamer.
+        $options[CURLOPT_HTTPHEADER] = array_merge($entetes, $entetesSupp);
         curl_setopt_array($ch, $options);
 
         $reponse = curl_exec($ch);

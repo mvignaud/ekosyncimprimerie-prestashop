@@ -7,6 +7,54 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.19.0] — 2026-08-21
+
+Les commandes de la boutique arrivent dans l'ERP.
+
+### Ajouté
+
+- **Chaque commande validée devient un devis dans E-KO**, en brouillon. Ni
+  engagement, ni écriture comptable, ni document envoyé au client : un paiement
+  par virement peut arriver trois jours plus tard sans que rien n'ait été promis
+  entre-temps, et une commande abandonnée laisse un brouillon qui expire seul.
+  Le réglage est **fermé par défaut** — installer cette version ne change rien
+  tant qu'on ne l'ouvre pas.
+- **Chaque ligne configurée porte une référence** que l'ERP sait relire. C'est
+  par elle que les fichiers déposés par le client rejoindront plus tard leur
+  ligne de dossier de fabrication : sans elle, un fichier resterait en transit
+  indéfiniment sans que rien ne le signale.
+- **Un préfixe de référence, réglable.** Il n'est pas décoratif : l'identifiant
+  de configuration est un compteur local à la base d'une boutique, et deux
+  boutiques poseront un jour la même valeur. La colonne qui l'accueille dans
+  l'ERP n'a aucune contrainte d'unicité et le rattachement compare par égalité.
+  Deux boutiques reliées au même compte, sans préfixe distinct, échangeraient
+  les fichiers de leurs clients.
+
+### Détails qui comptent
+
+- **La remontée ne peut pas faire échouer une commande.** Tout est avalé, y
+  compris une erreur de programmation. Le client a payé, sa commande existe : un
+  ERP injoignable, un jeton révoqué ou une réponse illisible ne doivent jamais
+  remonter jusqu'à lui. Un devis manquant se rattrape à la main ; une commande
+  perdue sur la page de paiement, non. Chaque cas laisse sa raison dans le
+  journal.
+- **Cinq secondes d'attente au maximum**, et non les quinze du reste du module :
+  cet appel a lieu pendant que le client attend sa page de confirmation.
+- **Un renvoi ne crée pas un second devis.** L'appel porte une clé dérivée de la
+  commande — jamais tirée au hasard, sans quoi la protection ne servirait à
+  rien. Un client qui recharge sa confirmation, ou une notification de paiement
+  rejouée, retombent sur le même devis.
+- **Le prix envoyé est celui de la ligne de commande**, jamais un recalcul. La
+  boutique a encaissé sur cette base ; un devis annonçant autre chose serait
+  faux avant d'être lu.
+- La configuration part dans le détail de la ligne, qui est conservé — et non
+  dans le champ de variables, que l'API accepte puis ignore.
+
+### Corrigé
+
+- Le commentaire d'installation annonçait « un seul hook » alors que le module
+  en enregistre huit.
+
 ## [0.11.0] — 2026-08-12
 
 Le back-office rattrape la façade.

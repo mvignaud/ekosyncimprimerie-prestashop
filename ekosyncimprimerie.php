@@ -42,8 +42,10 @@ require_once __DIR__ . '/src/Configurateur/PrixConfigure.php';
 require_once __DIR__ . '/src/Configurateur/LiaisonProduit.php';
 require_once __DIR__ . '/src/Configurateur/Personnalisation.php';
 require_once __DIR__ . '/src/Configurateur/IconeSvg.php';
+require_once __DIR__ . '/src/Commande/DevisCommande.php';
 
 use Eko\SyncImprimerie\Client\ClientEko;
+use Eko\SyncImprimerie\Commande\DevisCommande;
 use Eko\SyncImprimerie\Client\DepotEko;
 use Eko\SyncImprimerie\Client\Groupes;
 use Eko\SyncImprimerie\Client\ImportTiers;
@@ -56,6 +58,21 @@ class Ekosyncimprimerie extends Module
     public const CLE_BASE = 'EKOSYNC_BASE_URL';
     public const CLE_JETON = 'EKOSYNC_JETON';
     public const CLE_CACHE_S = 'EKOSYNC_CACHE_SECONDES';
+
+    /**
+     * Le prefixe des references envoyees a l'ERP.
+     *
+     * ⚠️ Il n'est PAS decoratif. L'identifiant de configuration est un
+     * compteur local a la base d'une boutique : deux boutiques poseront un
+     * jour la meme valeur. Or la colonne qui l'accueille dans l'ERP n'a
+     * aucune contrainte d'unicite, et le rattachement des fichiers cherche
+     * par simple egalite. Sans prefixe distinct, deux boutiques du meme
+     * locataire s'echangeraient les fichiers de leurs clients.
+     */
+    public const CLE_REF_PREFIXE = 'EKOSYNC_REF_PREFIXE';
+
+    /** La remontee des commandes est-elle active ? Fermee par defaut. */
+    public const CLE_COMMANDES = 'EKOSYNC_COMMANDES_ACTIF';
 
     /**
      * Durée de cache par défaut, en secondes.
@@ -79,7 +96,7 @@ class Ekosyncimprimerie extends Module
     {
         $this->name = 'ekosyncimprimerie';
         $this->tab = 'front_office_features';
-        $this->version = '0.18.0';
+        $this->version = '0.19.0';
         $this->author = '2M Numérique';
         $this->need_instance = 0;
         // PrestaShop 9 impose PHP 8.1, que ce module exige (proprietes promues
@@ -107,7 +124,7 @@ class Ekosyncimprimerie extends Module
 
     public function install(): bool
     {
-        // Un seul hook, et c'est le point de bascule du configurateur : c'est
+        // Le hook central reste `actionProductPriceCalculation` : c'est
         // par lui que le prix calculé par l'ERP entre dans PrestaShop. Trois
         // chemins y convergent — fiche produit, panier, et la commande, qui
         // FIGE le prix dans `order_detail`. La facture ne recalcule donc rien.
@@ -130,6 +147,9 @@ class Ekosyncimprimerie extends Module
             // L'editeur en liste du back-office : fiche produit et ecran de
             // reglages s'en servent tous les deux.
             'actionAdminControllerSetMedia',
+            // La commande validee : le premier instant ou les lignes existent
+            // ET ne bougent plus. Avant, tout est encore negociable.
+            'actionValidateOrder',
         ];
 
         if (!parent::install()) {
@@ -264,6 +284,8 @@ class Ekosyncimprimerie extends Module
         Configuration::deleteByName(self::CLE_BASE);
         Configuration::deleteByName(self::CLE_JETON);
         Configuration::deleteByName(self::CLE_CACHE_S);
+        Configuration::deleteByName(self::CLE_REF_PREFIXE);
+        Configuration::deleteByName(self::CLE_COMMANDES);
 
         // Les identifiants de groupes : sans quoi « reinitialiser le module »
         // ne remet rien a zero et les gardes restent satisfaits par un id
@@ -1374,6 +1396,13 @@ class Ekosyncimprimerie extends Module
 
         Configuration::updateValue(self::CLE_BASE, $base);
         Configuration::updateValue(self::CLE_CACHE_S, max(0, $cache));
+        Configuration::updateValue(self::CLE_COMMANDES, (bool) Tools::getValue(self::CLE_COMMANDES) ? 1 : 0);
+
+        // Le préfixe est nettoyé ici plutôt qu'à l'usage : il part dans une
+        // référence que l'ERP compare par égalité stricte, un espace ou un
+        // accent y passerait inaperçu et casserait le rattachement.
+        $prefixe = preg_replace('/[^A-Za-z0-9_-]/', '', (string) Tools::getValue(self::CLE_REF_PREFIXE)) ?? '';
+        Configuration::updateValue(self::CLE_REF_PREFIXE, mb_substr($prefixe, 0, 16));
 
         // Un champ jeton laissé vide ne doit PAS effacer le jeton enregistré :
         // le formulaire le réaffiche masqué, et l'enregistrer tel quel le
@@ -1537,6 +1566,126 @@ class Ekosyncimprimerie extends Module
         return ($v === false || $v === '') ? self::CACHE_DEFAUT : max(0, (int) $v);
     }
 
+    /**
+     * La commande vient d'etre validee : on en fait un devis dans l'ERP.
+     *
+     * ─── POURQUOI ICI, ET PAS AILLEURS ─────────────────────────────────────
+     *
+     * C'est le premier instant ou les lignes existent ET ne bougent plus :
+     * les prix sont figes dans la commande, les configurations basculees.
+     * Avant, tout est encore negociable. Et ce hook se declenche UNE FOIS par
+     * commande, quel que soit le moyen de paiement — contrairement au
+     * changement de statut, qui se rejoue a chaque etape.
+     *
+     * ─── CE QUI NE DOIT JAMAIS ARRIVER ─────────────────────────────────────
+     *
+     * Faire echouer la commande. Le client a paye ; sa commande existe. Un
+     * ERP injoignable, un jeton revoque, une reponse illisible : rien de tout
+     * cela ne doit remonter jusqu'a lui. On avale donc TOUT, on journalise, et
+     * la boutique poursuit. Un devis manquant se rattrape a la main ; une
+     * commande perdue sur la page de paiement, non.
+     */
+    public function hookActionValidateOrder(array $params): void
+    {
+        try {
+            if (!(bool) Configuration::get(self::CLE_COMMANDES)) {
+                return;
+            }
+
+            $commande = $params['order'] ?? null;
+
+            if (!$commande instanceof Order || (int) $commande->id <= 0) {
+                return;
+            }
+
+            $this->remonterCommande($commande);
+        } catch (\Throwable $e) {
+            // Y compris une erreur de programmation : la commande du client
+            // prime sur la synchronisation.
+            $this->journaliserCommande((int) ($params['order']->id ?? 0), 'exception : ' . $e->getMessage(), 3);
+        }
+    }
+
+    /**
+     * Traduit la commande et l'envoie. Ne leve jamais.
+     */
+    private function remonterCommande(Order $commande): void
+    {
+        $prefixe = (string) Configuration::get(self::CLE_REF_PREFIXE);
+        $prefixe = $prefixe !== '' ? $prefixe : 'PS' . (int) $commande->id_shop;
+
+        $traducteur = new DevisCommande(new PrixConfigure());
+        $lignes = $traducteur->lignes((array) $commande->getProducts(), $prefixe);
+
+        if ($lignes === []) {
+            $this->journaliserCommande((int) $commande->id, 'aucune ligne : rien a remonter', 1);
+
+            return;
+        }
+
+        // Le tiers est resolu par l'adresse e-mail du client — la seule cle
+        // commune aux deux systemes. Sans tiers, on ne devine pas : creer un
+        // client dans l'ERP a partir d'une commande engagerait des donnees
+        // que personne n'a validees.
+        $client = new Customer((int) $commande->id_customer);
+        $depot = new DepotEko($this->client());
+        $tiers = $depot->tierParEmail((string) $client->email);
+
+        if (!$tiers['trouve'] || !is_array($tiers['tier'])) {
+            $this->journaliserCommande(
+                (int) $commande->id,
+                'tiers introuvable pour ' . $client->email . ($tiers['erreur'] !== '' ? ' — ' . $tiers['erreur'] : ''),
+                2
+            );
+
+            return;
+        }
+
+        $charge = [
+            'tier_id' => (int) ($tiers['tier']['id'] ?? 0),
+            'reference' => mb_substr((string) $commande->reference, 0, 255),
+            'title' => 'Commande boutique ' . $commande->reference,
+            'currency' => mb_substr((string) (new Currency((int) $commande->id_currency))->iso_code, 0, 3),
+            'lines' => $lignes,
+        ];
+
+        $resultat = $depot->creerDevis($charge, $traducteur->cleIdempotence($prefixe, (int) $commande->id));
+
+        if (!$resultat['ok']) {
+            $this->journaliserCommande(
+                (int) $commande->id,
+                'echec HTTP ' . $resultat['http'] . ' : ' . $resultat['erreur'],
+                3
+            );
+
+            return;
+        }
+
+        $this->journaliserCommande(
+            (int) $commande->id,
+            'devis ' . $resultat['code'] . ' cree (' . count($lignes) . ' ligne(s))',
+            1
+        );
+    }
+
+    /**
+     * Une trace dans le journal de PrestaShop, jamais un ecran.
+     *
+     * L'operateur doit pouvoir savoir POURQUOI un devis manque, sans que le
+     * client voie quoi que ce soit.
+     */
+    private function journaliserCommande(int $idOrder, string $message, int $severite): void
+    {
+        PrestaShopLogger::addLog(
+            'EKO Sync — commande ' . $idOrder . ' : ' . $message,
+            $severite,
+            null,
+            'Order',
+            $idOrder > 0 ? $idOrder : null,
+            true
+        );
+    }
+
     public function client(): ClientEko
     {
         return new ClientEko(
@@ -1582,6 +1731,31 @@ class Ekosyncimprimerie extends Module
                         'name' => self::CLE_CACHE_S,
                         'desc' => $this->trans(
                             'Le cache ne conserve que des réponses d\'E-KO, jamais un calcul local. 0 désactive le cache.',
+                            [],
+                            'Modules.Ekosyncimprimerie.Admin'
+                        ),
+                    ],
+                    [
+                        'type' => 'switch',
+                        'label' => $this->trans('Remonter les commandes vers E-KO', [], 'Modules.Ekosyncimprimerie.Admin'),
+                        'name' => self::CLE_COMMANDES,
+                        'is_bool' => true,
+                        'values' => [
+                            ['id' => 'cmd_on', 'value' => 1, 'label' => $this->trans('Oui', [], 'Modules.Ekosyncimprimerie.Admin')],
+                            ['id' => 'cmd_off', 'value' => 0, 'label' => $this->trans('Non', [], 'Modules.Ekosyncimprimerie.Admin')],
+                        ],
+                        'desc' => $this->trans(
+                            'Chaque commande validée crée un devis en brouillon dans E-KO. Rien n\'est envoyé au client, et une commande abandonnée laisse un brouillon qui expire seul.',
+                            [],
+                            'Modules.Ekosyncimprimerie.Admin'
+                        ),
+                    ],
+                    [
+                        'type' => 'text',
+                        'label' => $this->trans('Préfixe des références', [], 'Modules.Ekosyncimprimerie.Admin'),
+                        'name' => self::CLE_REF_PREFIXE,
+                        'desc' => $this->trans(
+                            'Identifie cette boutique dans E-KO. Deux boutiques reliées au même compte DOIVENT avoir un préfixe différent, faute de quoi elles échangeraient les fichiers de leurs clients. Vide : « PS » suivi du numéro de boutique.',
                             [],
                             'Modules.Ekosyncimprimerie.Admin'
                         ),
@@ -1634,6 +1808,8 @@ class Ekosyncimprimerie extends Module
             self::CLE_BASE => Configuration::get(self::CLE_BASE),
             self::CLE_JETON => Configuration::get(self::CLE_JETON) ? '••••••••' : '',
             self::CLE_CACHE_S => $this->dureeCache(),
+            self::CLE_COMMANDES => (bool) Configuration::get(self::CLE_COMMANDES),
+            self::CLE_REF_PREFIXE => Configuration::get(self::CLE_REF_PREFIXE),
             'EKOSYNC_EMAIL_SONDE' => Tools::getValue('EKOSYNC_EMAIL_SONDE', ''),
         ];
 

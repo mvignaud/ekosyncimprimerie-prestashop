@@ -35,6 +35,14 @@ RACINE = pathlib.Path(__file__).resolve().parent.parent
 
 # fr-FR -> en-US. La source française est la clé : PrestaShop apparie là-dessus.
 ADMIN_EN = {
+    "Remonter les commandes vers E-KO": "Send orders to E-KO",
+    "Oui": "Yes",
+    "Non": "No",
+    "Chaque commande validée crée un devis en brouillon dans E-KO. Rien n'est envoyé au client, et une commande abandonnée laisse un brouillon qui expire seul.":
+        "Every validated order creates a draft quote in E-KO. Nothing is sent to the customer, and an abandoned order leaves a draft that expires on its own.",
+    "Préfixe des références": "Reference prefix",
+    "Identifie cette boutique dans E-KO. Deux boutiques reliées au même compte DOIVENT avoir un préfixe différent, faute de quoi elles échangeraient les fichiers de leurs clients. Vide : « PS » suivi du numéro de boutique.":
+        "Identifies this shop within E-KO. Two shops linked to the same account MUST use different prefixes, otherwise they would swap their customers' files. Empty: \u00ab PS \u00bb followed by the shop number.",
     "EKO Sync — Imprimerie": "EKO Sync — Print shop",
     "Relie la boutique à l'ERP E-KO : catalogue, tarifs, documents et fichiers clients. Les tarifs affichés sont ceux calculés par E-KO, sans recalcul local.":
         "Connects the shop to the E-KO ERP: catalogue, prices, documents and customer files. Displayed prices are the ones E-KO computes; nothing is recalculated locally.",

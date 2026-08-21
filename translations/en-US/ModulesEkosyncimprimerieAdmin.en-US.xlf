@@ -275,34 +275,58 @@
         <target>The cache only keeps E-KO responses, never a local calculation. 0 disables it.</target>
       </trans-unit>
       <trans-unit id="69">
+        <source>Remonter les commandes vers E-KO</source>
+        <target>Send orders to E-KO</target>
+      </trans-unit>
+      <trans-unit id="70">
+        <source>Oui</source>
+        <target>Yes</target>
+      </trans-unit>
+      <trans-unit id="71">
+        <source>Non</source>
+        <target>No</target>
+      </trans-unit>
+      <trans-unit id="72">
+        <source>Chaque commande validée crée un devis en brouillon dans E-KO. Rien n'est envoyé au client, et une commande abandonnée laisse un brouillon qui expire seul.</source>
+        <target>Every validated order creates a draft quote in E-KO. Nothing is sent to the customer, and an abandoned order leaves a draft that expires on its own.</target>
+      </trans-unit>
+      <trans-unit id="73">
+        <source>Préfixe des références</source>
+        <target>Reference prefix</target>
+      </trans-unit>
+      <trans-unit id="74">
+        <source>Identifie cette boutique dans E-KO. Deux boutiques reliées au même compte DOIVENT avoir un préfixe différent, faute de quoi elles échangeraient les fichiers de leurs clients. Vide : « PS » suivi du numéro de boutique.</source>
+        <target>Identifies this shop within E-KO. Two shops linked to the same account MUST use different prefixes, otherwise they would swap their customers' files. Empty: « PS » followed by the shop number.</target>
+      </trans-unit>
+      <trans-unit id="75">
         <source>Rechercher un client</source>
         <target>Search for a customer</target>
       </trans-unit>
-      <trans-unit id="70">
+      <trans-unit id="76">
         <source>Adresse e-mail d'un client : affiche le tiers E-KO correspondant et le nombre de documents à son nom. Aucune écriture.</source>
         <target>A customer's email address: shows the matching E-KO customer and how many documents are filed under their name. Nothing is written.</target>
       </trans-unit>
-      <trans-unit id="71">
+      <trans-unit id="77">
         <source>Enregistrer</source>
         <target>Save</target>
       </trans-unit>
-      <trans-unit id="72">
+      <trans-unit id="78">
         <source>Tester la liaison</source>
         <target>Test the connection</target>
       </trans-unit>
-      <trans-unit id="73">
+      <trans-unit id="79">
         <source>Rechercher</source>
         <target>Search</target>
       </trans-unit>
-      <trans-unit id="74">
+      <trans-unit id="80">
         <source>Aucun fichier reçu.</source>
         <target>No file received.</target>
       </trans-unit>
-      <trans-unit id="75">
+      <trans-unit id="81">
         <source>Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.</source>
         <target>These settings apply to every product linked to the ERP. A product carrying its own value keeps it.</target>
       </trans-unit>
-      <trans-unit id="76">
+      <trans-unit id="82">
         <source>Réglages de l'imprimerie</source>
         <target>Print shop settings</target>
       </trans-unit>
