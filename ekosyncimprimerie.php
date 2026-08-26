@@ -698,7 +698,7 @@ class Ekosyncimprimerie extends Module
                 htmlspecialchars($this->trans('Réassurances', [], 'Modules.Ekosyncimprimerie.Admin')),
                 htmlspecialchars($this->filigrane(
                     'reassurances',
-                    "100% Made In Occitanie|/img/cms/occitanie.svg\n"
+                    "Fabriqué en France|origine\n"
                     . "Livraison rapide et offerte|livraison\n"
                     . "Vérification gratuite de vos fichiers|fichier\n"
                     . 'Paiement sécurisé|paiement'

@@ -18,7 +18,7 @@
  * ─── POURQUOI UN FICHIER, ET PAS UN APPEL À L'ERP ──────────────────────────
  *
  * Sur un hébergement mutualisé, la ligne de commande n'a PAS le réseau sortant
- * du serveur web : `app.e-ko.fr` y répond « connection refused » en deux
+ * du serveur web : l'API de l'ERP y répond « connection refused » en deux
  * millisecondes. Un script d'injection qui appellerait l'API ne pourrait donc
  * tourner que depuis une requête HTTP — ce qui suppose d'exposer une page
  * capable de créer des produits.

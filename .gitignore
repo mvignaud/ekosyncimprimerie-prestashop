@@ -14,3 +14,21 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# ⚠️ JEUX DE DONNÉES D'UN FOURNISSEUR RÉEL — NE JAMAIS PUBLIER.
+# `dev/facettes.json` pèse 3,6 Mo et porte la nomenclature complète d'un
+# sous-traitant : 84 produits, 1 368 libellés d'options, 207 descriptions
+# commerciales rédigées, et 607 occurrences d'un bucket S3 de production
+# nommément identifiable. `dev/produits.json` porte ses codes et ses gammes.
+# Ce sont ses données, pas les nôtres — et un nom de bucket indexé devient une
+# cible. Les scripts qui les consomment prennent leur chemin en argument.
+dev/*.json
+
+# Interventions ponctuelles sur une boutique précise : elles réécrivent les
+# tables d'un constructeur de pages tiers, remplacent une couleur de marque et
+# ciblent l'identifiant d'un widget réel. Elles n'ont rien à faire dans un
+# module distribuable, même hors de l'archive.
+dev/purger-css-axon.php
+dev/repeindre-filets.php
+dev/sonder-bleu.php
+dev/sonder-filet.php
