@@ -34,6 +34,11 @@
   function editeur(zone) {
     var icones = (zone.dataset.icones || '').split(',').filter(Boolean);
     var urlDepot = zone.dataset.depot || '';
+    // Un TROISIÈME champ, quand la saisie en attend un — la description d'une
+    // prestation. Vide, l'éditeur garde exactement son comportement à deux
+    // champs : c'est ce qui permet de l'ajouter sans toucher aux réassurances
+    // ni aux ventes phares, qui n'en ont pas besoin.
+    var libelleTroisieme = zone.dataset.libelleTroisieme || '';
 
     var boite = document.createElement('div');
     boite.className = 'eko-liste';
@@ -61,8 +66,19 @@
       lignes.querySelectorAll('.eko-liste__ligne').forEach(function (l) {
         var nom = l.querySelector('.eko-liste__nom').value.trim();
         var val = l.querySelector('.eko-liste__valeur').value.trim();
+        var sup = l.querySelector('.eko-liste__extra');
+        var txt = sup ? sup.value.trim() : '';
 
-        if (nom !== '') {
+        if (nom === '') {
+          return;
+        }
+
+        // On n'écrit que les champs RENSEIGNÉS, en s'arrêtant au dernier. Une
+        // ligne « Non|0| » traînerait une barre verticale inutile que le
+        // marchand relirait comme une erreur de sa part.
+        if (txt !== '') {
+          sortie.push(nom + '|' + (val === '' ? '0' : val) + '|' + txt);
+        } else {
           sortie.push(val === '' ? nom : nom + '|' + val);
         }
       });
@@ -94,7 +110,7 @@
       }
     }
 
-    function ajouter(nom, valeur) {
+    function ajouter(nom, valeur, extra) {
       var l = document.createElement('div');
       l.className = 'eko-liste__ligne';
 
@@ -133,6 +149,14 @@
         });
 
         l.appendChild(choix);
+      }
+
+      var sup = null;
+
+      if (libelleTroisieme !== '') {
+        sup = champ('text', extra || '', 'eko-liste__extra');
+        sup.placeholder = libelleTroisieme;
+        l.appendChild(sup);
       }
 
       var vue = document.createElement('span');
@@ -199,7 +223,7 @@
       });
       l.appendChild(retirer);
 
-      [texte, val].forEach(function (c) {
+      [texte, val, sup].filter(Boolean).forEach(function (c) {
         c.addEventListener('input', function () {
           ecrire();
           apercu(l, val.value);
@@ -230,7 +254,23 @@
 
       var i = ligne.indexOf('|');
 
-      ajouter(i === -1 ? ligne : ligne.slice(0, i), i === -1 ? '' : ligne.slice(i + 1));
+      if (i === -1) {
+        ajouter(ligne, '', '');
+
+        return;
+      }
+
+      // Découpage en DEUX ou en TROIS selon ce que la saisie attend. Dans les
+      // deux cas le DERNIER champ ramasse ce qui reste, barres comprises : un
+      // chemin d'image en contient parfois, une description aussi.
+      var reste = ligne.slice(i + 1);
+      var j = libelleTroisieme === '' ? -1 : reste.indexOf('|');
+
+      ajouter(
+        ligne.slice(0, i).trim(),
+        (j === -1 ? reste : reste.slice(0, j)).trim(),
+        j === -1 ? '' : reste.slice(j + 1).trim()
+      );
     });
 
     // La zone de texte reste dans le formulaire — c'est elle qui est postée —

@@ -25,8 +25,13 @@
   --eko-fond-doux: #f6f7f9;
   --eko-texte: var(--bs-body-color, #1f2933);
   --eko-texte-doux: #6b7480;
-  --eko-accent: var(--bs-primary, #d81b60);
-  --eko-accent-doux: rgba(216, 27, 96, 0.08);
+  /* ⚠️ Le repli n'est pas décoratif : `--bs-primary` n'est PAS défini sur ce
+     thème, donc c'est TOUJOURS lui qui s'applique. Un rose générique s'y
+     affichait pendant que la boutique employait son rouge de marque sur tous
+     ses boutons — deux accents sur la même page, sans que rien ne le signale.
+     Le repli porte donc la couleur de la marque, relevée sur `.btn-primary`. */
+  --eko-accent: var(--bs-primary, #b43b47);
+  --eko-accent-doux: rgba(180, 59, 71, 0.08);
   --eko-erreur: var(--bs-danger, #b3282d);
   --eko-rayon: 0.6em;
   /* La hauteur du dessin d'un format. Les flèches du ruban s'alignent dessus :
@@ -490,6 +495,91 @@
 .eko-poc__delais-titre,
 .eko-poc__delai-note {
   flex: 0 0 auto;
+}
+
+/* ─── Les prestations, en tuiles ───────────────────────────────────────────
+   Ce bloc a remplacé une liste déroulante. Une liste cachait ses options : le
+   visiteur lisait « BAT numérique » et devait cliquer pour apprendre qu'une
+   relecture par un graphiste existait. Les tuiles montrent les trois offres,
+   leur description et leur prix d'un seul regard.
+
+   ⚠️ La grille lit `data-combien`, pas un palier écrit en dur. Le marchand
+   saisit ses prestations librement : deux options doivent s'étaler, cinq se
+   replier, et une sixième ajoutée un matin ne doit rien casser. */
+.eko-poc__ligne--prestations {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75em;
+}
+
+.eko-poc__prestations {
+  display: grid;
+  /* `auto-fit` avec un plancher : les tuiles se répartissent, et passent à la
+     ligne d'elles-mêmes quand la place manque. Une seule règle couvre deux
+     options comme six. */
+  grid-template-columns: repeat(auto-fit, minmax(13em, 1fr));
+  gap: 0.75em;
+}
+
+/* Deux options ne remplissent pas une rangée de trois : sans cela elles
+   s'étiraient chacune sur la moitié de l'écran, deux immenses cartes pour un
+   choix binaire. */
+.eko-poc__prestations[data-combien='2'] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 34em;
+}
+
+.eko-poc__presta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4em;
+  /* La marge basse est plus forte : elle porte le prix, qui doit respirer
+     au-dessus du bord. */
+  padding: 1.1em 1.1em 1.2em;
+  border: 2px solid transparent;
+  border-radius: var(--eko-rayon);
+  background: var(--eko-fond-doux);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eko-poc__presta:hover {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__presta--actif {
+  border-color: var(--eko-accent);
+}
+
+.eko-poc__presta-icone {
+  width: 2em;
+  height: 2em;
+  margin-bottom: 0.15em;
+  color: var(--eko-accent);
+}
+
+.eko-poc__presta-nom {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.eko-poc__presta-texte {
+  font-size: 0.85em;
+  line-height: 1.35;
+  color: var(--eko-texte-doux);
+}
+
+/* Le prix est collé EN BAS, pas à la suite du texte : les descriptions n'ont
+   pas la même longueur, et sans cela les montants dansaient d'une tuile à
+   l'autre. `margin-top: auto` les aligne sur une même ligne de fond. */
+.eko-poc__presta-prix {
+  margin-top: auto;
+  padding-top: 0.5em;
+  font-weight: 700;
+  color: var(--eko-accent);
 }
 
 .eko-poc__delai--phare {
@@ -1246,4 +1336,15 @@ body.eko-poc-page .btn-size-chart {
   .eko-tech__ligne dd {
     background: rgba(255, 255, 255, 0.06);
   }
+}
+
+
+/* La mention « À partir de », devant le prix d'appel des listes.
+   Discrète : c'est une précision, pas une accroche. Le prix garde tout le
+   poids visuel — sans quoi la vignette annonce une phrase au lieu d'un tarif. */
+.eko-des {
+    font-size: .8em;
+    font-weight: 500;
+    color: var(--eko-texte-doux, #6b7480);
+    white-space: nowrap;
 }

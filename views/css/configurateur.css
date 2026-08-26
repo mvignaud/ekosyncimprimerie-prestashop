@@ -1,198 +1,112 @@
 /**
- * EKO Sync — Imprimerie
+ * EKO Sync — Imprimerie · complément ATELIER
  *
- * Le configurateur de la fiche produit.
+ * ⚠️ CE FICHIER NE CONTIENT QUE CE QUI N'EXISTE PAS DANS LA FEUILLE PARTAGÉE.
  *
- * ─── CE QUE CETTE FEUILLE FAIT, ET CE QU'ELLE NE FAIT PAS ──────────────────
+ * Le configurateur d'atelier émet les MÊMES classes que celui de
+ * sous-traitance — `eko-poc__ligne`, `eko-poc__carte`, `eko-poc__resume` — et
+ * charge la même feuille. Il hérite donc de tout le système visuel : jetons,
+ * cartes, rythme, récapitulatif, réactivité.
  *
- * Le module remplace le bloc prix du thème : il doit donc porter lui-même le
- * poids visuel d'un prix, sinon la fiche perd son point d'ancrage. C'est le
- * seul endroit où cette feuille s'autorise à être affirmative.
+ * Ne reste ici que la ligne de COTES : l'atelier saisit des dimensions
+ * continues, là où l'autre ne descend qu'un arbre de choix discrets. Il n'y
+ * avait donc pas de champ numérique à styler dans la feuille partagée.
  *
- * Partout ailleurs elle s'efface. Les champs gardent les classes `form-control`
- * et `form-group` du thème et en héritent l'apparence : un module distribué qui
- * redessinerait les champs se battrait contre chaque thème du marché, et
- * perdrait. On ajoute de la STRUCTURE — espacement, hiérarchie, états — pas une
- * identité graphique.
- *
- * ─── LES COULEURS ──────────────────────────────────────────────────────────
- *
- * Tout passe par des variables CSS déclarées sur `.eko-configurateur`. Un
- * marchand qui veut ses couleurs les redéfinit dans son thème enfant, sans
- * toucher au module ni craindre une montée de version :
- *
- *     .eko-configurateur { --eko-accent: #b3282d; }
- *
- * Les valeurs par défaut sont neutres et empruntent au thème quand il expose
- * les variables Bootstrap habituelles.
- *
- * ─── `em`, JAMAIS `rem` ────────────────────────────────────────────────────
- *
- * Beaucoup de thèmes posent `html { font-size: 10px }` pour se simplifier les
- * calculs — Akira le fait. Un module qui dimensionne en `rem` s'y retrouve à
- * 62 % de sa taille : mesuré sur cette boutique, des libellés à 8,75 px au lieu
- * de 14, et un prix total à 17,5 px au lieu de 28. Illisible, et invisible
- * depuis un thème de développement qui garde la racine à 16 px.
- *
- * `em` hérite de la taille que le thème donne au bloc — 14 px ici — et suit
- * donc l'habillage au lieu de parier sur sa racine. Les rares longueurs qui
- * doivent rester stables quelle que soit la typographie (le seuil de bascule
- * de la grille) sont en pixels, assumés.
+ * Toute règle ajoutée ici doit être posée avec méfiance : si elle vaut pour les
+ * deux configurateurs, sa place est dans la feuille partagée.
  */
 
-.eko-configurateur {
-  /* Neutres — jamais une couleur de marque en dur. */
-  --eko-bord: var(--bs-border-color, #e3e6ea);
-  --eko-fond: var(--bs-body-bg, #fff);
-  --eko-fond-doux: rgba(0, 0, 0, 0.025);
-  --eko-texte: var(--bs-body-color, #23282d);
-  --eko-texte-doux: #6c757d;
-  --eko-accent: var(--bs-primary, #2b6cb0);
-  --eko-erreur: var(--bs-danger, #b3282d);
-  --eko-rayon: 0.5em;
-
-  margin: 1.5em 0;
-  padding: 1.25em;
-  border: 1px solid var(--eko-bord);
-  border-radius: var(--eko-rayon);
-  background: var(--eko-fond);
-  color: var(--eko-texte);
-}
-
-.eko-configurateur__titre {
-  margin: 0 0 1em;
-  font-size: 1.15em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-/* Deux colonnes dès qu'il y a la place. Les produits d'atelier ont souvent une
-   largeur et une hauteur, qui se lisent mieux côte à côte que l'une sous
-   l'autre. `auto-fit` fait retomber sur une colonne sans point de rupture à
-   maintenir. */
-.eko-configurateur__champs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+/* La ligne des cotes : largeur et hauteur côte à côte, pour se lire ensemble. */
+.eko-poc__cotes {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75em 1em;
 }
 
-.eko-configurateur__champ {
-  margin-bottom: 0;
-  min-width: 0; /* sans quoi un <select> long déborde de sa colonne */
+.eko-poc__cote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+  min-width: 8em;
 }
 
-.eko-configurateur__champ label {
-  display: block;
-  margin-bottom: 0.3em;
-  font-size: 1em;
-  font-weight: 500;
-}
-
-/* L'unité et l'astérisque accompagnent le libellé sans le concurrencer. */
-.eko-configurateur__unite {
-  margin-left: 0.25em;
-  color: var(--eko-texte-doux);
-  font-weight: 400;
-}
-
-.eko-configurateur__requis {
-  margin-left: 0.15em;
-  color: var(--eko-erreur);
-}
-
-.eko-configurateur__champ .help-block {
-  margin: 0.3em 0 0;
+.eko-poc__cote-nom {
   color: var(--eko-texte-doux);
   font-size: 0.8125em;
-  line-height: 1.35;
+  font-weight: 600;
 }
 
-/* ─── Le prix ──────────────────────────────────────────────────────────────
-   Le seul bloc qui s'affirme : il remplace le prix du thème, masqué par le JS
-   sur les fiches liées. Une hauteur minimale évite que la page ne saute à
-   chaque chiffrage — le contenu change de taille, pas la mise en page. */
-.eko-configurateur__resultat {
-  margin-top: 1.25em;
-  padding-top: 1em;
-  border-top: 1px solid var(--eko-bord);
-  min-height: 4.25em;
-}
-
-.eko-configurateur__prix {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5em 0.75em;
-  margin: 0;
-}
-
-.eko-configurateur__total {
-  font-size: 2em;
-  font-weight: 700;
-  line-height: 1.1;
+.eko-poc__cote-champ {
+  width: 100%;
+  min-height: 2.6em;
+  padding: 0.45em 0.7em;
+  border: 1px solid var(--eko-bord);
+  border-radius: calc(var(--eko-rayon) * 0.6);
+  background: var(--eko-fond);
   color: var(--eko-texte);
+  font-size: 1em;
 }
 
-.eko-configurateur__unitaire {
-  color: var(--eko-texte-doux);
-  font-size: 0.9375em;
+.eko-poc__cote-champ:focus-visible {
+  outline: 2px solid var(--eko-accent);
+  outline-offset: 1px;
 }
 
-.eko-configurateur__delai {
+/* Un avertissement du moteur n'est pas une erreur : le prix est bon, mais la
+   pièce livrée aura une particularité — lés à raccorder, laize supposée — que
+   le client doit connaître AVANT de commander. */
+.eko-poc__resume-avertissements {
+  margin: 0.75em 0 0;
+  padding: 0.5em 0.75em 0.5em 1.6em;
+  list-style: disc;
+  border-left: 3px solid #d98c00;
+  background: rgba(217, 140, 0, 0.07);
+  color: var(--eko-texte);
+  font-size: 0.8125em;
+  line-height: 1.45;
+}
+
+.eko-poc__resume-avertissements li + li {
+  margin-top: 0.35em;
+}
+
+/* Le gabarit : une action secondaire, sous le bouton d'achat. Il se remarque
+   sans lui disputer la place — un client qui prépare son fichier le cherche,
+   un client qui commande ne doit pas le confondre avec « Ajouter au panier ». */
+.eko-poc__resume-gabarit {
+  display: block;
+  margin-top: 0.75em;
+  padding: 0.6em 0.9em;
+  border: 1px solid var(--eko-accent);
+  border-radius: calc(var(--eko-rayon) * 0.6);
+  color: var(--eko-accent);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
+.eko-poc__resume-gabarit:hover,
+.eko-poc__resume-gabarit:focus-visible {
+  background: var(--eko-accent-doux);
+  color: var(--eko-accent);
+}
+
+.eko-poc__resume-gabarit-note {
   margin: 0.4em 0 0;
   color: var(--eko-texte-doux);
-  font-size: 0.875em;
+  font-size: 0.75em;
+  line-height: 1.4;
 }
 
-/* Le message d'attente ne clignote pas et ne tourne pas : le chiffrage prend
-   quelques centaines de millisecondes, une animation attirerait l'œil sur
-   l'attente plutôt que sur le prix qui arrive. */
-.eko-configurateur__attente {
-  margin: 0;
-  color: var(--eko-texte-doux);
-  font-size: 0.9375em;
-}
-
-/* Un refus de l'ERP est une information utile — configuration impossible,
-   format hors limites. Il se lit, il n'alarme pas. */
-.eko-configurateur__erreur {
-  margin: 0;
-  padding: 0.6em 0.75em;
-  border-left: 3px solid var(--eko-erreur);
-  border-radius: 0 var(--eko-rayon) var(--eko-rayon) 0;
-  background: var(--eko-fond-doux);
-  color: var(--eko-erreur);
-  font-size: 0.9375em;
-}
-
-.eko-configurateur__note {
-  margin: 0.75em 0 0;
-  color: var(--eko-texte-doux);
+/* Quand les cotes dépassent le seuil, la note cesse d'être une mention en bas
+   de bouton : elle devient un avertissement. Le client doit le lire AVANT de
+   télécharger, pas le découvrir en ouvrant le PDF. */
+.eko-poc__resume-gabarit-note--reduit {
+  margin-top: 0.5em;
+  padding: 0.5em 0.7em;
+  border-left: 3px solid #d98c00;
+  background: rgba(217, 140, 0, 0.09);
+  color: var(--eko-texte);
   font-size: 0.8125em;
-}
-
-/* ─── Bouton d'ajout au panier verrouillé ──────────────────────────────────
-   Le JS le désactive tant qu'aucun prix n'est connu pour la quantité en cours.
-   Sans cette règle, certains thèmes n'appliquent aucun style à `[disabled]` et
-   le bouton reste visuellement cliquable — le client insiste, rien ne se passe,
-   et il ne comprend pas pourquoi. */
-.eko-configurateur ~ * [data-button-action='add-to-cart'][disabled],
-[data-button-action='add-to-cart'][disabled] {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .eko-configurateur__resultat {
-    transition: min-height 0.15s ease;
-  }
-}
-
-/* Les thèmes sombres passent par la même porte que les autres : les variables.
-   On ne devine pas une palette, on suit celle que le thème déclare. */
-@media (prefers-color-scheme: dark) {
-  .eko-configurateur {
-    --eko-fond-doux: rgba(255, 255, 255, 0.05);
-    --eko-texte-doux: #9aa3ab;
-  }
+  font-weight: 600;
 }

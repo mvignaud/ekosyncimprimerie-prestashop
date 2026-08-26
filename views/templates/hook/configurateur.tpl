@@ -1,100 +1,69 @@
 {**
- * EKO Sync — Imprimerie
+ * EKO Sync — Imprimerie · configurateur d'ATELIER
  *
- * Le configurateur de la fiche produit.
+ * ─── POURQUOI CE GABARIT EST PRESQUE VIDE ──────────────────────────────────
  *
- * Les champs viennent de l'ERP : c'est lui qui sait ce qu'un produit accepte.
- * Rien n'est écrit en dur ici — ajouter une option au produit dans l'atelier la
- * fait apparaître sur la boutique sans toucher à ce fichier.
+ * Il ne rend qu'une racine et des données. Tout l'écran est bâti par le
+ * JavaScript, dans les MÊMES classes que le configurateur de sous-traitance —
+ * `eko-poc__ligne`, `eko-poc__carte`, `eko-poc__resume` — et la feuille de
+ * style de celui-ci est chargée ici aussi.
  *
- * ─── PAS DE CHAMP QUANTITÉ ICI ─────────────────────────────────────────────
+ * C'est le seul moyen d'obtenir une cohérence réelle : 1 350 lignes de style
+ * déjà écrites, éprouvées sur 84 fiches en production, plutôt qu'une imitation
+ * qui divergerait à la première retouche.
  *
- * La quantité est celle de PrestaShop, jamais une seconde saisie. Un champ de
- * plus créerait deux vérités : le prix serait mémorisé pour la quantité de ce
- * bloc, et le panier facturerait celle du thème. Le JS s'accroche donc au
- * champ du thème (`#quantity_wanted`).
+ * Ce qui diffère tient à la nature du produit : l'atelier saisit des cotes
+ * CONTINUES là où l'autre descend un arbre de choix discrets. Les dimensions
+ * sont donc des champs, et les matières des cartes — mêmes cartes.
  *
- * ─── LES TEXTES DU JS PASSENT PAR ICI ──────────────────────────────────────
- *
- * Un texte écrit dans le fichier JavaScript échappe à `trans()` et reste en
- * français sur une boutique anglaise. Les messages du configurateur sont donc
- * traduits ici et transmis en attributs `data-`.
+ * ⚠️ LES TEXTES PASSENT PAR ICI. Un texte écrit dans le fichier JavaScript
+ * échappe à `trans()` et reste en français sur une boutique anglaise.
  *}
-<div class="eko-configurateur"
+<div class="eko-poc eko-poc--atelier"
      data-id-product="{$eko.id_product|intval}"
      data-url="{$eko.url|escape:'html':'UTF-8'}"
+     data-url-gabarit="{$eko.url_gabarit|escape:'html':'UTF-8'}"
+     data-gabarit="{l s='Télécharger le gabarit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-gabarit-note="{l s='Plan de travail aux cotes que vous avez saisies, fond perdu et zone de sécurité compris.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-gabarit-seuil="{$eko.gabarit_seuil_mm|intval}"
+     data-gabarit-echelles="{$eko.gabarit_echelles|@json_encode|escape:'html':'UTF-8'}"
+     {* Deux textes : l'un rappelle la règle en toutes circonstances, l'autre
+        n'apparaît que lorsque les cotes saisies la déclenchent vraiment. *}
+     data-gabarit-seuil-note="{l s='Au-delà de %s mm, le gabarit est fourni à l’échelle — elle est écrite sur le document.' sprintf=[$eko.gabarit_seuil_mm|intval] d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-gabarit-reduit="{l s='Vos cotes dépassent %1$s mm : ce gabarit sera fourni à l’échelle 1:%2$s.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     {if $eko.indisponible}data-indisponible="1"{/if}
+     data-variables="{$eko.variables|@json_encode|escape:'html':'UTF-8'}"
+     {* Les prestations de l'imprimeur — bon a tirer, creation graphique.
+        Servies des le rendu : le client doit pouvoir choisir avant qu'un prix
+        existe. *}
+     data-services="{$eko.services|@json_encode|escape:'html':'UTF-8'}"
+     data-gratuit="{l s='Gratuit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-je-configure="{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-dimensions="{l s='Dimensions' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-oui="{l s='Oui' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-non="{l s='Non' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-recap="{l s='Votre commande' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-attente="{l s='Calcul du prix…' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-unite="{l s='l’unité' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-delai="{l s='Délai indicatif' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-jours="{l s='jour(s) ouvré(s)' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-ht="{l s='HT' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-ttc="{l s='TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-livree="{l s='Livraison estimée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-prix-public="{l s='Prix public TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-ajouter="{l s='Ajouter au panier' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-echec="{l s='Configuration impossible à chiffrer.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-injoignable="{l s='Le prix n’a pas pu être obtenu.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-sans-quantite="{l s='Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-attendez-prix="{l s='Le prix de cette configuration est en cours de calcul.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
-  <h3 class="eko-configurateur__titre">{l s='Configurez votre produit' d='Modules.Ekosyncimprimerie.Shop'}</h3>
+     data-attendez-prix="{l s='Le prix de cette configuration est en cours de calcul.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-indispo-titre="{l s='Ce produit se chiffre sur mesure.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-indispo-texte="{l s='Son configurateur est momentanément indisponible : nous ne pouvons pas afficher de prix fiable pour l’instant. Contactez-nous pour un devis, ou revenez dans quelques minutes.' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
 
-  <div class="eko-configurateur__champs">
-    {foreach from=$eko.variables item=v}
-      <div class="form-group eko-configurateur__champ">
-        <label class="form-control-label" for="eko-{$v.key|escape:'html':'UTF-8'}">
-          {$v.label|escape:'html':'UTF-8'}
-          {if $v.required}<span class="eko-configurateur__requis" aria-hidden="true">*</span>{/if}
-          {if $v.unit}<span class="eko-configurateur__unite">({$v.unit|escape:'html':'UTF-8'})</span>{/if}
-        </label>
+  <h2 class="eko-poc__titre">{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'}</h2>
 
-        {if $v.options}
-          <select class="form-control eko-configurateur__saisie"
-                  id="eko-{$v.key|escape:'html':'UTF-8'}"
-                  data-cle="{$v.key|escape:'html':'UTF-8'}">
-            {if !$v.required}<option value="">{l s='— au choix —' d='Modules.Ekosyncimprimerie.Shop'}</option>{/if}
-            {foreach from=$v.options item=o}
-              <option value="{$o.value|escape:'html':'UTF-8'}"
-                      {if $v.default == $o.value}selected{/if}>{$o.label|escape:'html':'UTF-8'}</option>
-            {/foreach}
-          </select>
-        {elseif $v.type == 'integer' || $v.type == 'decimal'}
-          <input type="number" class="form-control eko-configurateur__saisie"
-                 id="eko-{$v.key|escape:'html':'UTF-8'}"
-                 data-cle="{$v.key|escape:'html':'UTF-8'}"
-                 value="{$v.default|escape:'html':'UTF-8'}"
-                 {if $v.type == 'decimal'}step="0.01"{/if}
-                 min="0">
-        {else}
-          <input type="text" class="form-control eko-configurateur__saisie"
-                 id="eko-{$v.key|escape:'html':'UTF-8'}"
-                 data-cle="{$v.key|escape:'html':'UTF-8'}"
-                 value="{$v.default|escape:'html':'UTF-8'}">
-        {/if}
+  {* Les lignes de critères, bâties par le JS depuis `data-variables`. *}
+  <div class="eko-poc__etapes" aria-live="polite"></div>
 
-        {if $v.help}<p class="help-block">{$v.help|escape:'html':'UTF-8'}</p>{/if}
-      </div>
-    {/foreach}
-  </div>
-
-  {* Le prix ne s'affiche qu'une fois chiffré : rien ici ne calcule quoi que ce
-     soit, et un prix affiché avant réponse serait un prix inventé. *}
-  <div class="eko-configurateur__resultat" aria-live="polite">
-    <p class="eko-configurateur__attente">{l s='Choisissez vos options pour obtenir un prix.' d='Modules.Ekosyncimprimerie.Shop'}</p>
-  </div>
-
-  {* Le dépôt du fichier d'impression. Il n'apparaît que si la fonction est
-     ouverte côté boutique : un champ qui refuserait chaque envoi vaut moins
-     que pas de champ du tout. *}
-  {if $eko.url_depot}
-    <div class="eko-depot" data-url="{$eko.url_depot|escape:'html':'UTF-8'}"
-         data-produit="{$eko.id_product|escape:'html':'UTF-8'}">
-      <label class="eko-depot__label" for="eko-depot-fichier">
-        {l s='Votre fichier d’impression' d='Modules.Ekosyncimprimerie.Shop'}
-      </label>
-      <input type="file" id="eko-depot-fichier" class="eko-depot__champ">
-      <p class="eko-depot__aide">
-        {l s='Déposez-le après avoir choisi vos options. Il est contrôlé avant fabrication.' d='Modules.Ekosyncimprimerie.Shop'}
-      </p>
-      <p class="eko-depot__etat" aria-live="polite"></p>
-    </div>
-  {/if}
-
-  <p class="eko-configurateur__note">
-    {l s='Le prix s’applique à la quantité choisie ci-dessous.' d='Modules.Ekosyncimprimerie.Shop'}
-  </p>
+  {* Le récapitulatif : ce qui a été choisi, et ce que ça coûte. *}
+  <aside class="eko-poc__resume" aria-live="polite"></aside>
 </div>
+
+{include file='module:ekosyncimprimerie/views/templates/hook/_technique.tpl'}

@@ -164,93 +164,87 @@ class ClientEko
     }
 
     /**
-     * Pousse le CONTENU d'un fichier vers l'ERP, en multipart.
+     * Télécharge un fichier binaire de l'ERP.
      *
-     * ─── POURQUOI UNE MÉTHODE À PART ───────────────────────────────────────
+     * ─── ⚠️ POURQUOI `appeler()` NE PEUT PAS SERVIR ────────────────────────
      *
-     * `appeler()` sérialise son corps en JSON. Envoyer des octets binaires
-     * par ce chemin les ferait passer en base64 dans une chaîne JSON : un
-     * tiers de poids en plus, et une mémoire occupée deux fois — une fois par
-     * la chaîne, une fois par le corps encodé. Sur un visuel de quarante
-     * mégaoctets, c'est la limite mémoire de PHP qu'on touche, pas l'ERP.
+     * `appeler()` fait `json_decode()` sur la réponse. Un PDF n'est pas du
+     * JSON : le décodage échoue, la méthode conclut à une réponse illisible et
+     * rend un échec — alors que le serveur a parfaitement répondu. Le défaut
+     * serait indiscernable d'une panne de l'ERP.
      *
-     * `CURLFile` lit le fichier DEPUIS LE DISQUE au moment de l'envoi, sans
-     * jamais le charger en mémoire.
+     * Aucune mise en cache non plus : un document nominatif retenu ici serait
+     * servi à la requête suivante, quel que soit le client qui la fait.
      *
-     * ─── LE DÉLAI ──────────────────────────────────────────────────────────
-     *
-     * Généreux ici, et c'est voulu : un client sur une connexion lente met du
-     * temps à téléverser, et couper à quinze secondes lui ferait recommencer
-     * un envoi qui se passait bien.
-     *
-     * @return array<string, mixed>
+     * @return array{ok: bool, code: int, contenu: string, type: string, erreur: string}
      */
-    public function televerser(
-        string $chemin,
-        string $fichierLocal,
-        string $nomOrigine,
-        string $mime,
-        int $delaiTotal = 120
-    ): array {
-        if (!is_file($fichierLocal) || !is_readable($fichierLocal)) {
-            return $this->echec(0, 'fichier temporaire illisible', 0);
-        }
-
-        $debut = microtime(true);
+    public function telecharger(string $chemin): array
+    {
         $ch = curl_init($this->base . $chemin);
 
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
+            CURLOPT_CUSTOMREQUEST => 'GET',
             CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
-            CURLOPT_TIMEOUT => $delaiTotal,
+            // ⚠️ Plus long que pour un appel ordinaire : l'ERP FABRIQUE le PDF
+            // à la demande la première fois, en démarrant un navigateur sans
+            // écran. Le délai des appels JSON couperait juste avant la fin, et
+            // le client verrait une panne pour un document qui arrivait.
+            CURLOPT_TIMEOUT => 60,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_HTTPHEADER => [
-                'Accept: application/json',
+                'Accept: application/pdf',
                 'Authorization: Bearer ' . $this->jeton,
             ],
-            // Le nom d'origine et le type voyagent avec le fichier : l'ERP
-            // les recoupe avec ce qui a été annoncé, et refuse l'écart.
-            CURLOPT_POSTFIELDS => ['file' => new \CURLFile($fichierLocal, $mime, $nomOrigine)],
         ]);
 
         $reponse = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $erreurCurl = curl_error($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $erreur = curl_error($ch);
         curl_close($ch);
 
-        $duree = (int) round((microtime(true) - $debut) * 1000);
-
-        if ($reponse === false) {
-            return $this->echec($code, $erreurCurl ?: 'aucune réponse', $duree);
-        }
-
-        $donnees = json_decode((string) $reponse, true);
-
-        if (!is_array($donnees)) {
-            return $this->echec($code, 'réponse illisible : ' . mb_substr(strip_tags((string) $reponse), 0, 120), $duree);
+        if (!is_string($reponse) || $reponse === '') {
+            return [
+                'ok' => false,
+                'code' => $code,
+                'contenu' => '',
+                'type' => $type,
+                'erreur' => $erreur !== '' ? $erreur : 'réponse vide',
+            ];
         }
 
         if ($code < 200 || $code >= 300) {
-            return $this->echec($code, (string) ($donnees['message'] ?? 'HTTP ' . $code), $duree, $donnees);
+            // Le corps d'une erreur est du JSON : on en tire le message, qui
+            // dit s'il faut attendre ou corriger.
+            $donnees = json_decode($reponse, true);
+            $message = is_array($donnees) ? (string) ($donnees['message'] ?? '') : '';
+
+            return [
+                'ok' => false,
+                'code' => $code,
+                'contenu' => '',
+                'type' => $type,
+                'erreur' => $message !== '' ? $message : ('HTTP ' . $code),
+            ];
         }
 
-        return ['ok' => true, 'code' => $code, 'donnees' => $donnees, 'erreur' => '', 'duree_ms' => $duree];
+        return ['ok' => true, 'code' => $code, 'contenu' => $reponse, 'type' => $type, 'erreur' => ''];
     }
 
     /**
-     * @param  array<int, string>  $entetesSupp  en-têtes bruts, « Nom: valeur »
-     * @param  int|null  $delaiTotal  secondes ; à défaut, la valeur de la classe
-     * @return array<string, mixed>
+     * @param  bool  $sansCache  ⚠️ POUR CE QU'ON INTERROGE EN BOUCLE.
+     *
+     * Le cache est une bonne idée pour un catalogue, et une très mauvaise
+     * pour un état qui change. Mesuré le 2026-08-26 : la boutique relisait
+     * l'avancement d'un calcul de tarif toutes les trois secondes et recevait
+     * indéfiniment la PREMIÈRE réponse — « en attente » — alors que le calcul
+     * était fini depuis longtemps et que ses vingt-deux prix étaient rangés.
+     * Rien ne distingue une réponse en cache d'une réponse fraîche.
      */
-    public function appeler(
-        string $methode,
-        string $chemin,
-        ?array $corps = null,
-        array $entetesSupp = [],
-        ?int $delaiTotal = null
-    ): array {
-        $lisible = strtoupper($methode) === 'GET' && $corps === null;
+    public function appeler(string $methode, string $chemin, ?array $corps = null, bool $sansCache = false): array
+    {
+        $lisible = strtoupper($methode) === 'GET' && $corps === null && !$sansCache;
         $cle = $lisible ? $this->cleCache($chemin) : '';
 
         if ($lisible) {
@@ -276,10 +270,7 @@ class ClientEko
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_CUSTOMREQUEST => $methode,
             CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
-            // Le délai se règle par appel : quinze secondes conviennent à
-            // une synchronisation d'arrière-plan, jamais à la page de retour
-            // de paiement — un client qui attend reclique.
-            CURLOPT_TIMEOUT => $delaiTotal ?? self::DELAI_TOTAL,
+            CURLOPT_TIMEOUT => self::DELAI_TOTAL,
             CURLOPT_FOLLOWLOCATION => false,
         ];
 
@@ -288,11 +279,7 @@ class ClientEko
             $entetes[] = 'Content-Type: application/json';
         }
 
-        // Les en-têtes supplémentaires en DERNIER : c'est par eux que passe
-        // la clé d'idempotence, sans laquelle l'anti-doublon de l'ERP reste
-        // inerte — il est facultatif côté serveur, c'est à l'appelant de le
-        // réclamer.
-        $options[CURLOPT_HTTPHEADER] = array_merge($entetes, $entetesSupp);
+        $options[CURLOPT_HTTPHEADER] = $entetes;
         curl_setopt_array($ch, $options);
 
         $reponse = curl_exec($ch);
@@ -320,12 +307,7 @@ class ClientEko
         }
 
         if ($code < 200 || $code >= 300) {
-            return $this->echec(
-                $code,
-                (string) ($donnees['message'] ?? 'HTTP ' . $code),
-                $duree,
-                $donnees
-            );
+            return $this->echec($code, self::motif($donnees, $code), $duree, $donnees);
         }
 
         $succes = [
@@ -343,6 +325,47 @@ class ClientEko
         }
 
         return $succes;
+    }
+
+    /**
+     * Le motif d'un refus, dans l'ordre de ce qui aide le plus.
+     *
+     * ⚠️ CE QUE CETTE METHODE REPARE.
+     *
+     * L'ERP separe deliberement deux champs sur un refus : `message` porte une
+     * phrase generique et sans risque — « This configuration cannot be
+     * priced. » — et `reason` porte le motif reel, en francais, qui NOMME ce
+     * qui cloche : « Le produit "Adhesif decoupe" ne declare pas cette
+     * variable : marge_secrete », « Configuration incomplete : lamination est
+     * requise et n'a pas ete transmise ».
+     *
+     * Le client ne lisait que `message`. Un visiteur francais recevait donc
+     * une phrase anglaise qui ne disait pas quoi corriger — alors que la
+     * reponse contenait, deux lignes plus bas, exactement ce qu'il fallait
+     * lui dire. Un refus qui ne dit pas pourquoi est un refus a moitie rendu.
+     *
+     * `reason` n'est retenu que sur un 4xx : c'est le code par lequel l'ERP
+     * dit « j'ai juge ta demande ». Sur un 5xx il est en peine, et son motif
+     * interne n'a rien a faire sous les yeux d'un client.
+     *
+     * @param  array<string,mixed>  $donnees
+     */
+    private static function motif(array $donnees, int $code): string
+    {
+        if ($code >= 400 && $code < 500) {
+            $reason = $donnees['reason'] ?? null;
+
+            if (is_string($reason) && trim($reason) !== '') {
+                // Borne : un motif est une phrase, pas une trace.
+                return mb_substr(trim($reason), 0, 300);
+            }
+        }
+
+        $message = $donnees['message'] ?? null;
+
+        return is_string($message) && trim($message) !== ''
+            ? mb_substr(trim($message), 0, 300)
+            : 'HTTP ' . $code;
     }
 
     /**

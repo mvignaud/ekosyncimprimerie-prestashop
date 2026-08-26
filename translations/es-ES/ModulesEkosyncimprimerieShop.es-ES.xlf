@@ -1,0 +1,455 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file source-language="fr-FR" target-language="es-ES" datatype="plaintext" original="module.ekosyncimprimerie">
+    <body>
+      <trans-unit id="1">
+        <source>Voir plus</source>
+        <target>Ver más</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>Voir moins</source>
+        <target>Ver menos</target>
+      </trans-unit>
+      <trans-unit id="3">
+        <source>Une consigne pour cette ligne ?</source>
+        <target>¿Alguna indicación para esta línea?</target>
+      </trans-unit>
+      <trans-unit id="4">
+        <source>Ex. : livrer avant le 20, ou couper en deux paquets égaux.</source>
+        <target>Ej.: entregar antes del día 20, o dividir en dos paquetes iguales.</target>
+      </trans-unit>
+      <trans-unit id="5">
+        <source>Commentaire enregistré.</source>
+        <target>Comentario guardado.</target>
+      </trans-unit>
+      <trans-unit id="6">
+        <source>Spécifications techniques</source>
+        <target>Especificaciones técnicas</target>
+      </trans-unit>
+      <trans-unit id="7">
+        <source>Télécharger le gabarit</source>
+        <target>Descargar la plantilla</target>
+      </trans-unit>
+      <trans-unit id="8">
+        <source>Hauteur à fournir (cm)</source>
+        <target>Altura a entregar (cm)</target>
+      </trans-unit>
+      <trans-unit id="9">
+        <source>Largeur à fournir (cm)</source>
+        <target>Anchura a entregar (cm)</target>
+      </trans-unit>
+      <trans-unit id="10">
+        <source>Bords perdus (cm)</source>
+        <target>Sangrado (cm)</target>
+      </trans-unit>
+      <trans-unit id="11">
+        <source>Bords de sécurité (cm)</source>
+        <target>Margen de seguridad (cm)</target>
+      </trans-unit>
+      <trans-unit id="12">
+        <source>Forme</source>
+        <target>Forma</target>
+      </trans-unit>
+      <trans-unit id="13">
+        <source>Rectangle</source>
+        <target>Rectángulo</target>
+      </trans-unit>
+      <trans-unit id="14">
+        <source>Échelle autorisée</source>
+        <target>Escala permitida</target>
+      </trans-unit>
+      <trans-unit id="15">
+        <source>Résolution demandée (dpi)</source>
+        <target>Resolución requerida (dpi)</target>
+      </trans-unit>
+      <trans-unit id="16">
+        <source>Types de fichiers autorisés</source>
+        <target>Tipos de archivo permitidos</target>
+      </trans-unit>
+      <trans-unit id="17">
+        <source>Pages attendues</source>
+        <target>Páginas previstas</target>
+      </trans-unit>
+      <trans-unit id="18">
+        <source>Pliage</source>
+        <target>Plegado</target>
+      </trans-unit>
+      <trans-unit id="19">
+        <source>Nous assurons le pliage. Le gabarit est au format ouvert : calez votre contenu sur les plis.</source>
+        <target>Nosotros nos encargamos del plegado. La plantilla está en formato abierto: ajuste su contenido a los pliegues.</target>
+      </trans-unit>
+      <trans-unit id="20">
+        <source>(%n% volets)</source>
+        <target>(%n% paneles)</target>
+      </trans-unit>
+      <trans-unit id="21">
+        <source>Masse/m² (g)</source>
+        <target>Masa/m² (g)</target>
+      </trans-unit>
+      <trans-unit id="22">
+        <source>Poids (kg)</source>
+        <target>Peso (kg)</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Données techniques</source>
+        <target>Datos técnicos</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>Fermer</source>
+        <target>Cerrar</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>hors articles dont le poids n’est pas connu</source>
+        <target>sin incluir los artículos cuyo peso se desconoce</target>
+      </trans-unit>
+      <trans-unit id="26">
+        <source>Poids total de ma commande</source>
+        <target>Peso total de mi pedido</target>
+      </trans-unit>
+      <trans-unit id="27">
+        <source>Ajouter mon fichier</source>
+        <target>Añadir mi archivo</target>
+      </trans-unit>
+      <trans-unit id="28">
+        <source>Si vous avez un fichier recto-verso, ne le séparez pas : chargez le PDF directement. </source>
+        <target>Si su archivo es a doble cara, no lo separe: cargue el PDF tal cual. </target>
+      </trans-unit>
+      <trans-unit id="29">
+        <source>Je chargerai mes fichiers plus tard</source>
+        <target>Subiré mis archivos más tarde</target>
+      </trans-unit>
+      <trans-unit id="30">
+        <source>Fichier conforme</source>
+        <target>Archivo conforme</target>
+      </trans-unit>
+      <trans-unit id="31">
+        <source>Conforme, avec réserves</source>
+        <target>Conforme, con reservas</target>
+      </trans-unit>
+      <trans-unit id="32">
+        <source>À revoir — voir le détail</source>
+        <target>Revisar — ver el detalle</target>
+      </trans-unit>
+      <trans-unit id="33">
+        <source>Nous n’avons pas pu tout vérifier</source>
+        <target>No hemos podido comprobarlo todo</target>
+      </trans-unit>
+      <trans-unit id="34">
+        <source>L’envoi a échoué</source>
+        <target>El envío ha fallado</target>
+      </trans-unit>
+      <trans-unit id="35">
+        <source>Vérification en cours…</source>
+        <target>Comprobando…</target>
+      </trans-unit>
+      <trans-unit id="36">
+        <source>En attente</source>
+        <target>Pendiente</target>
+      </trans-unit>
+      <trans-unit id="37">
+        <source>Retirer</source>
+        <target>Quitar</target>
+      </trans-unit>
+      <trans-unit id="38">
+        <source>Expédition prévue le</source>
+        <target>Envío previsto el</target>
+      </trans-unit>
+      <trans-unit id="39">
+        <source>Livraison prévue le</source>
+        <target>Entrega prevista el</target>
+      </trans-unit>
+      <trans-unit id="40">
+        <source>Jours ouvrés, hors jours fériés.</source>
+        <target>Días laborables, sin contar festivos.</target>
+      </trans-unit>
+      <trans-unit id="41">
+        <source>HT</source>
+        <target>sin IVA</target>
+      </trans-unit>
+      <trans-unit id="42">
+        <source>TTC</source>
+        <target>con IVA</target>
+      </trans-unit>
+      <trans-unit id="43">
+        <source>(TVA %taux% %)</source>
+        <target>(IVA %taux% %)</target>
+      </trans-unit>
+      <trans-unit id="44">
+        <source>À partir de</source>
+        <target>Desde</target>
+      </trans-unit>
+      <trans-unit id="45">
+        <source>Quantité</source>
+        <target>Cantidad</target>
+      </trans-unit>
+      <trans-unit id="46">
+        <source>Délai</source>
+        <target>Plazo</target>
+      </trans-unit>
+      <trans-unit id="47">
+        <source>Hauteur (cm)</source>
+        <target>Alto (cm)</target>
+      </trans-unit>
+      <trans-unit id="48">
+        <source>Largeur (cm)</source>
+        <target>Ancho (cm)</target>
+      </trans-unit>
+      <trans-unit id="49">
+        <source>Formats courants</source>
+        <target>Formatos habituales</target>
+      </trans-unit>
+      <trans-unit id="50">
+        <source>Expédition estimée</source>
+        <target>Envío estimado</target>
+      </trans-unit>
+      <trans-unit id="51">
+        <source>Urgence</source>
+        <target>Urgente</target>
+      </trans-unit>
+      <trans-unit id="52">
+        <source>Express</source>
+        <target>Exprés</target>
+      </trans-unit>
+      <trans-unit id="53">
+        <source>Standard</source>
+        <target>Estándar</target>
+      </trans-unit>
+      <trans-unit id="54">
+        <source>Mes fichiers</source>
+        <target>Mis archivos</target>
+      </trans-unit>
+      <trans-unit id="55">
+        <source>Déposez ici les fichiers d’impression de vos commandes. Chaque fichier est contrôlé automatiquement dès son arrivée — format, fonds perdus, résolution, polices — et vous en voyez le verdict aussitôt.</source>
+        <target>Suba aquí los archivos de impresión de sus pedidos. Cada archivo se comprueba automáticamente en cuanto llega — formato, sangrado, resolución, tipografías — y verá el resultado al instante.</target>
+      </trans-unit>
+      <trans-unit id="56">
+        <source>Vous n’avez pas encore de commande à laquelle rattacher un fichier.</source>
+        <target>Todavía no tiene ningún pedido al que adjuntar un archivo.</target>
+      </trans-unit>
+      <trans-unit id="57">
+        <source>Voir le catalogue</source>
+        <target>Ver el catálogo</target>
+      </trans-unit>
+      <trans-unit id="58">
+        <source>Commande</source>
+        <target>Pedido</target>
+      </trans-unit>
+      <trans-unit id="59">
+        <source>1 ligne attend son fichier</source>
+        <target>1 línea espera su archivo</target>
+      </trans-unit>
+      <trans-unit id="60">
+        <source>%d lignes attendent leur fichier</source>
+        <target>%d líneas esperan su archivo</target>
+      </trans-unit>
+      <trans-unit id="61">
+        <source>Envoi en cours…</source>
+        <target>Enviando…</target>
+      </trans-unit>
+      <trans-unit id="62">
+        <source>Envoi impossible — réessayez.</source>
+        <target>No se ha podido enviar: inténtelo de nuevo.</target>
+      </trans-unit>
+      <trans-unit id="63">
+        <source>Gabarits &amp; instructions</source>
+        <target>Plantillas e instrucciones</target>
+      </trans-unit>
+      <trans-unit id="64">
+        <source>Fiche technique</source>
+        <target>Ficha técnica</target>
+      </trans-unit>
+      <trans-unit id="65">
+        <source>Gabarits</source>
+        <target>Plantillas</target>
+      </trans-unit>
+      <trans-unit id="66">
+        <source>Voir les %n% autres gabarits</source>
+        <target>Ver las otras %n% plantillas</target>
+      </trans-unit>
+      <trans-unit id="67">
+        <source>Télécharger mon document de commande (PDF)</source>
+        <target>Descargar mi resumen de pedido (PDF)</target>
+      </trans-unit>
+      <trans-unit id="68">
+        <source>Il détaille votre configuration ligne par ligne. C’est le document que notre atelier a sous les yeux. Ce n’est pas une facture.</source>
+        <target>Detalla su configuración línea por línea. Es el documento que tiene delante nuestro taller. No es una factura.</target>
+      </trans-unit>
+      <trans-unit id="69">
+        <source>Chargement des options…</source>
+        <target>Cargando opciones…</target>
+      </trans-unit>
+      <trans-unit id="70">
+        <source>Calcul des tarifs…</source>
+        <target>Calculando tarifas…</target>
+      </trans-unit>
+      <trans-unit id="71">
+        <source>Je choisis mon délai</source>
+        <target>Elijo mi plazo</target>
+      </trans-unit>
+      <trans-unit id="72">
+        <source>Inclus</source>
+        <target>Incluido</target>
+      </trans-unit>
+      <trans-unit id="73">
+        <source>Supplément</source>
+        <target>Suplemento</target>
+      </trans-unit>
+      <trans-unit id="74">
+        <source>Meilleure offre</source>
+        <target>Mejor oferta</target>
+      </trans-unit>
+      <trans-unit id="75">
+        <source>Bon plan</source>
+        <target>Buen precio</target>
+      </trans-unit>
+      <trans-unit id="76">
+        <source>ex.</source>
+        <target>uds.</target>
+      </trans-unit>
+      <trans-unit id="77">
+        <source>Détail de ma commande</source>
+        <target>Detalle de mi pedido</target>
+      </trans-unit>
+      <trans-unit id="78">
+        <source>l’unité</source>
+        <target>la unidad</target>
+      </trans-unit>
+      <trans-unit id="79">
+        <source>Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.</source>
+        <target>Estas tarifas no se han actualizado recientemente. Confírmelas antes de pedir.</target>
+      </trans-unit>
+      <trans-unit id="80">
+        <source>Options indisponibles pour le moment.</source>
+        <target>Opciones no disponibles en este momento.</target>
+      </trans-unit>
+      <trans-unit id="81">
+        <source>Choisissez vos options pour obtenir un prix.</source>
+        <target>Elija sus opciones para obtener un precio.</target>
+      </trans-unit>
+      <trans-unit id="82">
+        <source>Livraison estimée</source>
+        <target>Entrega estimada</target>
+      </trans-unit>
+      <trans-unit id="83">
+        <source>dont prestations</source>
+        <target>servicios incl.</target>
+      </trans-unit>
+      <trans-unit id="84">
+        <source>Ajouter au panier</source>
+        <target>Añadir a la cesta</target>
+      </trans-unit>
+      <trans-unit id="85">
+        <source>L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.</source>
+        <target>No se ha podido añadir a la cesta. Revise su configuración e inténtelo de nuevo.</target>
+      </trans-unit>
+      <trans-unit id="86">
+        <source>Tout voir</source>
+        <target>Ver todo</target>
+      </trans-unit>
+      <trans-unit id="87">
+        <source>Formats précédents</source>
+        <target>Formatos anteriores</target>
+      </trans-unit>
+      <trans-unit id="88">
+        <source>Formats suivants</source>
+        <target>Formatos siguientes</target>
+      </trans-unit>
+      <trans-unit id="89">
+        <source>Quantités supérieures</source>
+        <target>Cantidades superiores</target>
+      </trans-unit>
+      <trans-unit id="90">
+        <source>Je configure mon produit</source>
+        <target>Configuro mi producto</target>
+      </trans-unit>
+      <trans-unit id="91">
+        <source>Configuration personnalisée</source>
+        <target>Configuración personalizada</target>
+      </trans-unit>
+      <trans-unit id="92">
+        <source>Soyez livré plus rapidement</source>
+        <target>Recíbalo antes</target>
+      </trans-unit>
+      <trans-unit id="93">
+        <source>Prix public TTC</source>
+        <target>PVP con IVA</target>
+      </trans-unit>
+      <trans-unit id="94">
+        <source>Gratuit</source>
+        <target>Gratis</target>
+      </trans-unit>
+      <trans-unit id="95">
+        <source>Oui</source>
+        <target>Sí</target>
+      </trans-unit>
+      <trans-unit id="96">
+        <source>Nous calculons votre tarif sur mesure…</source>
+        <target>Estamos calculando su precio a medida…</target>
+      </trans-unit>
+      <trans-unit id="97">
+        <source>Le calcul est plus long que prévu. Rechargez la page ou demandez-nous un devis.</source>
+        <target>El cálculo está tardando más de lo previsto. Recargue la página o pídanos un presupuesto.</target>
+      </trans-unit>
+      <trans-unit id="98">
+        <source>Dimensions sur mesure</source>
+        <target>Dimensiones a medida</target>
+      </trans-unit>
+      <trans-unit id="99">
+        <source>Non</source>
+        <target>No</target>
+      </trans-unit>
+      <trans-unit id="100">
+        <source>Plan de travail aux cotes que vous avez saisies, fond perdu et zone de sécurité compris.</source>
+        <target>Mesa de trabajo con las medidas que ha introducido, sangrado y zona de seguridad incluidos.</target>
+      </trans-unit>
+      <trans-unit id="101">
+        <source>Au-delà de %s mm, le gabarit est fourni à l’échelle — elle est écrite sur le document.</source>
+        <target>Por encima de %s mm, la plantilla se entrega a escala reducida: la escala figura en el documento.</target>
+      </trans-unit>
+      <trans-unit id="102">
+        <source>Vos cotes dépassent %1$s mm : ce gabarit sera fourni à l’échelle 1:%2$s.</source>
+        <target>Sus medidas superan los %1$s mm: esta plantilla se entregará a escala 1:%2$s.</target>
+      </trans-unit>
+      <trans-unit id="103">
+        <source>Dimensions</source>
+        <target>Dimensiones</target>
+      </trans-unit>
+      <trans-unit id="104">
+        <source>Votre commande</source>
+        <target>Su resumen de pedido</target>
+      </trans-unit>
+      <trans-unit id="105">
+        <source>Calcul du prix…</source>
+        <target>Calculando el precio…</target>
+      </trans-unit>
+      <trans-unit id="106">
+        <source>Configuration impossible à chiffrer.</source>
+        <target>Configuración imposible de presupuestar.</target>
+      </trans-unit>
+      <trans-unit id="107">
+        <source>Le prix n’a pas pu être obtenu.</source>
+        <target>No se ha podido obtener el precio.</target>
+      </trans-unit>
+      <trans-unit id="108">
+        <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
+        <target>Este tema no expone ningún campo de cantidad: no se puede garantizar el precio.</target>
+      </trans-unit>
+      <trans-unit id="109">
+        <source>Le prix de cette configuration est en cours de calcul.</source>
+        <target>Se está calculando el precio de esta configuración.</target>
+      </trans-unit>
+      <trans-unit id="110">
+        <source>Ce produit se chiffre sur mesure.</source>
+        <target>Este producto se presupuesta a medida.</target>
+      </trans-unit>
+      <trans-unit id="111">
+        <source>Son configurateur est momentanément indisponible : nous ne pouvons pas afficher de prix fiable pour l’instant. Contactez-nous pour un devis, ou revenez dans quelques minutes.</source>
+        <target>Su configurador no está disponible momentáneamente: por ahora no podemos mostrar un precio fiable. Contáctenos para un presupuesto o vuelva dentro de unos minutos.</target>
+      </trans-unit>
+      <trans-unit id="112">
+        <source>Déposer les fichiers d’impression de vos commandes</source>
+        <target>Suba los archivos de impresión de sus pedidos</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

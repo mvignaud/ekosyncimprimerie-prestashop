@@ -5,8 +5,8 @@
 <h1 align="center">EKO Sync — Imprimerie</h1>
 
 <p align="center">
-  Relie une boutique PrestaShop à l'ERP <strong>E-KO</strong> : tarifs, tiers,
-  documents et groupes de clients.<br>
+  Relie une boutique PrestaShop à l'ERP <strong>E-KO</strong> : configurateur
+  de prix, tarifs, commandes, fichiers d'impression et tiers.<br>
   <a href="#licence">MIT</a> · PrestaShop 9.0+ · PHP 8.1+
 </p>
 
@@ -48,6 +48,30 @@ Le partage des responsabilités qui en découle :
   technique. L'opération est idempotente : un second import ne duplique rien.
 - **Sonde de support** — pour une adresse e-mail donnée : le tiers E-KO
   correspondant, le tarif qui s'applique et le nombre de documents à son nom.
+- **Configurateur de prix sur la fiche produit** — le visiteur choisit ses
+  options et voit le tarif d'E-KO, jamais un calcul local. Deux formes de
+  sous-traitance sont gérées : celle dont le prix est **lu dans une grille**
+  rapportée à l'avance, et celle dont le prix se **calcule à la demande**, avec
+  un plafond d'appels par visiteur pour que la fiche ne devienne pas un
+  robinet ouvert sur l'API du sous-traitant.
+- **Dimensions sur mesure** — hauteur et largeur libres à côté des formats
+  courants, avec les bornes que le sous-traitant accepte réellement.
+- **Spécifications techniques et gabarit** — ce que le client doit fournir
+  (fonds perdus, zone de sécurité, résolution, pages attendues), et le plan de
+  travail PDF correspondant. Un gabarit peut être **calculé** depuis le format
+  fini, ou **déposé à la main** pour les formes que le calcul ne couvre pas.
+- **Dépôt des fichiers d'impression** — depuis le panier ou plus tard depuis
+  l'espace client (« Mes fichiers »). Chaque fichier est relayé vers E-KO, qui
+  le contrôle et rend son verdict ; le client le voit sans quitter la boutique.
+- **Remontée des commandes** — une commande validée devient un devis dans
+  l'ERP, avec ses lignes, ses configurations et le commentaire éventuel du
+  client sur chaque ligne.
+- **Retour des états de fabrication** — E-KO fait avancer la commande dans la
+  boutique, sur une correspondance que le marchand règle lui-même.
+- **Dates d'expédition et de livraison** — annoncées en jours ouvrés, jours
+  fériés déduits.
+- **Document de commande** — celui de l'ERP, relayé tel quel : un seul
+  document fait foi des deux côtés.
 
 ## Prérequis
 
@@ -160,9 +184,8 @@ tranche.
 
 Annoncé pour éviter toute mauvaise surprise :
 
-- pas de configurateur de prix côté boutique ;
-- pas de synchronisation du catalogue ni des documents dans le compte client ;
-- pas de téléversement de fichiers, ni de contrôle avant impression ;
+- pas de synchronisation du catalogue : les fiches sont créées et rangées à la
+  main, ou par les scripts de `dev/` ;
 - **la reprise des adresses va dans un seul sens** : de l'ERP vers la
   boutique. Une adresse créée par le client sur le site n'est pas remontée ;
 - **un seul contact par compte** : PrestaShop n'attache qu'un état civil à un
@@ -203,9 +226,17 @@ boutique étrangère, sans que rien ne le signale.
 
 ### Traductions
 
-L'interface est écrite en français — c'est la langue source. Le catalogue
-`en-US` est fourni. Pour ajouter une langue, compléter `CATALOGUES` dans
-`dev/faire_catalogue.py` et relancer le script.
+L'interface est écrite en français — c'est la langue source. Trois catalogues
+sont fournis : `en-US` et `en-GB` (même anglais, une seule table les sert) pour
+le marchand comme pour le client, et `es-ES` pour le client seul — le
+back-office ne s'adresse qu'au marchand. Pour ajouter une langue, compléter
+`CATALOGUES` dans `dev/faire_catalogue.py` et relancer le script.
+
+Le **domaine** d'une chaîne — `Admin` pour le marchand, `Shop` pour le client —
+est celui que l'appel déclare : troisième argument de `$this->trans()`,
+attribut `d=` de `{l}`. Il n'est jamais déduit du fichier. Une chaîne sans
+domaine est refusée par le script plutôt que rangée au hasard : mal rangée,
+PrestaShop ne la trouve pas et sert le français.
 
 Les messages produits par `src/Client/` (comptes rendus d'import, écarts de
 groupes) restent en français : ils ne passent pas par le traducteur de

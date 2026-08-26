@@ -39,6 +39,26 @@
     return document.querySelector('.eko-poc');
   }
 
+  /**
+   * Toutes les trois secondes, et pas moins.
+   *
+   * Un calcul en prend dix-sept ; relire toutes les trois secondes faisait
+   * vingt requêtes par minute et par visiteur en attente. Le sondage ne peut
+   * PAS être mis en cache — c'est un état — et cinq visiteurs simultanés
+   * dépassaient à eux seuls le seau de requêtes de la boutique. Cinq secondes
+   * divisent la charge par 1,7 sans que le visiteur le voie.
+   */
+  var INTERVALLE_SONDE = 5000;
+
+  /**
+   * Deux minutes, et on abandonne.
+   *
+   * Le serveur a ses propres gardes — une demande abandonnée se reconnaît à
+   * son âge — mais un réseau coupé ne les atteint jamais. Sans cette borne, la
+   * page tournerait jusqu'à ce qu'on la ferme.
+   */
+  var ATTENTE_MAX = 120000;
+
   function txt(r, cle, defaut) {
     return r.dataset[cle] || defaut;
   }
@@ -177,6 +197,79 @@
     return '<svg class="eko-poc__reassure-icone" viewBox="0 0 24 24" fill="none"'
       + ' stroke="currentColor" stroke-width="1.6" stroke-linecap="round"'
       + ' stroke-linejoin="round" aria-hidden="true">' + (traits[nom] || traits.origine) + '</svg>';
+  }
+
+  /**
+   * Le dessin d'une prestation, choisi d'après SON LIBELLÉ.
+   *
+   * ─── POURQUOI D'APRÈS LE LIBELLÉ, ET PAS D'APRÈS LE RANG ───────────────────
+   *
+   * Le marchand saisit ses prestations en texte libre, dans l'ordre qui lui
+   * plaît, et il en ajoute. Attribuer le premier dessin à la première ligne
+   * donnerait un crayon à « je fournis mon fichier » dès que quelqu'un
+   * réordonne sa liste — un dessin faux est pire qu'un dessin générique, il
+   * annonce autre chose que ce qu'on achète.
+   *
+   * On lit donc les mots. Les accents sont retirés avant la comparaison : le
+   * marchand écrit « créé » ou « cree » selon son clavier, et les deux doivent
+   * tomber sur le même dessin.
+   *
+   * Rien ne correspond → le dessin neutre. Jamais de dessin au hasard.
+   */
+  function dessinPrestation(nom) {
+    var traits = {
+      // Un fichier qui monte : « je fournis mon fichier ».
+      depot: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9.5 14.5 2.5-2.5 2.5 2.5"/>',
+      // Un crayon sur une page : « je crée mon fichier en ligne ».
+      crayon: '<path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>'
+        + '<path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L14 13l-4 1 1-4 7.5-7.5Z"/>',
+      // Une palette : « je confie ma création à un graphiste ».
+      graphiste: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.6 0-.5-.2-.8-.5-1.1'
+        + '-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.6-9-7.6Z"/>'
+        + '<circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/>'
+        + '<circle cx="15" cy="8.5" r="1"/>',
+      // Un œil sur une page : le bon à tirer, qu'on regarde avant d'imprimer.
+      relecture: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'
+        + '<path d="M14 3v5h5"/>'
+        + '<path d="M8 15.5s1.6-2.5 4-2.5 4 2.5 4 2.5-1.6 2.5-4 2.5-4-2.5-4-2.5Z"/>'
+        + '<circle cx="12" cy="15.5" r="1"/>',
+      // Une page barrée : « sans BAT », « aucune création ».
+      sans: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="m9.5 17 5-5"/><path d="m9.5 12 5 5"/>',
+      // Le neutre : une page cochée. Il ne raconte rien de faux.
+      neutre: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/>'
+    };
+
+    // Les mots sont cherchés DANS L'ORDRE : « sans » l'emporte sur tout, parce
+    // que « sans création graphique » contient « création ».
+    var regles = [
+      ['sans', ['sans ', 'aucun', 'pas de ', 'non ']],
+      ['depot', ['fourni', 'mon fichier', 'mes fichiers', 'upload', 'envoi', 'depot', 'pret a imprimer']],
+      ['graphiste', ['graphiste', 'confie', 'sur mesure', 'devis', 'accompagn', 'studio', 'avance', 'premium', 'complete']],
+      ['crayon', ['creation', 'cree', 'creer', 'en ligne', 'personnalis', 'maquette', 'design']],
+      ['relecture', ['bat', 'bon a tirer', 'epreuve', 'validation', 'verif', 'controle', 'relecture']]
+    ];
+
+    var plat = String(nom || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var choisi = 'neutre';
+
+    regles.some(function (regle) {
+      return regle[1].some(function (mot) {
+        if (plat.indexOf(mot) === -1) {
+          return false;
+        }
+
+        choisi = regle[0];
+
+        return true;
+      });
+    });
+
+    return '<svg class="eko-poc__presta-icone" viewBox="0 0 24 24" fill="none"'
+      + ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
+      + ' stroke-linejoin="round" aria-hidden="true">' + traits[choisi] + '</svg>';
   }
 
   /** Tous les boutons d'ajout au panier — les thèmes en posent souvent deux. */
@@ -461,6 +554,30 @@
     var choixServices = {};
     /** Les rangs de l'arbre : leurs options, dans l'ordre d'affichage. */
     var rangs = [];
+    /**
+     * ─── DEUX MODES, UN SEUL CONFIGURATEUR ──────────────────────────────
+     *
+     * `arbre` — le premier sous-traitant. Chaque choix restreint le suivant,
+     *   la combinaison est un CHEMIN, et changer une option en haut de la
+     *   liste invalide tout ce qui est en dessous.
+     *
+     * `formulaire` — le second. Une vingtaine de champs largement
+     *   INDÉPENDANTS, que le client remplit dans l'ordre qu'il veut. Rien à
+     *   redescendre : changer un champ ne change que le prix.
+     *
+     * Tout le reste est commun — les quantités, les délais, les prestations,
+     * le récapitulatif, l'ajout au panier, le prix natif masqué. Un second
+     * fichier aurait divergé du premier à la toute première retouche, et le
+     * visiteur aurait vu deux boutiques. C'est déjà la règle qui gouverne la
+     * feuille de style des deux configurateurs.
+     */
+    var MODE = (r.dataset.mode === 'formulaire') ? 'formulaire' : 'arbre';
+    /** Formulaire : la description de chaque champ, telle que l'ERP la donne. */
+    var champs = [];
+    /** Formulaire : la valeur courante de chaque champ. */
+    var config = {};
+    /** Formulaire : le champ qui porte la matière, s'il y en a un. */
+    var cleSupport = '';
     /** Le nom du produit, tel que l'ERP le donne. */
     var nomProduit = '';
     /** Les ventes phares réglées au back-office : nom + format visé. */
@@ -478,6 +595,15 @@
     var reassurances = [];
     /** La grille de la configuration complète, une fois obtenue. */
     var grille = null;
+    /**
+     * Le minuteur qui relit un calcul en cours.
+     *
+     * ⚠️ IL SE COUPE À CHAQUE NOUVELLE DEMANDE. Sans ça, un visiteur qui
+     * change de cote pendant un calcul en laisse deux tourner : le premier
+     * finit après le second et écrase l'écran avec le prix d'une dimension
+     * qu'il vient de quitter.
+     */
+    var sonde = null;
     var quantiteChoisie = null;
     var delaiChoisi = null;
     var enCours = null;
@@ -582,7 +708,18 @@
       p.set('ajax', '1');
       p.set('id_product', r.dataset.idProduct);
       Object.keys(params).forEach(function (k) { p.set(k, params[k]); });
-      selection.forEach(function (v) { p.append('selection[]', v); });
+      if (MODE === 'formulaire') {
+        // Une table de valeurs, pas un chemin. Les champs vides ne partent
+        // pas : côté serveur, une clé sans valeur ne fait pas partie de
+        // l'empreinte, et l'y mettre changerait la ligne cherchée.
+        Object.keys(config).forEach(function (k) {
+          if (config[k] !== '' && config[k] !== null && config[k] !== undefined) {
+            p.set('config[' + k + ']', config[k]);
+          }
+        });
+      } else {
+        selection.forEach(function (v) { p.append('selection[]', v); });
+      }
       Object.keys(choixServices).forEach(function (k) {
         p.set('services[' + k + ']', choixServices[k]);
       });
@@ -870,7 +1007,17 @@
     function nomDe(code) {
       var l = libelles[code];
 
-      return (l && l.name) ? l.name : code;
+      if (l && l.name) {
+        return l.name;
+      }
+
+      // ⚠️ Le second sous-traitant ne nomme pas ses délais « J+3 » mais
+      // « urgence », « express », « standard ». Affichés bruts, ils sortaient
+      // en minuscules et en français au milieu d'une boutique anglaise. Les
+      // intitulés vivent donc dans le gabarit, où `trans()` les voit.
+      var traduit = txt(r, 'delai' + String(code).charAt(0).toUpperCase() + String(code).slice(1), '');
+
+      return traduit || code;
     }
 
     /**
@@ -881,12 +1028,28 @@
      * 9,9 × 21 vaut bien 99 × 210 mm, A3 rendu 29,7 × 42 vaut 297 × 420, A4
      * rendu 21 × 29,7 vaut 210 × 297. Les mélanger dessinerait un A4 dix fois
      * plus petit qu'un « 210x297 » sur la même ligne.
+     *
+     * ⚠️ ET CETTE MULTIPLICATION PAR DIX SE VOIT. Un nombre à décimales n'est
+     * pas exact en binaire : 52,13 × 10 ne vaut pas 521,3 mais
+     * 521,3000000000001, et le beach flag affichait « 521.3000000000001 ×
+     * 1886.3999999999999 mm ». Le défaut ne touchait QUE les cotes venues de
+     * l'ERP — celles devinées du code sont des entiers et sortaient propres —
+     * ce qui donnait une même ligne où certaines cartes étaient lisibles et
+     * d'autres non.
+     *
+     * L'arrondi est posé ICI et non à l'affichage : ces cotes servent aussi
+     * d'échelle aux vignettes et de repère médian. Les arrondir au moment de
+     * les écrire aurait laissé le dessin travailler sur d'autres nombres que
+     * ceux qu'il annonce — deux vérités pour une seule mesure.
+     *
+     * Au dixième de millimètre, et non à l'unité : c'est la précision réelle
+     * du fournisseur, qui donne ses cotes au centième de centimètre.
      */
     function dimensionsDe(code) {
       var l = libelles[code];
 
       return (l && l.width && l.height)
-        ? { l: l.width * 10, h: l.height * 10 }
+        ? { l: Math.round(l.width * 100) / 10, h: Math.round(l.height * 100) / 10 }
         : dimensions(code);
     }
 
@@ -995,7 +1158,86 @@
      * réponses sont mises en cache par le module : rejouer une descente après
      * un changement ne recoûte que les étapes réellement invalidées.
      */
+    /**
+     * Le formulaire du second sous-traitant : UN aller-retour, et c'est tout.
+     *
+     * Il n'y a rien à redescendre — les champs ne se restreignent pas les uns
+     * les autres. On le demande une fois à l'ouverture de la fiche ; ensuite,
+     * changer un champ ne recharge que la grille.
+     *
+     * Les valeurs par défaut sont posées ici, y compris celles des champs que
+     * l'ERP IMPOSE et qui ne s'affichent pas : elles font partie de la
+     * configuration que le fournisseur a chiffrée, et les omettre changerait
+     * le prix sans le dire.
+     */
+    function chargerFormulaire() {
+      var mien = ++generation;
+
+      return appeler({ quoi: 'formulaire' }).then(function (d) {
+        if (mien !== generation) {
+          return true;
+        }
+
+        if (!d || d.ok !== true) {
+          throw new Error((d && d.message) || txt(r, 'echec', ''));
+        }
+
+        champs = d.champs || [];
+        cleSupport = d.cle_support || '';
+
+        Object.keys(d.imposees || {}).forEach(function (k) { config[k] = d.imposees[k]; });
+
+        champs.forEach(function (ch) {
+          if (ch.type === 'format') {
+            // ⚠️ LE FORMAT POSE DEUX CLÉS, pas une. Sans ce premier choix, la
+            // fiche s'ouvrait sans hauteur ni largeur, demandait quand même un
+            // tarif, et accueillait le visiteur par un refus rouge sur une
+            // page qu'il venait d'ouvrir.
+            poserFormat(ch, premierFormat(ch));
+
+            return;
+          }
+
+          if (config[ch.id] !== undefined) {
+            return;
+          }
+
+          if (ch.defaut !== '') {
+            config[ch.id] = ch.defaut;
+          } else if (ch.type === 'liste' && ch.valeurs.length) {
+            // La première valeur plutôt qu'un « au choix » vide : une
+            // configuration incomplète ne se tarife pas, et une fiche qui
+            // s'ouvre sans prix n'apprend rien au visiteur.
+            config[ch.id] = ch.valeurs[0].id;
+          }
+        });
+
+        if (d.ventes && ventes.length === 0) {
+          ventes = d.ventes;
+        }
+
+        if (d.reassurances && reassurances.length === 0) {
+          reassurances = d.reassurances;
+        }
+
+        if (d.services && services.length === 0) {
+          services = d.services;
+          services.forEach(function (sv) {
+            if (choixServices[sv.cle] === undefined && sv.options.length) {
+              choixServices[sv.cle] = sv.options[0].nom;
+            }
+          });
+        }
+
+        return true;
+      });
+    }
+
     function descendre(depuis) {
+      if (MODE === 'formulaire') {
+        return chargerFormulaire();
+      }
+
       selection = selection.slice(0, depuis);
       rangs = rangs.slice(0, depuis);
 
@@ -1142,7 +1384,264 @@
     }
 
     /** Redessine TOUTES les lignes de l'arbre, dans l'ordre des étapes. */
+    /**
+     * Une ligne de choix, à partir de valeurs qui portent DÉJÀ leur libellé.
+     *
+     * ⚠️ Pas `ligneListe()` : celle-ci prend des CODES et va chercher leur nom
+     * dans le dictionnaire commun, indexé par code seul. Ici deux champs
+     * différents ont légitimement une valeur « 1 » qui ne veut pas dire la même
+     * chose — l'un une matière, l'autre un nombre d'œillets. Un dictionnaire
+     * global ferait afficher le libellé du voisin.
+     */
+    function ligneChoix(ch) {
+      var l = document.createElement('div');
+      l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+
+      var t = document.createElement('h3');
+      t.className = 'eko-poc__critere';
+      t.textContent = ch.nom + ' :';
+      l.appendChild(t);
+
+      var sel = document.createElement('select');
+      sel.className = 'form-control eko-poc__liste';
+      // Verrouillé, mais LISIBLE : le client doit voir la matière qu'il
+      // achète, même quand c'est le titre de la page qui l'a choisie pour lui.
+      sel.disabled = (ch.verrouille === true);
+
+      ch.valeurs.forEach(function (o) {
+        var op = document.createElement('option');
+        op.value = o.id;
+        op.textContent = o.label;
+        op.selected = (o.id === config[ch.id]);
+        sel.appendChild(op);
+      });
+
+      sel.addEventListener('change', function () { majChamp(ch.id, sel.value); });
+      l.appendChild(sel);
+
+      return l;
+    }
+
+    /**
+     * Les formats disponibles POUR LA MATIÈRE COURANTE.
+     *
+     * Deux matières n'ont pas forcément été construites sur les mêmes cotes :
+     * proposer la liste entière ferait choisir un format sans prix.
+     */
+    function formatsDisponibles(ch) {
+      var matiere = cleSupport ? config[cleSupport] : '';
+
+      return (ch.valeurs || []).filter(function (f) {
+        return !matiere || !f.support || f.support === matiere;
+      });
+    }
+
+    function premierFormat(ch) {
+      var liste = formatsDisponibles(ch);
+
+      return liste.length ? liste[0] : null;
+    }
+
+    /** Pose les DEUX cotes d'un format, ou les retire s'il n'y en a pas. */
+    function poserFormat(ch, format) {
+      if (!format) {
+        delete config[ch.cle_hauteur];
+        delete config[ch.cle_largeur];
+
+        return;
+      }
+
+      config[ch.cle_hauteur] = format.hauteur;
+      config[ch.cle_largeur] = format.largeur;
+    }
+
+    /** Le format actuellement retenu, d'après les deux cotes posées. */
+    function formatCourant(ch) {
+      var h = config[ch.cle_hauteur];
+      var l = config[ch.cle_largeur];
+
+      return (ch.valeurs || []).filter(function (f) {
+        return f.hauteur === h && f.largeur === l;
+      })[0] || null;
+    }
+
+    function ligneFormat(ch) {
+      var l = document.createElement('div');
+      l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+
+      var t = document.createElement('h3');
+      t.className = 'eko-poc__critere';
+      t.textContent = ch.nom + ' :';
+      l.appendChild(t);
+
+      var sel = document.createElement('select');
+      sel.className = 'form-control eko-poc__liste';
+
+      var courant = formatCourant(ch);
+
+      if (!courant) {
+        // Le visiteur a tapé sa propre dimension : le raccourci ne désigne
+        // plus rien, et le laisser afficher un format au hasard ferait croire
+        // qu'il commande celui-là.
+        var vide = document.createElement('option');
+        vide.value = '';
+        vide.textContent = txt(r, 'autreDimension', '');
+        vide.selected = true;
+        sel.appendChild(vide);
+      }
+
+      formatsDisponibles(ch).forEach(function (f) {
+        var op = document.createElement('option');
+        op.value = f.id;
+        op.textContent = f.label;
+        op.selected = Boolean(courant) && f.id === courant.id;
+        sel.appendChild(op);
+      });
+
+      sel.addEventListener('change', function () {
+        var choisi = formatsDisponibles(ch).filter(function (f) { return f.id === sel.value; })[0];
+
+        if (!choisi || (courant && choisi.id === courant.id)) {
+          return;
+        }
+
+        poserFormat(ch, choisi);
+
+        // ⚠️ REDESSINER, et pas seulement recalculer. Ce raccourci pose DEUX
+        // champs de cote, qui sont libres : sans ce rendu, ils garderaient à
+        // l'écran les chiffres d'avant pendant que le prix, lui, changerait.
+        // Deux vérités pour une seule commande.
+        rendreChamps();
+        invaliderGrille();
+        chargerGrille();
+      });
+
+      l.appendChild(sel);
+
+      return l;
+    }
+
+    /** Une saisie libre : une cote, un nombre, un texte. */
+    function ligneSaisie(ch) {
+      var l = document.createElement('div');
+      l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+
+      var t = document.createElement('h3');
+      t.className = 'eko-poc__critere';
+      t.textContent = ch.nom + ' :';
+      l.appendChild(t);
+
+      if (ch.type === 'case') {
+        var c = document.createElement('input');
+        c.type = 'checkbox';
+        c.className = 'eko-poc__case';
+        c.checked = (String(config[ch.id]) === '1');
+        c.disabled = (ch.verrouille === true);
+        c.addEventListener('change', function () { majChamp(ch.id, c.checked ? '1' : '0'); });
+        l.appendChild(c);
+
+        return l;
+      }
+
+      var i = document.createElement('input');
+      i.type = (ch.type === 'nombre' || ch.type === 'cote') ? 'number' : 'text';
+      i.className = 'form-control eko-poc__liste';
+      i.value = config[ch.id] || '';
+      i.disabled = (ch.verrouille === true);
+
+      if (ch.type === 'nombre' || ch.type === 'cote') {
+        i.min = '1';
+        // ⚠️ `any` et non `1` : les cotes du fournisseur sont en centimètres
+        // AVEC décimales — un A4 fait 21 × 29,7. Un pas entier ferait rejeter
+        // la saisie par le navigateur, sans message que le visiteur comprenne.
+        i.step = 'any';
+      }
+
+      // ⚠️ `change` et NON `input` : le second part à chaque touche. Saisir
+      // « 120 » demanderait trois tarifications au serveur, dont deux pour des
+      // cotes que le visiteur n'a jamais voulues.
+      i.addEventListener('change', function () { majChamp(ch.id, i.value.trim()); });
+      l.appendChild(i);
+
+      return l;
+    }
+
+    /**
+     * Change un champ, et ne recharge QUE la grille.
+     *
+     * Les champs sont indépendants : rien à redescendre, rien à réafficher.
+     * Reconstruire le formulaire ferait perdre le curseur du visiteur au
+     * milieu d'une saisie de cote.
+     */
+    function majChamp(id, valeur) {
+      if (config[id] === valeur) {
+        return;
+      }
+
+      config[id] = valeur;
+
+      // ⚠️ CHANGER DE MATIÈRE CHANGE LA LISTE DES FORMATS. Deux matières
+      // n'ont pas forcément été construites sur les mêmes cotes : garder
+      // l'ancien format demanderait un tarif qui n'existe pas, sur une
+      // sélection que le visiteur croirait valide.
+      if (cleSupport && id === cleSupport) {
+        champs.forEach(function (ch) {
+          if (ch.type !== 'format') {
+            return;
+          }
+
+          if (!formatCourant(ch)) {
+            poserFormat(ch, premierFormat(ch));
+          }
+        });
+
+        rendreChamps();
+      }
+
+      // Les lignes qui dépendent de la grille sont CADUQUES le temps du
+      // recalcul. Sans ce retrait, elles restaient affichées et cliquables :
+      // un clic sur une quantité pendant le recalcul tombait sur une grille
+      // remise à zéro, et le configurateur s'arrêtait net.
+      invaliderGrille();
+      chargerGrille();
+    }
+
+    /** Retire tout ce qui n'a plus de sens tant que la grille n'est pas revenue. */
+    function invaliderGrille() {
+      quantiteChoisie = null;
+      delaiChoisi = null;
+      retirerLigne('quantite');
+      retirerLigne('delai');
+      services.forEach(function (sv) { retirerLigne('svc-' + sv.cle); });
+    }
+
+    function rendreChamps() {
+      zoneEtapes.querySelectorAll('.eko-poc__ligne--champ').forEach(function (l) { l.remove(); });
+
+      champs.forEach(function (ch, i) {
+        var l;
+
+        if (ch.type === 'format') {
+          l = ligneFormat(ch);
+        } else if (ch.type === 'liste' && ch.valeurs.length) {
+          l = ligneChoix(ch);
+        } else {
+          l = ligneSaisie(ch);
+        }
+
+        l.classList.add('eko-poc__ligne--champ');
+        l.dataset.rang = String(i);
+        zoneEtapes.insertBefore(l, zoneEtapes.children[i] || null);
+      });
+    }
+
     function rendreEtapes() {
+      if (MODE === 'formulaire') {
+        rendreChamps();
+
+        return;
+      }
+
       zoneEtapes.querySelectorAll('.eko-poc__ligne--arbre').forEach(function (l) { l.remove(); });
 
       rangs.forEach(function (info, i) {
@@ -1250,6 +1749,7 @@
       grille = null;
       commande(false, txt(r, 'attendez', ''));
       rendreResume();
+      arreterSonde();
 
       var attente = message('attente', txt(r, 'calcul', 'Calcul…'));
       zoneEtapes.appendChild(attente);
@@ -1258,14 +1758,18 @@
 
       return appeler({ quoi: 'grille' })
         .then(function (d) {
-          // ⚠️ Le jeton se teste APRÈS la réponse, jamais avant l'appel :
+          // ⚠️ LE RETRAIT VIENT AVANT LE TEST DU JETON. Placé après, il ne
+          // s'exécutait jamais pour une réponse dépassée : chaque changement
+          // rapide laissait un « Calcul des tarifs… » définitif sous les
+          // champs, et il s'en empilait un par frappe.
+          attente.remove();
+
+          // Le jeton se teste APRÈS la réponse, jamais avant l'appel :
           // `abort()` sur une requête déjà résolue ne fait rien, et une réponse
           // arrivée entre-temps écraserait une sélection plus récente.
           if (mien !== generation) {
             return;
           }
-
-          attente.remove();
 
           if (!d || d.ok !== true) {
             echecDeGrille((d && d.message) || txt(r, 'echec', ''));
@@ -1273,25 +1777,130 @@
             return;
           }
 
-          grille = d;
+          // ⚠️ LE TARIF N'EXISTE PAS ENCORE : IL SE CALCULE.
+          //
+          // Ces produits se vendent à la dimension. La cote que le visiteur
+          // vient de taper n'a le plus souvent jamais été mesurée, et le prix
+          // ne se déduit pas — la loi n'est pas monotone en surface. Le
+          // serveur la fait donc calculer chez le fournisseur, et rend un
+          // jeton : on relit jusqu'à ce que ça aboutisse.
+          if (d.attente === true && d.ticket) {
+            attendreLeCalcul(d, mien);
 
-          // La quantité la plus faible d'abord : c'est le point d'entrée le
-          // moins engageant, et le visiteur monte s'il y trouve son compte.
-          quantiteChoisie = d.quantities.length ? Math.min.apply(null, d.quantities) : null;
-          choisirDelaiLePlusEconomique();
-          rendreQuantites();
-          rendrePrestations();
-          rendreDelais();
-          rendreResume();
+            return;
+          }
+
+          poserGrille(d);
         })
         .catch(function (e) {
+          attente.remove();
+
           if (e.name === 'AbortError' || mien !== generation) {
             return;
           }
 
-          attente.remove();
           echecDeGrille(txt(r, 'echec', ''));
         });
+    }
+
+    /**
+     * Relit un calcul en cours jusqu'à ce qu'il aboutisse.
+     *
+     * ⚠️ LE JETON DE GÉNÉRATION GOUVERNE TOUT. Chaque relecture le vérifie :
+     * un visiteur qui change de cote pendant l'attente ne doit pas voir
+     * arriver, vingt secondes plus tard, le prix de la dimension qu'il vient
+     * de quitter. C'est le même garde que pour les réponses hors délai, et il
+     * compte double ici — l'attente dure assez longtemps pour qu'on change
+     * d'avis.
+     */
+    function attendreLeCalcul(depart, mien) {
+      var ecoule = 0;
+      var annonce = message('attente', texteAttente(depart.secondes || 25, 0));
+      zoneEtapes.appendChild(annonce);
+
+      function relire() {
+        if (mien !== generation) {
+          annonce.remove();
+
+          return;
+        }
+
+        appeler({ quoi: 'suivi', ticket: depart.ticket }, true)
+          .then(function (d) {
+            if (mien !== generation) {
+              annonce.remove();
+
+              return;
+            }
+
+            if (!d || d.ok !== true) {
+              annonce.remove();
+              echecDeGrille((d && d.message) || txt(r, 'echec', ''));
+
+              return;
+            }
+
+            if (d.attente === true) {
+              ecoule += INTERVALLE_SONDE;
+
+              // ⚠️ UNE BORNE, SINON C'EST UN SABLIER ÉTERNEL. Le serveur a ses
+              // propres gardes, mais un réseau coupé ne les atteint pas : sans
+              // celle-ci, la page tournerait jusqu'à ce qu'on la ferme.
+              if (ecoule > ATTENTE_MAX) {
+                annonce.remove();
+                echecDeGrille(txt(r, 'calculTrop', ''));
+
+                return;
+              }
+
+              annonce.textContent = texteAttente(depart.secondes || 25, ecoule);
+              sonde = window.setTimeout(relire, INTERVALLE_SONDE);
+
+              return;
+            }
+
+            annonce.remove();
+            poserGrille(d);
+          })
+          .catch(function (e) {
+            if (e.name === 'AbortError' || mien !== generation) {
+              return;
+            }
+
+            annonce.remove();
+            echecDeGrille(txt(r, 'echec', ''));
+          });
+      }
+
+      sonde = window.setTimeout(relire, INTERVALLE_SONDE);
+    }
+
+    function texteAttente(estimation, ecoule) {
+      var reste = Math.max(0, Math.round((estimation * 1000 - ecoule) / 1000));
+
+      return txt(r, 'calculSurMesure', 'Calcul en cours…')
+        + (reste > 0 ? ' (' + reste + ' s)' : '');
+    }
+
+    function arreterSonde() {
+      if (sonde !== null) {
+        window.clearTimeout(sonde);
+        sonde = null;
+      }
+    }
+
+    /** Ce qu'on fait d'une grille qui vient d'arriver, par l'un ou l'autre chemin. */
+    function poserGrille(d) {
+      grille = d;
+
+      // La quantité la plus faible d'abord : c'est le point d'entrée le moins
+      // engageant, et le visiteur monte s'il y trouve son compte.
+      quantiteChoisie = d.quantities.length ? Math.min.apply(null, d.quantities) : null;
+      choisirDelaiLePlusEconomique();
+      rendreQuantites();
+      rendrePrestations();
+      rendreDelais();
+      rendreResume();
     }
 
     function casesPour(q) {
@@ -1430,11 +2039,17 @@
             + '<strong class="eko-poc__delai-date">' + echapper(c.date_texte) + '</strong>';
         }
 
-        var prix = c.lot <= base.lot
+        // ⚠️ LE SUPPLÉMENT, ET NON LE TOTAL. Cette carte écrivait
+        // « Supplément » suivi du prix ENTIER du lot : un visiteur lisait que
+        // partir plus vite lui coûtait deux cent soixante-sept euros de plus,
+        // quand l'écart réel était de vingt-sept. Le mot annonçait une
+        // différence, le nombre donnait un total. L'écart est calculé par le
+        // serveur, qui seul connaît la devise et la langue du visiteur.
+        var prix = (c.lot <= base.lot || !c.sup_texte)
           ? '<span class="eko-poc__delai-offert">' + echapper(txt(r, 'offert', 'Inclus')) + '</span>'
           : '<span class="eko-poc__delai-sup">'
             + '<span>' + echapper(txt(r, 'supplement', 'Supplément')) + '</span>'
-            + '<strong>' + echapper(c.lot_texte) + '</strong></span>';
+            + '<strong>' + echapper(c.sup_texte) + '</strong></span>';
 
         b.innerHTML = '<span class="eko-poc__delai-corps">' + gauche + '</span>' + prix;
         b.addEventListener('click', function () {
@@ -1498,9 +2113,21 @@
     }
 
     /**
-     * Les prestations de l'imprimeur, en listes déroulantes.
+     * Les prestations de l'imprimeur, en tuiles.
      *
-     * Elles viennent APRÈS le délai : ce sont des suppléments, et les placer
+     * ─── POURQUOI DES TUILES ET PLUS UNE LISTE DÉROULANTE ──────────────────
+     *
+     * Une liste déroulante cache ses options : le visiteur voit « BAT
+     * numérique » et doit CLIQUER pour découvrir qu'il existe une relecture par
+     * un graphiste. C'est exactement l'inverse de ce qu'on veut d'un choix qui
+     * se vend. Trois tuiles côte à côte montrent les trois offres, leur
+     * description et leur prix, sans un geste.
+     *
+     * Le prix affiché vient du SERVEUR, déjà mis en forme et déjà dans le bon
+     * régime — hors taxes pour un compte professionnel. Le navigateur ne
+     * connaît ni la devise ni les décimales de la boutique.
+     *
+     * Elles restent APRÈS le délai : ce sont des suppléments, et les placer
      * avant ferait choisir des options avant même de savoir ce que coûte le
      * produit qu'elles complètent.
      */
@@ -1509,7 +2136,7 @@
         retirerLigne('svc-' + sv.cle);
 
         var l = document.createElement('div');
-        l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+        l.className = 'eko-poc__ligne eko-poc__ligne--prestations';
         l.dataset.ligne = 'svc-' + sv.cle;
 
         var t = document.createElement('h3');
@@ -1517,27 +2144,55 @@
         t.textContent = sv.label + ' :';
         l.appendChild(t);
 
-        var sel = document.createElement('select');
-        sel.className = 'form-control eko-poc__liste';
+        var grilleTuiles = document.createElement('div');
+        grilleTuiles.className = 'eko-poc__prestations';
+        // Le CSS lit le NOMBRE d'options plutôt qu'une classe par cas : deux
+        // prestations doivent s'étaler, cinq doivent se replier, et le jour où
+        // le marchand en ajoute une sixième rien ne doit être retouché ici.
+        grilleTuiles.dataset.combien = String(sv.options.length);
 
         sv.options.forEach(function (o) {
-          var op = document.createElement('option');
-          op.value = o.nom;
-          // Le supplément est écrit par le serveur ; ici on ne fait
-          // qu'indiquer qu'il y en a un, sans le mettre en forme nous-mêmes.
-          op.textContent = o.nom;
-          op.selected = choixServices[sv.cle] === o.nom;
-          sel.appendChild(op);
+          var actif = choixServices[sv.cle] === o.nom;
+
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'eko-poc__presta' + (actif ? ' eko-poc__presta--actif' : '');
+          b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+
+          var corps = dessinPrestation(o.nom)
+            + '<span class="eko-poc__presta-nom">' + echapper(o.nom) + '</span>';
+
+          if (o.texte) {
+            corps += '<span class="eko-poc__presta-texte">' + echapper(o.texte) + '</span>';
+          }
+
+          // « Gratuit » plutôt qu'un « 0,00 € » : un montant nul se lit comme
+          // un prix que le site a oublié de calculer.
+          corps += '<span class="eko-poc__presta-prix">'
+            + echapper(o.prix_texte || txt(r, 'gratuit', 'Gratuit'))
+            + '</span>';
+
+          b.innerHTML = corps;
+
+          b.addEventListener('click', function () {
+            if (choixServices[sv.cle] === o.nom) {
+              return;
+            }
+
+            choixServices[sv.cle] = o.nom;
+            // Le clic repeint TOUT DE SUITE la sélection, avant l'aller-retour
+            // au serveur : sans cela la tuile reste éteinte le temps du calcul
+            // et le visiteur reclique, croyant avoir manqué la cible.
+            rendrePrestations();
+            // Un supplément change le PRIX : il faut redemander la grille, pas
+            // l'ajuster dans le navigateur.
+            chargerGrille();
+          });
+
+          grilleTuiles.appendChild(b);
         });
 
-        sel.addEventListener('change', function () {
-          choixServices[sv.cle] = sel.value;
-          // Un supplément change le PRIX : il faut redemander la grille, pas
-          // l'ajuster dans le navigateur.
-          chargerGrille();
-        });
-
-        l.appendChild(sel);
+        l.appendChild(grilleTuiles);
         poserLigne(l, 20 + i);
       });
     }
@@ -1633,6 +2288,142 @@
       zoneResume.appendChild(boite);
     }
 
+    // ─── Spécifications techniques et gabarit ────────────────────────────
+    //
+    // Le configurateur connaît la SÉLECTION ; il ne connaît pas les règles qui
+    // en tirent des cotes — lecture du format, format ouvert d'un dépliant,
+    // pagination d'une brochure, grammage d'un papier. Ces règles vivent en
+    // PHP, et c'est le même code qui sert le panier.
+    //
+    // On envoie donc les critères tels qu'ils s'affichent dans le
+    // récapitulatif, et on reçoit le bloc tout fait. Les réécrire ici ferait
+    // deux implémentations d'un même calcul : d'accord le premier jour,
+    // divergentes au premier correctif — et le client lirait des cotes sur la
+    // fiche et d'autres au panier.
+    var zoneSpecs = null;
+    var derniereSignature = '';
+
+    /** Ce qu'un champ vaut, écrit pour un humain. */
+    function valeurLisible(ch) {
+      // ⚠️ Le format ne vit PAS sous son propre identifiant : il pose deux
+      // cotes et n'en porte aucune. Lu comme les autres, il rendait une chaîne
+      // vide, et la taille commandée disparaissait du récapitulatif — donc de
+      // ce que le client relit avant de payer.
+      if (ch.type === 'format') {
+        var f = formatCourant(ch);
+
+        // Sans format connu, la ligne disparaît du récapitulatif : les deux
+        // cotes y figurent déjà, et répéter « sur mesure » n'apprendrait rien.
+        return f ? f.label : '';
+      }
+
+      if (ch.type === 'cote') {
+        var v = config[ch.id];
+
+        return (v === undefined || v === null || v === '') ? '' : (v + ' cm');
+      }
+
+      var v = config[ch.id];
+
+      if (v === undefined || v === null || v === '') {
+        return '';
+      }
+
+      if (ch.type === 'case') {
+        return txt(r, String(v) === '1' ? 'oui' : 'non', String(v));
+      }
+
+      var trouve = (ch.valeurs || []).filter(function (o) { return o.id === v; })[0];
+
+      return trouve ? trouve.label : String(v);
+    }
+
+    function criteresCourants() {
+      var criteres = {};
+
+      if (MODE === 'formulaire') {
+        champs.forEach(function (ch) {
+          var v = valeurLisible(ch);
+
+          if (v !== '') {
+            criteres[ch.nom] = v;
+          }
+        });
+      }
+
+      selection.forEach(function (v, i) {
+        var label = (etapes[i] && etapes[i].label) || '';
+
+        if (label) {
+          criteres[label] = nomDe(v);
+        }
+      });
+
+      criteres[txt(r, 'quantite', 'Quantité')] = String(quantiteChoisie);
+
+      Object.keys(choixServices).forEach(function (cle) {
+        var sv = services.filter(function (x) { return x.cle === cle; })[0];
+
+        if (sv && choixServices[cle]) {
+          criteres[sv.label] = choixServices[cle];
+        }
+      });
+
+      return criteres;
+    }
+
+    function rendreSpecifications() {
+      var url = r.dataset.urlSpecs;
+
+      if (!url) {
+        return;
+      }
+
+      var criteres = criteresCourants();
+      var signature = JSON.stringify(criteres);
+
+      // Rien n'a changé : on ne redemande pas. Le visiteur qui parcourt les
+      // paliers de quantité déclencherait sinon un appel par clic.
+      if (signature === derniereSignature && zoneSpecs && zoneSpecs.innerHTML) {
+        return;
+      }
+
+      derniereSignature = signature;
+
+      // ⚠️ La cible n'est PLUS le récapitulatif : le bloc se pose sous la
+      // « Fiche technique » de la section du bas, là où il détaille des
+      // valeurs qu'on vient de lire. Dans le récapitulatif, il cassait la
+      // grille à deux colonnes de la réassurance.
+      zoneSpecs = document.querySelector('.eko-tech__specs');
+
+      if (!zoneSpecs) {
+        return;
+      }
+
+      var p = new URLSearchParams();
+      p.append('id_product', r.dataset.idProduct || '');
+      p.append('ajax', '1');
+
+      Object.keys(criteres).forEach(function (cle) {
+        p.append('criteres[' + cle + ']', criteres[cle]);
+      });
+
+      fetch(url + (url.indexOf('?') === -1 ? '?' : '&') + p.toString(), {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+        .then(function (rep) { return rep.json(); })
+        .then(function (d) {
+          // Un bloc vide n'est PAS une panne : c'est un format dont on ne sait
+          // pas tirer de cotes — une boîte, un beach flag. On n'affiche rien
+          // plutôt qu'un message d'erreur qui inquiéterait pour rien.
+          zoneSpecs.innerHTML = (d && d.html) || '';
+        })
+        .catch(function () {
+          zoneSpecs.innerHTML = '';
+        });
+    }
+
     function rendreResume() {
       zoneResume.innerHTML = '';
 
@@ -1695,13 +2486,29 @@
       var ul = document.createElement('ul');
       ul.className = 'eko-poc__resume-liste';
 
-      selection.forEach(function (v, i) {
-        var li = document.createElement('li');
-        li.innerHTML =
-          '<span>' + echapper((etapes[i] && etapes[i].label) || '') + '</span>' +
-          '<strong>' + echapper(nomDe(v)) + '</strong>';
-        ul.appendChild(li);
-      });
+      if (MODE === 'formulaire') {
+        champs.forEach(function (ch) {
+          var v = valeurLisible(ch);
+
+          if (v === '') {
+            return;
+          }
+
+          var li = document.createElement('li');
+          li.innerHTML =
+            '<span>' + echapper(ch.nom) + '</span>' +
+            '<strong>' + echapper(v) + '</strong>';
+          ul.appendChild(li);
+        });
+      } else {
+        selection.forEach(function (v, i) {
+          var li = document.createElement('li');
+          li.innerHTML =
+            '<span>' + echapper((etapes[i] && etapes[i].label) || '') + '</span>' +
+            '<strong>' + echapper(nomDe(v)) + '</strong>';
+          ul.appendChild(li);
+        });
+      }
 
       var liQ = document.createElement('li');
       liQ.innerHTML =
@@ -1769,6 +2576,10 @@
       zoneResume.appendChild(b);
       zoneResume.appendChild(messagePanier);
       rendreReassurances();
+      // Le lien « Spécifications techniques » se pose sous la fiche technique
+      // de la section du bas — pas dans le récapitulatif, où il cassait la
+      // grille à deux colonnes de la réassurance.
+      rendreSpecifications();
 
       // ⚠️ On n'ouvre la commande QUE sur un tarif frais. Le bandeau disait
       // « Confirmez avant de commander » et le bouton restait armé : personne

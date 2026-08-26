@@ -33,6 +33,21 @@
   min-width: 0;
 }
 
+/* Le troisième champ — la description d'une prestation — n'existe que là où la
+   saisie l'attend. Il est étroit : c'est une phrase, pas un paragraphe, et sur
+   le configurateur elle tient sous le titre d'une tuile.
+
+   Quand il est là, le supplément se resserre : un prix fait trois caractères et
+   n'a jamais eu besoin du tiers de la ligne. */
+.eko-liste__ligne:has(.eko-liste__extra) .eko-liste__valeur {
+  flex: 0 0 6em;
+}
+
+.eko-liste__extra {
+  flex: 1 1 40%;
+  min-width: 0;
+}
+
 .eko-liste__icones {
   flex: 0 0 auto;
   width: auto;

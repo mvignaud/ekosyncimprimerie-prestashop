@@ -77,7 +77,7 @@ class AdminEkoImprimerieController extends ModuleAdminController
             'svc_bat' => [
                 'titre' => $this->trans('BAT numérique', [], 'Modules.Ekosyncimprimerie.Admin'),
                 'aide' => $this->trans(
-                    'Une ligne par option : « Libellé|supplément en euros ». La première ligne est le choix par défaut — elle doit être gratuite.',
+                    'Une ligne par option : « Libellé|supplément en euros|description ». La description est facultative ; elle s\'affiche sous le titre de la tuile. La première ligne est le choix par défaut — elle doit être gratuite.',
                     [],
                     'Modules.Ekosyncimprimerie.Admin'
                 ),
@@ -141,6 +141,57 @@ class AdminEkoImprimerieController extends ModuleAdminController
         $this->ajaxRender((string) json_encode($r, JSON_UNESCAPED_UNICODE));
     }
 
+    /**
+     * Le dépôt — ou le retrait — d'un gabarit, appelé depuis la fiche produit.
+     *
+     * Il vit dans un contrôleur d'ADMINISTRATION, comme le dépôt d'icône :
+     * PrestaShop y exige déjà un employé connecté et un jeton valide. Le même
+     * point de dépôt ouvert côté boutique laisserait n'importe qui écrire dans
+     * `upload/`.
+     */
+    public function ajaxProcessGabarit(): void
+    {
+        $idProduct = (int) Tools::getValue('id_product');
+        $format = trim((string) Tools::getValue('format'));
+        $retirer = (bool) Tools::getValue('retirer');
+
+        if ($idProduct <= 0 || $format === '') {
+            $this->repondre(false, $this->trans('Produit ou format manquant.', [], 'Modules.Ekosyncimprimerie.Admin'));
+        }
+
+        if ($retirer) {
+            $ok = \Eko\SyncImprimerie\Configurateur\DepotGabarit::retirer($idProduct, $format);
+
+            $this->repondre(
+                $ok,
+                $ok
+                    ? $this->trans('Gabarit retiré.', [], 'Modules.Ekosyncimprimerie.Admin')
+                    : $this->trans('Retrait impossible.', [], 'Modules.Ekosyncimprimerie.Admin')
+            );
+        }
+
+        $fichier = $_FILES['gabarit'] ?? null;
+
+        if (!is_array($fichier)) {
+            $this->repondre(false, $this->trans('Aucun fichier reçu.', [], 'Modules.Ekosyncimprimerie.Admin'));
+        }
+
+        $r = \Eko\SyncImprimerie\Configurateur\DepotGabarit::deposer($idProduct, $format, $fichier);
+
+        $this->repondre((bool) $r['ok'], (string) $r['message']);
+    }
+
+    /** Une réponse JSON, et on s'arrête là. */
+    private function repondre(bool $ok, string $message): void
+    {
+        $this->ajaxRender((string) json_encode(
+            ['ok' => $ok, 'message' => $message],
+            JSON_UNESCAPED_UNICODE
+        ));
+
+        exit;
+    }
+
     public function postProcess()
     {
         if (!Tools::isSubmit('ekosync_enregistrer')) {
@@ -164,9 +215,43 @@ class AdminEkoImprimerieController extends ModuleAdminController
         return true;
     }
 
+    /**
+     * Les attributs que l'éditeur en liste lit sur une zone de texte.
+     *
+     * Recopiés du module : l'éditeur est le même, ses libellés doivent l'être
+     * aussi, et ils passent tous par `trans()` — un texte écrit dans le
+     * JavaScript resterait français sur un back-office anglais.
+     */
+    private function attributsListe(string $icones, string $troisieme = ''): string
+    {
+        return sprintf(
+            'data-icones="%s" data-depot="%s" data-libelle-ajouter="%s"'
+            . ' data-libelle-retirer="%s" data-libelle-depot="%s" data-libelle-icone="%s"'
+            . ' data-echec-depot="%s" data-libelle-troisieme="%s"',
+            htmlspecialchars($icones),
+            htmlspecialchars($icones === '' ? '' : $this->context->link->getAdminLink(
+                Ekosyncimprimerie::ONGLET,
+                true,
+                [],
+                ['ajax' => 1, 'action' => 'televerserIcone']
+            )),
+            htmlspecialchars($this->trans('Ajouter une ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Retirer cette ligne', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Déposer un SVG', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Icône…', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($this->trans('Dépôt refusé.', [], 'Modules.Ekosyncimprimerie.Admin')),
+            htmlspecialchars($troisieme)
+        );
+    }
+
     public function renderForm()
     {
-        $corps = '<p class="alert alert-info">'
+        // Les fichiers de l'éditeur voyagent avec le formulaire, comme sur la
+        // fiche produit : le pipeline de `setMedia` n'est pas garanti ici non
+        // plus, et une balise posée dans le HTML rendu arrive toujours.
+        $corps = '<link rel="stylesheet" href="' . _MODULE_DIR_ . 'ekosyncimprimerie/views/css/bo-liste.css">'
+            . '<script src="' . _MODULE_DIR_ . 'ekosyncimprimerie/views/js/bo-liste.js" defer></script>'
+            . '<p class="alert alert-info">'
             . htmlspecialchars($this->trans(
                 'Ces réglages valent pour toutes les fiches liées à l\'ERP. Une fiche qui porte sa propre valeur garde la sienne.',
                 [],
@@ -184,11 +269,27 @@ class AdminEkoImprimerieController extends ModuleAdminController
             $corps .= '<div class="form-group"><label class="form-control-label">'
                 . htmlspecialchars($def['titre']) . '</label>';
 
+            // ⚠️ Les champs à lignes prennent la MÊME classe et les MÊMES
+            // attributs que sur la fiche produit. Sans eux, cet écran rendait
+            // une zone de texte nue : le marchand y retrouvait la syntaxe
+            // « Libellé|icône » qu'on venait précisément de lui épargner
+            // ailleurs. Deux écrans pour un même réglage doivent se saisir de
+            // la même façon, sinon l'un des deux paraît cassé.
             $corps .= $def['lignes'] > 0
                 ? sprintf(
-                    '<textarea name="ekosync_%s" class="form-control" rows="%d">%s</textarea>',
+                    '<textarea name="ekosync_%s" class="form-control eko-bo-liste" rows="%d" %s>%s</textarea>',
                     htmlspecialchars($cle),
                     $def['lignes'],
+                    $this->attributsListe(
+                        $cle === 'reassurances' ? 'origine,livraison,fichier,paiement' : '',
+                        // La description n'a de sens que sur les prestations :
+                        // ce sont elles qui s'affichent en tuiles. Une colonne
+                        // de plus sur les réassurances serait un champ qui ne
+                        // ressort nulle part.
+                        str_starts_with($cle, 'svc_')
+                            ? $this->trans('Description (facultative)', [], 'Modules.Ekosyncimprimerie.Admin')
+                            : ''
+                    ),
                     htmlspecialchars($valeur)
                 )
                 : sprintf(
