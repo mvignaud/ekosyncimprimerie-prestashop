@@ -1455,12 +1455,32 @@
       config[ch.cle_largeur] = format.largeur;
     }
 
-    /** Le format actuellement retenu, d'après les deux cotes posées. */
+    /**
+     * Le format actuellement retenu, d'après les deux cotes posées.
+     *
+     * ⚠️ ON CHERCHE PARMI LES FORMATS DE LA MATIÈRE COURANTE, PAS PARMI TOUS.
+     *
+     * Chercher dans la liste entière trouvait un format appartenant à une
+     * AUTRE matière, et les trois lecteurs de cette fonction en souffraient :
+     *
+     *   — le menu croyait tenir une sélection, n'ajoutait donc pas son entrée
+     *     « autre dimension », et aucune de ses options ne portait l'identifiant
+     *     trouvé : un `select` sans option sélectionnée affiche la PREMIÈRE.
+     *     Le visiteur lisait un format qu'il n'avait pas commandé ;
+     *   — le changement de matière ne reposait pas le premier format
+     *     disponible, puisqu'il en croyait un déjà valide — exactement ce que
+     *     son propre commentaire dit vouloir éviter ;
+     *   — le récapitulatif relu avant paiement nommait ce format étranger.
+     *
+     * Filtrer ici les corrige tous les trois d'un coup : sans format de la
+     * matière courante, la fonction rend `null`, et chaque lecteur sait déjà
+     * quoi en faire.
+     */
     function formatCourant(ch) {
       var h = config[ch.cle_hauteur];
       var l = config[ch.cle_largeur];
 
-      return (ch.valeurs || []).filter(function (f) {
+      return formatsDisponibles(ch).filter(function (f) {
         return f.hauteur === h && f.largeur === l;
       })[0] || null;
     }
