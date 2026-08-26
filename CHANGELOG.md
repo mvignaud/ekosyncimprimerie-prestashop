@@ -7,6 +7,83 @@ projet applique le [versionnage sémantique](https://semver.org/lang/fr/).
 
 Rien pour l'instant.
 
+## [0.50.0] — 2026-08-26
+
+La boutique sait vendre du sur-mesure, prendre les fichiers du client et rendre
+la commande à l'ERP.
+
+> **Un saut de version.** Le dépôt public était resté à `0.20.0` pendant que la
+> boutique de production avançait jusqu'à `0.50.0` : les versions `0.21.0` à
+> `0.49.0` n'ont jamais été publiées séparément et n'ont donc pas d'entrée
+> propre ici. Cette entrée décrit ce qui les sépare, regroupé par sujet plutôt
+> que par numéro — écrire trente entrées reconstituées après coup donnerait une
+> histoire fausse avec la précision d'une vraie.
+
+### Ajouté
+
+- **Un configurateur de prix sur la fiche produit.** Le visiteur choisit ses
+  options, la fiche affiche le tarif d'E-KO. Deux formes de sous-traitance
+  cohabitent : celle dont le prix est **lu dans une grille** rapportée à
+  l'avance, et celle dont le prix se **calcule à la demande**. La seconde passe
+  par un plafond d'appels par visiteur — sans lui, une fiche publique devient un
+  robinet ouvert sur l'API d'un tiers, et c'est le marchand qui en répond.
+- **Les dimensions sur mesure**, à côté des formats courants, bornées par ce que
+  le sous-traitant accepte réellement plutôt que par une plage devinée.
+- **Les spécifications techniques et le gabarit.** Ce que le client doit fournir
+  — fonds perdus, zone de sécurité, résolution, pages attendues — et le plan de
+  travail PDF qui va avec. Un gabarit est **calculé** depuis le format fini,
+  ou **déposé à la main** quand la forme sort de ce que le calcul sait faire.
+- **Le dépôt différé, depuis l'espace client.** Le client qui n'a pas son
+  fichier au moment de commander le retrouve dans « Mes fichiers » et le dépose
+  plus tard. Le même écrivain sert le panier et l'espace client : deux balisages
+  pour un seul comportement diviseraient les corrections par deux.
+- **La remontée des commandes vers l'ERP.** Une commande validée devient un
+  devis, avec ses lignes, leurs configurations et le commentaire que le client a
+  pu laisser sur chacune. Une commande qui échoue est reprise, pas perdue.
+- **Le retour des états de fabrication.** E-KO fait avancer la commande dans la
+  boutique, sur une correspondance que le marchand règle lui-même. Le point
+  d'entrée est idempotent : l'ERP peut réémettre, le réseau peut doubler.
+- **Les dates d'expédition et de livraison**, comptées en jours ouvrés, jours
+  fériés déduits.
+- **Le document de commande de l'ERP, relayé tel quel.** Un seul document fait
+  foi des deux côtés ; en produire un second dans la boutique garantissait qu'ils
+  finiraient par se contredire.
+- **Deux gestes sur une ligne de panier** : la commenter, la dupliquer.
+- **Les catalogues `en-GB` et `es-ES`**, à côté d'`en-US`.
+
+### Corrigé
+
+- **Quarante-trois textes destinés au client étaient rangés dans le catalogue du
+  marchand.** L'extracteur de traductions déduisait le domaine du FICHIER : tout
+  ce qui sortait de `ekosyncimprimerie.php` partait en `Admin`. Or ce fichier
+  écrit dans les deux domaines — il pose le bloc technique, la zone de dépôt et
+  les dates d'expédition, que lit le client. PrestaShop cherchait ces chaînes
+  sous `Shop`, ne les trouvait pas, et servait le français à tout visiteur
+  étranger. Le garde, lui, était vert : il vérifiait scrupuleusement une
+  répartition fausse.
+
+  Le domaine se lit maintenant dans l'APPEL — troisième argument de
+  `$this->trans()`, attribut `d=` de `{l}`. Une chaîne dont le domaine reste
+  introuvable est **refusée** plutôt que rangée par défaut : la deviner
+  reproduirait exactement la panne qu'on vient de corriger.
+- **L'extracteur traduisait un exemple cité dans un commentaire Smarty.** Un
+  `{l s='…'}` montré à l'intérieur d'un `{* … *}` est de la prose, pas du code :
+  il n'est jamais affiché, et sa présence salissait le catalogue d'une chaîne
+  que PrestaShop ne demanderait jamais.
+
+### Détails qui comptent
+
+- **`en-GB` et `en-US` partagent une seule table.** Le module ne distingue pas
+  les deux orthographes ; entretenir deux copies identiques revient à n'en
+  corriger qu'une le jour venu.
+- **`es-ES` ne couvre que la boutique.** Le back-office ne s'adresse qu'au
+  marchand : lui fournir un catalogue espagnol serait du travail sans lecteur.
+- **Le contrôleur de dépôt a changé de nom** — `depot` est devenu `fichier`, et
+  fait beaucoup plus : annonce préalable, relais en flux, statut, retrait.
+- **`src/Commande/DevisCommande.php` a été remplacé** par
+  `src/Client/PousseeCommande.php`, qui pousse vraiment la commande au lieu
+  d'en préparer seulement les lignes.
+
 ## [0.20.0] — 2026-08-21
 
 Le client dépose son fichier d'impression.

@@ -58,10 +58,65 @@ class LiaisonProduit
     /** Le prix est lu dans la grille du sous-traitant Printoclock. */
     public const SOURCE_PRINTOCLOCK = 'printoclock';
 
+    /**
+     * Le prix est lu dans la grille du second sous-traitant.
+     *
+     * Sa forme n'est ni celle de l'atelier ni celle de Printoclock : c'est un
+     * FORMULAIRE d'une vingtaine de champs largement indépendants, que le
+     * client remplit dans l'ordre qu'il veut, et non un enchaînement d'étapes
+     * où chaque choix restreint la suivante. La référence porte donc quatre
+     * segments — `produit:déclinaison:matière:page` — là où les deux autres
+     * sources n'en ont qu'un.
+     *
+     * ⚠️ La MATIÈRE fait partie de la référence, et c'est voulu : une même
+     * déclinaison du fournisseur alimente plusieurs fiches de la boutique —
+     * Akylux, Dibond, PVC expansé sont trois pages, un seul produit chez lui.
+     * Sans elle, deux fiches se disputeraient la même référence, que l'index
+     * unique de la table interdit.
+     */
+    public const SOURCE_REALISAPRINT = 'realisaprint';
+
     /** @return list<string> */
     public static function sources(): array
     {
-        return [self::SOURCE_ATELIER, self::SOURCE_PRINTOCLOCK];
+        return [self::SOURCE_ATELIER, self::SOURCE_PRINTOCLOCK, self::SOURCE_REALISAPRINT];
+    }
+
+    /**
+     * La référence de ce second sous-traitant, éclatée.
+     *
+     * `223:798:1:panneau-akylux` donne le code que l'ERP attend — `223:798` —,
+     * la matière imposée par la fiche — `1` —, et le reste, qui ne sert qu'à
+     * distinguer deux pages du même produit.
+     *
+     * La matière vaut `''` quand la fiche n'en impose aucune : le produit n'en
+     * propose alors qu'une, et la verrouiller n'aurait rien verrouillé.
+     *
+     * @return array{code: string, support: string}|null
+     */
+    public function realisaprint(int $idProduct): ?array
+    {
+        $l = $this->pour($idProduct);
+
+        if ($l === null || $l['source'] !== self::SOURCE_REALISAPRINT) {
+            return null;
+        }
+
+        $bouts = explode(':', $l['reference']);
+
+        // Deux segments au minimum : sans déclinaison, l'ERP ne sait pas quel
+        // formulaire servir, et un code tronqué rendrait un 404 illisible.
+        if (count($bouts) < 2 || !ctype_digit($bouts[0]) || !ctype_digit($bouts[1])) {
+            return null;
+        }
+
+        $support = (string) ($bouts[2] ?? '');
+
+        return [
+            'code' => $bouts[0] . ':' . $bouts[1],
+            // « 0 » est la façon dont l'import écrit « aucune matière imposée ».
+            'support' => ($support === '0') ? '' : $support,
+        ];
     }
 
     /**
@@ -69,10 +124,29 @@ class LiaisonProduit
      *
      * @return array{source: string, reference: string}|null
      */
+    /**
+     * Ce qui a déjà été lu pendant CETTE requête, par identifiant de fiche.
+     *
+     * Une page catégorie demande la liaison de chaque vignette, et le bloc de
+     * prix la redemande pour la même fiche. La réponse ne peut pas changer au
+     * cours d'une requête HTTP — sauf si on l'écrit soi-même, et `lier()`
+     * s'en charge alors d'oublier.
+     *
+     * @var array<int, array{source: string, reference: string}|null>
+     */
+    private static array $memoire = [];
+
+    /** Le schéma a-t-il déjà été vérifié pendant cette requête ? */
+    private static bool $schemaVu = false;
+
     public function pour(int $idProduct): ?array
     {
         if ($idProduct <= 0) {
             return null;
+        }
+
+        if (array_key_exists($idProduct, self::$memoire)) {
+            return self::$memoire[$idProduct];
         }
 
         $this->table();
@@ -83,10 +157,10 @@ class LiaisonProduit
         );
 
         if (!is_array($ligne) || ($ligne['eko_reference'] ?? '') === '') {
-            return null;
+            return self::$memoire[$idProduct] = null;
         }
 
-        return [
+        return self::$memoire[$idProduct] = [
             'source' => (string) $ligne['source'],
             'reference' => (string) $ligne['eko_reference'],
         ];
@@ -115,6 +189,11 @@ class LiaisonProduit
      */
     public function lier(int $idProduct, string $source, string $reference): array
     {
+        // Ce qui vient d'être écrit ne doit pas être masqué par ce qui a été lu
+        // avant : sans cet oubli, l'écran d'administration réafficherait la
+        // liaison d'avant l'enregistrement.
+        unset(self::$memoire[$idProduct]);
+
         if ($idProduct <= 0) {
             return ['ok' => false, 'message' => 'Fiche produit inconnue.'];
         }
@@ -210,6 +289,22 @@ class LiaisonProduit
      */
     private function table(): void
     {
+        // ⚠️ UNE FOIS PAR REQUÊTE.
+        //
+        // Cette méthode ouvrait CHAQUE lecture de liaison par un
+        // `CREATE TABLE IF NOT EXISTS` suivi d'un `SHOW COLUMNS`. Sur une page
+        // catégorie de 30 vignettes, 90 requêtes là où 30 suffisent — sur un
+        // MySQL mutualisé, partagé avec les autres sites du compte.
+        //
+        // Le schéma ne change pas PENDANT une requête HTTP. On garde donc la
+        // vérification, qui assure la reprise de l'ancienne forme sans dépendre
+        // d'un script de mise à jour joué, mais on ne la paie qu'une fois.
+        if (self::$schemaVu) {
+            return;
+        }
+
+        self::$schemaVu = true;
+
         $db = \Db::getInstance();
 
         $db->execute(

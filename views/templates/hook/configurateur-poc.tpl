@@ -19,6 +19,8 @@
 <div class="eko-poc"
      data-id-product="{$eko.id_product|intval}"
      data-url="{$eko.url|escape:'html':'UTF-8'}"
+     data-url-specs="{$eko.url_specs|escape:'html':'UTF-8'}"
+     data-specifications="{l s='Spécifications techniques' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-attente="{l s='Chargement des options…' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-calcul="{l s='Calcul des tarifs…' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-quantite="{l s='Quantité' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
@@ -47,7 +49,8 @@
      data-je-configure="{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-sur-mesure="{l s='Configuration personnalisée' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-plus-vite="{l s='Soyez livré plus rapidement' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
-     data-prix-public="{l s='Prix public TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
+     data-prix-public="{l s='Prix public TTC' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     data-gratuit="{l s='Gratuit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}">
 
   <h2 class="eko-poc__titre">{l s='Je configure mon produit' d='Modules.Ekosyncimprimerie.Shop'}</h2>
 
@@ -58,70 +61,4 @@
   <aside class="eko-poc__resume" aria-live="polite"></aside>
 </div>
 
-{**
- * Fiche technique et gabarits.
- *
- * Ces valeurs ne viennent PAS de l'ERP : elles décrivent ce que l'imprimeur
- * attend d'un fichier, pas ce que le fournisseur fabrique. Elles se règlent
- * donc au back-office, sur la fiche produit, avec des valeurs par défaut qui
- * sont les usages de l'imprimerie — 300 DPI, CMJN, 2 mm de fond perdu.
- *
- * Le bloc ne s'affiche que s'il a quelque chose à dire : un cadre vide sur une
- * fiche produit se lit comme un oubli.
- *}
-{if $eko.technique.lignes|@count || $eko.technique.gabarits|@count || $eko.technique.guide}
-  <section class="eko-tech">
-    <h2 class="eko-tech__titre">
-      {l s='Gabarits & instructions' d='Modules.Ekosyncimprimerie.Shop'}
-    </h2>
-
-    <div class="eko-tech__colonnes">
-      {if $eko.technique.lignes|@count}
-        <div class="eko-tech__bloc">
-          <h3 class="eko-tech__sous-titre">{l s='Fiche technique' d='Modules.Ekosyncimprimerie.Shop'}</h3>
-          <dl class="eko-tech__liste">
-            {foreach from=$eko.technique.lignes item=t}
-              <div class="eko-tech__ligne">
-                <dt>{$t.label|escape:'html':'UTF-8'}</dt>
-                <dd>{$t.valeur|escape:'html':'UTF-8'}</dd>
-              </div>
-            {/foreach}
-          </dl>
-        </div>
-      {/if}
-
-      {**
-       * Le guide propre au produit.
-       *
-       * Il remplace le « Size Guide » du thème, qui sert le MÊME contenu à
-       * toutes les fiches. Sur une imprimerie, un guide des tailles n'a de sens
-       * que sur les textiles ; ailleurs il vaut mieux ne rien afficher.
-       *
-       * Le contenu est saisi au back-office par le marchand : on le rend en
-       * HTML, comme une description produit — même confiance, même origine.
-       *}
-      {if $eko.technique.guide}
-        <div class="eko-tech__bloc">
-          <h3 class="eko-tech__sous-titre">{$eko.technique.guide.titre|escape:'html':'UTF-8'}</h3>
-          <div class="eko-tech__guide">{$eko.technique.guide.contenu nofilter}</div>
-        </div>
-      {/if}
-
-      {if $eko.technique.gabarits|@count}
-        <div class="eko-tech__bloc">
-          <h3 class="eko-tech__sous-titre">{l s='Gabarits' d='Modules.Ekosyncimprimerie.Shop'}</h3>
-          <ul class="eko-tech__gabarits">
-            {foreach from=$eko.technique.gabarits item=g}
-              <li>
-                <span>{$g.nom|escape:'html':'UTF-8'}</span>
-                <a href="{$g.url|escape:'html':'UTF-8'}" rel="nofollow" download>
-                  {l s='Télécharger le gabarit' d='Modules.Ekosyncimprimerie.Shop'}
-                </a>
-              </li>
-            {/foreach}
-          </ul>
-        </div>
-      {/if}
-    </div>
-  </section>
-{/if}
+{include file='module:ekosyncimprimerie/views/templates/hook/_technique.tpl'}

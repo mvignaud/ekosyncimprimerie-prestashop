@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+  <file source-language="fr-FR" target-language="en-GB" datatype="plaintext" original="module.ekosyncimprimerie">
+    <body>
+      <trans-unit id="1">
+        <source>EKO Sync — Imprimerie</source>
+        <target>EKO Sync — Print shop</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>Relie la boutique à l'ERP E-KO : catalogue, tarifs, documents et fichiers clients. Les tarifs affichés sont ceux calculés par E-KO, sans recalcul local.</source>
+        <target>Connects the shop to the E-KO ERP: catalogue, prices, documents and customer files. Displayed prices are the ones E-KO computes; nothing is recalculated locally.</target>
+      </trans-unit>
+      <trans-unit id="3">
+        <source>Désinstaller le module coupera la liaison avec E-KO. Les tarifs ne seront plus disponibles sur les fiches configurables.</source>
+        <target>Uninstalling the module will sever the link with E-KO. Prices will no longer be available on configurable products.</target>
+      </trans-unit>
+      <trans-unit id="4">
+        <source>— aucun, prix géré par PrestaShop —</source>
+        <target>— none, price handled by PrestaShop —</target>
+      </trans-unit>
+      <trans-unit id="5">
+        <source>Atelier — prix calculé</source>
+        <target>Workshop — computed price</target>
+      </trans-unit>
+      <trans-unit id="6">
+        <source>Catalogue d'atelier indisponible : </source>
+        <target>Workshop catalogue unavailable: </target>
+      </trans-unit>
+      <trans-unit id="7">
+        <source>Sous-traitance — prix en grille</source>
+        <target>Subcontracting — grid price</target>
+      </trans-unit>
+      <trans-unit id="8">
+        <source>Catalogue de sous-traitance indisponible : </source>
+        <target>Subcontracting catalogue unavailable: </target>
+      </trans-unit>
+      <trans-unit id="9">
+        <source>Sous-traitance — prix en grille (formulaire)</source>
+        <target>Subcontracting — grid price (form)</target>
+      </trans-unit>
+      <trans-unit id="10">
+        <source>Second catalogue de sous-traitance indisponible : </source>
+        <target>Second subcontracting catalogue unavailable: </target>
+      </trans-unit>
+      <trans-unit id="11">
+        <source>Liaison enregistrée</source>
+        <target>Saved link</target>
+      </trans-unit>
+      <trans-unit id="12">
+        <source>La liaison enregistrée est conservée et reste sélectionnée. Ne la remplacez pas tant que le catalogue n’est pas revenu.</source>
+        <target>The saved link is kept and stays selected. Do not replace it until the catalogue is back.</target>
+      </trans-unit>
+      <trans-unit id="13">
+        <source>Produit E-KO</source>
+        <target>E-KO product</target>
+      </trans-unit>
+      <trans-unit id="14">
+        <source>Lier cette fiche fait venir son prix de l'ERP. Sans liaison, PrestaShop garde la main.</source>
+        <target>Linking this product makes its price come from the ERP. Without a link, PrestaShop keeps control.</target>
+      </trans-unit>
+      <trans-unit id="15">
+        <source>Matière de cette fiche</source>
+        <target>Material for this listing</target>
+      </trans-unit>
+      <trans-unit id="16">
+        <source>Un même produit du sous-traitant alimente plusieurs fiches : Akylux, Dibond et PVC expansé sont trois pages pour une seule référence chez lui. La matière choisie ici est celle que cette fiche vend, et le configurateur la verrouillera.</source>
+        <target>One subcontractor product feeds several listings: Akylux, Dibond and expanded PVC are three pages for a single reference on their side. The material chosen here is the one this listing sells, and the configurator will lock it.</target>
+      </trans-unit>
+      <trans-unit id="17">
+        <source>Ajouter une ligne</source>
+        <target>Add a row</target>
+      </trans-unit>
+      <trans-unit id="18">
+        <source>Retirer cette ligne</source>
+        <target>Remove this row</target>
+      </trans-unit>
+      <trans-unit id="19">
+        <source>Déposer un SVG</source>
+        <target>Upload an SVG</target>
+      </trans-unit>
+      <trans-unit id="20">
+        <source>Icône…</source>
+        <target>Icon…</target>
+      </trans-unit>
+      <trans-unit id="21">
+        <source>Dépôt refusé.</source>
+        <target>Upload rejected.</target>
+      </trans-unit>
+      <trans-unit id="22">
+        <source>Déposé</source>
+        <target>Uploaded</target>
+      </trans-unit>
+      <trans-unit id="23">
+        <source>Calculé</source>
+        <target>Computed</target>
+      </trans-unit>
+      <trans-unit id="24">
+        <source>À fournir</source>
+        <target>To be supplied</target>
+      </trans-unit>
+      <trans-unit id="25">
+        <source>Remplacer</source>
+        <target>Replace</target>
+      </trans-unit>
+      <trans-unit id="26">
+        <source>Déposer</source>
+        <target>Upload</target>
+      </trans-unit>
+      <trans-unit id="27">
+        <source>Retirer</source>
+        <target>Remove</target>
+      </trans-unit>
+      <trans-unit id="28">
+        <source>Gabarits</source>
+        <target>Templates</target>
+      </trans-unit>
+      <trans-unit id="29">
+        <source>Un gabarit « calculé » est produit automatiquement depuis le format fini. </source>
+        <target>A “computed” template is produced automatically from the finished size. </target>
+      </trans-unit>
+      <trans-unit id="30">
+        <source>Résolution</source>
+        <target>Resolution</target>
+      </trans-unit>
+      <trans-unit id="31">
+        <source>Couleurs</source>
+        <target>Colours</target>
+      </trans-unit>
+      <trans-unit id="32">
+        <source>Fonds perdus</source>
+        <target>Bleed</target>
+      </trans-unit>
+      <trans-unit id="33">
+        <source>Marge de sécurité</source>
+        <target>Safety margin</target>
+      </trans-unit>
+      <trans-unit id="34">
+        <source>Fiche technique</source>
+        <target>Technical sheet</target>
+      </trans-unit>
+      <trans-unit id="35">
+        <source>BAT numérique</source>
+        <target>Digital proof</target>
+      </trans-unit>
+      <trans-unit id="36">
+        <source>Ma création graphique</source>
+        <target>My artwork</target>
+      </trans-unit>
+      <trans-unit id="37">
+        <source>Description (facultative)</source>
+        <target>Description (optional)</target>
+      </trans-unit>
+      <trans-unit id="38">
+        <source>Prestations</source>
+        <target>Services</target>
+      </trans-unit>
+      <trans-unit id="39">
+        <source>Une ligne par option : « Libellé|supplément en euros|description ». La description est facultative ; elle s'affiche sous le titre de la tuile. La première ligne est le choix par défaut — elle doit être gratuite.</source>
+        <target>One line per option: « Label|extra in euros|description ». The description is optional; it shows under the tile title. The first line is the default choice — it must be free.</target>
+      </trans-unit>
+      <trans-unit id="40">
+        <source>Laisser vide pour reprendre le réglage de la boutique, montré en filigrane. Une création graphique ne demande pas le même travail sur un flyer et sur un dépliant : c'est ici qu'on l'ajuste, fiche par fiche.</source>
+        <target>Leave empty to use the shop-wide setting, shown as a hint. Artwork does not take the same work on a flyer and on a folded leaflet: this is where you adjust it, product by product.</target>
+      </trans-unit>
+      <trans-unit id="41">
+        <source>Ventes phares</source>
+        <target>Best sellers</target>
+      </trans-unit>
+      <trans-unit id="42">
+        <source>Une ligne par onglet : « Libellé|format ». Le format s'écrit avec son nom tel qu'il apparaît sur le site, ou avec le code du fournisseur. Laisser vide pour n'afficher aucun onglet.</source>
+        <target>One line per tab: « Label|format ». Write the format with the name shown on the shop, or with the supplier code. Leave empty to show no tab.</target>
+      </trans-unit>
+      <trans-unit id="43">
+        <source>Heure limite — offre incluse</source>
+        <target>Cut-off time — included offer</target>
+      </trans-unit>
+      <trans-unit id="44">
+        <source>Si commandé aujourd'hui avant 18h</source>
+        <target>If ordered today before 6pm</target>
+      </trans-unit>
+      <trans-unit id="45">
+        <source>Affichée sous le délai inclus. Laisser vide pour ne rien annoncer : c'est un engagement pris devant le client.</source>
+        <target>Shown under the included lead time. Leave empty to announce nothing: this is a promise made to the customer.</target>
+      </trans-unit>
+      <trans-unit id="46">
+        <source>Heure limite — livraison accélérée</source>
+        <target>Cut-off time — express delivery</target>
+      </trans-unit>
+      <trans-unit id="47">
+        <source>Si commandé avant demain 11h</source>
+        <target>If ordered before 11am tomorrow</target>
+      </trans-unit>
+      <trans-unit id="48">
+        <source>Affichée sous les délais payants, dont l'heure limite est souvent différente.</source>
+        <target>Shown under the paid lead times, whose cut-off time is often different.</target>
+      </trans-unit>
+      <trans-unit id="49">
+        <source>Mention sous le prix</source>
+        <target>Line under the price</target>
+      </trans-unit>
+      <trans-unit id="50">
+        <source>Tout inclus — Livraison offerte</source>
+        <target>All included — Free delivery</target>
+      </trans-unit>
+      <trans-unit id="51">
+        <source>Affichée dans le récapitulatif, sous le montant. Laisser vide si la livraison n'est pas offerte : la mention serait alors fausse.</source>
+        <target>Shown in the summary, under the amount. Leave empty if delivery is not free: the line would then be untrue.</target>
+      </trans-unit>
+      <trans-unit id="52">
+        <source>Réassurances</source>
+        <target>Reassurance points</target>
+      </trans-unit>
+      <trans-unit id="53">
+        <source>Une ligne par argument : « Libellé|icône ». L'icône est origine, livraison, fichier ou paiement — ou le chemin d'une image déposée sur la boutique, pour un logo qui vous appartient.</source>
+        <target>One line per point: « Label|icon ». The icon is origine, livraison, fichier or paiement — or the path of an image uploaded to the shop, for a logo you own.</target>
+      </trans-unit>
+      <trans-unit id="54">
+        <source>Guide du produit</source>
+        <target>Product guide</target>
+      </trans-unit>
+      <trans-unit id="55">
+        <source>Remplace le « Size Guide » du thème, qui est le même pour toute la boutique. Laisser le contenu vide pour n'afficher aucun guide sur cette fiche — un guide des tailles n'a pas de sens sur un flyer, il en a un sur un textile.</source>
+        <target>Replaces the theme's Size Guide, which is the same shop-wide. Leave the content empty to show no guide on this product — a size guide makes no sense on a flyer, it does on a garment.</target>
+      </trans-unit>
+      <trans-unit id="56">
+        <source>Intitulé</source>
+        <target>Label</target>
+      </trans-unit>
+      <trans-unit id="57">
+        <source>Guide des tailles</source>
+        <target>Size guide</target>
+      </trans-unit>
+      <trans-unit id="58">
+        <source>Contenu</source>
+        <target>Content</target>
+      </trans-unit>
+      <trans-unit id="59">
+        <source>Texte ou tableau HTML. Vide = pas de guide sur cette fiche.</source>
+        <target>Text or HTML table. Empty = no guide on this product.</target>
+      </trans-unit>
+      <trans-unit id="60">
+        <source>non posé</source>
+        <target>not set up</target>
+      </trans-unit>
+      <trans-unit id="61">
+        <source>Groupes de clients</source>
+        <target>Customer groups</target>
+      </trans-unit>
+      <trans-unit id="62">
+        <source>Ces groupes ne portent AUCUNE remise. Le prix remisé vient d'E-KO : une remise posée ici serait un second calcul, avec ses propres arrondis, et le site cesserait de coïncider au centime près avec un devis.</source>
+        <target>These groups carry NO discount. The discounted price comes from E-KO: a discount set here would be a second calculation, with its own rounding, and the shop would stop matching a quote to the cent.</target>
+      </trans-unit>
+      <trans-unit id="63">
+        <source>Groupe</source>
+        <target>Group</target>
+      </trans-unit>
+      <trans-unit id="64">
+        <source>Correspond à</source>
+        <target>Matches</target>
+      </trans-unit>
+      <trans-unit id="65">
+        <source>Affichage</source>
+        <target>Display</target>
+      </trans-unit>
+      <trans-unit id="66">
+        <source>Identifiant boutique</source>
+        <target>Shop id</target>
+      </trans-unit>
+      <trans-unit id="67">
+        <source>Poser / vérifier les groupes</source>
+        <target>Set up / check the groups</target>
+      </trans-unit>
+      <trans-unit id="68">
+        <source>L'adresse de l'API n'est pas une URL valide.</source>
+        <target>The API address is not a valid URL.</target>
+      </trans-unit>
+      <trans-unit id="69">
+        <source>L'API doit être appelée en HTTPS : le jeton transiterait sinon en clair.</source>
+        <target>The API must be called over HTTPS, otherwise the token would travel in clear text.</target>
+      </trans-unit>
+      <trans-unit id="70">
+        <source>Cette adresse pointe vers le réseau interne du serveur : refusée.</source>
+        <target>This address points to the server's internal network: rejected.</target>
+      </trans-unit>
+      <trans-unit id="71">
+        <source>Adresse de l'API modifiée : le jeton a été effacé et doit être ressaisi. Un jeton délivré par l'ancienne instance n'a pas à être envoyé à la nouvelle.</source>
+        <target>API address changed: the token has been cleared and must be entered again. A token issued by the previous instance has no business being sent to the new one.</target>
+      </trans-unit>
+      <trans-unit id="72">
+        <source>Réglages enregistrés.</source>
+        <target>Settings saved.</target>
+      </trans-unit>
+      <trans-unit id="73">
+        <source>Renseignez une adresse e-mail à rechercher.</source>
+        <target>Enter an email address to search for.</target>
+      </trans-unit>
+      <trans-unit id="74">
+        <source>Créer le compte boutique</source>
+        <target>Create the shop account</target>
+      </trans-unit>
+      <trans-unit id="75">
+        <source>Aucun tiers désigné.</source>
+        <target>No customer selected.</target>
+      </trans-unit>
+      <trans-unit id="76">
+        <source>Posez d'abord les groupes de clients : sans eux, le compte serait créé sans tarif applicable.</source>
+        <target>Set up the customer groups first: without them, the account would be created with no applicable pricing.</target>
+      </trans-unit>
+      <trans-unit id="77">
+        <source>Liaison avec E-KO</source>
+        <target>Connection to E-KO</target>
+      </trans-unit>
+      <trans-unit id="78">
+        <source>Adresse de l'API</source>
+        <target>API address</target>
+      </trans-unit>
+      <trans-unit id="79">
+        <source>Racine du service, sans /api/v1. HTTPS obligatoire.</source>
+        <target>Service root, without /api/v1. HTTPS required.</target>
+      </trans-unit>
+      <trans-unit id="80">
+        <source>Jeton</source>
+        <target>Token</target>
+      </trans-unit>
+      <trans-unit id="81">
+        <source>Jeton dédié à ce module, aux portées minimales. Laisser vide pour conserver le jeton actuel.</source>
+        <target>Token dedicated to this module, with the narrowest scopes. Leave empty to keep the current token.</target>
+      </trans-unit>
+      <trans-unit id="82">
+        <source>Durée du cache (secondes)</source>
+        <target>Cache lifetime (seconds)</target>
+      </trans-unit>
+      <trans-unit id="83">
+        <source>Le cache ne conserve que des réponses d'E-KO, jamais un calcul local. 0 désactive le cache.</source>
+        <target>The cache only keeps E-KO responses, never a local calculation. 0 disables it.</target>
+      </trans-unit>
+      <trans-unit id="84">
+        <source>Rechercher un client</source>
+        <target>Search for a customer</target>
+      </trans-unit>
+      <trans-unit id="85">
+        <source>Adresse e-mail d'un client : affiche le tiers E-KO correspondant et le nombre de documents à son nom. Aucune écriture.</source>
+        <target>A customer's email address: shows the matching E-KO customer and how many documents are filed under their name. Nothing is written.</target>
+      </trans-unit>
+      <trans-unit id="86">
+        <source>Enregistrer</source>
+        <target>Save</target>
+      </trans-unit>
+      <trans-unit id="87">
+        <source>Tester la liaison</source>
+        <target>Test the connection</target>
+      </trans-unit>
+      <trans-unit id="88">
+        <source>Rechercher</source>
+        <target>Search</target>
+      </trans-unit>
+      <trans-unit id="89">
+        <source>Aucun fichier reçu.</source>
+        <target>No file received.</target>
+      </trans-unit>
+      <trans-unit id="90">
+        <source>Produit ou format manquant.</source>
+        <target>Missing product or size.</target>
+      </trans-unit>
+      <trans-unit id="91">
+        <source>Gabarit retiré.</source>
+        <target>Template removed.</target>
+      </trans-unit>
+      <trans-unit id="92">
+        <source>Retrait impossible.</source>
+        <target>Could not remove it.</target>
+      </trans-unit>
+      <trans-unit id="93">
+        <source>Ces réglages valent pour toutes les fiches liées à l'ERP. Une fiche qui porte sa propre valeur garde la sienne.</source>
+        <target>These settings apply to every product linked to the ERP. A product carrying its own value keeps it.</target>
+      </trans-unit>
+      <trans-unit id="94">
+        <source>Réglages de l'imprimerie</source>
+        <target>Print shop settings</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

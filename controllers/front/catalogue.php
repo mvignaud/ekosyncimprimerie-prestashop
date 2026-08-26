@@ -32,10 +32,16 @@
  */
 
 use Eko\SyncImprimerie\Configurateur\LiaisonProduit;
+use Eko\SyncImprimerie\Configurateur\ReponseJson;
 
 class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontController
 {
-    /** @var bool */
+    /**
+     * ⚠️ SANS EFFET : `Controller::__construct()` (Controller.php:252)
+     * l'écrase par `isAjax()`. Voir `prix.php` et `ReponseJson`.
+     *
+     * @var bool
+     */
     public $ajax = true;
 
     /**
@@ -52,8 +58,12 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     /**
      * Comme pour le chiffrage d'atelier : tout se joue dans `postProcess()`.
      *
-     * `Controller::run()` appelle `initContent()` ensuite, qui meurt sans
-     * gabarit — 500 sans corps ni ligne de journal.
+     * ⚠️ CE COMMENTAIRE DISAIT « 500 sans corps ni ligne de journal ». La
+     * mesure du 2026-08-13 a corrigé les trois termes : le corps sortait
+     * intact — `FrontController::init()` ouvre un `ob_start()` —, le journal
+     * PHP du site tenait bien la fatale, et le 500 frappait TOUTES les
+     * réponses, succès compris. `ajaxRender()` ne termine pas la requête ;
+     * `ReponseJson` porte la démonstration et le remède.
      */
     public function postProcess()
     {
@@ -89,16 +99,29 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 FILE_APPEND
             );
 
-            $reponse = $this->refus('Une erreur est survenue pendant le chiffrage.');
+            // Une exception inattendue est une panne de la boutique, et rien
+            // d'autre : elle garde son 500. C'est même le seul endroit de ce
+            // contrôleur qui en mérite un.
+            $this->refus('Une erreur est survenue pendant le chiffrage.', ReponseJson::PANNE);
         }
 
-        $this->ajaxRender((string) json_encode($reponse, JSON_UNESCAPED_UNICODE));
+        ReponseJson::rendre($reponse);
     }
 
     /**
+     * ⚠️ CETTE MÉTHODE ET SES AIDES SONT `protected`, ET C'EST DÉLIBÉRÉ.
+     *
+     * Le contrôleur du second sous-traitant (`configrp.php`) hérite de
+     * celui-ci. Il ne partage pas la forme des données — un formulaire n'est
+     * pas un arbre — mais il partage tout le reste : la TVA du visiteur, la
+     * mise en forme des montants dans sa devise, les dates ouvrées, les
+     * prestations du marchand, le refus qui parle à la supervision. Recopier
+     * ces sept méthodes aurait fait diverger deux boutiques à la première
+     * retouche de l'une d'elles.
+     *
      * @return array<string, mixed>
      */
-    private function repondre(): array
+    protected function repondre(): array
     {
         $idProduct = (int) Tools::getValue('id_product');
         $liaison = (new LiaisonProduit())->pour($idProduct);
@@ -125,7 +148,10 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             $r = $module->client()->appeler('GET', $requete);
 
             if (!$r['ok']) {
-                return $this->refus($r['erreur'] !== '' ? $r['erreur'] : 'Options indisponibles.');
+                return $this->refus(
+                    $r['erreur'] !== '' ? $r['erreur'] : 'Options indisponibles.',
+                    ReponseJson::statutAmont((int) $r['code'])
+                );
             }
 
             $d = $r['donnees'] ?? [];
@@ -144,7 +170,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 // Les prestations de l'imprimeur voyagent avec l'arbre : elles
                 // ne changent pas d'une étape à l'autre, et un second appel
                 // pour les obtenir doublerait les allers-retours.
-                'services' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::services($idProduct),
+                'services' => $this->prestations($idProduct),
                 // Les raccourcis « vente phare » du marchand. Ils voyagent avec
                 // l'arbre : ils ne changent pas d'une étape à l'autre.
                 'ventes' => \Eko\SyncImprimerie\Configurateur\ServicesProduit::ventesPhares($idProduct),
@@ -180,7 +206,8 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             return $this->refus(
                 $r['code'] === 404
                     ? 'Cette combinaison n\'est pas fabriquée. Revenez sur un choix précédent.'
-                    : ($r['erreur'] !== '' ? $r['erreur'] : 'Tarifs indisponibles.')
+                    : ($r['erreur'] !== '' ? $r['erreur'] : 'Tarifs indisponibles.'),
+                ReponseJson::statutAmont((int) $r['code'])
             );
         }
 
@@ -240,6 +267,8 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
                 'public_texte' => $horsTaxe ? $this->enLettres($this->avecTaxe($lotHt, $idProduct)) : '',
             ];
         }
+
+        $cases = $this->poserSupplements($cases);
 
         return [
             'ok' => true,
@@ -313,7 +342,9 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         $panier = \Eko\SyncImprimerie\Configurateur\Personnalisation::panier($this->context);
 
         if ($panier === null) {
-            return $this->refus('Panier indisponible.');
+            // La boutique a échoué à créer un panier : c'est un incident, pas
+            // une saisie incomplète.
+            return $this->refus('Panier indisponible.', ReponseJson::PANNE);
         }
 
         /** @var Ekosyncimprimerie $module */
@@ -325,7 +356,10 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         );
 
         if (!$r['ok']) {
-            return $this->refus('Ce tarif n\'est plus disponible. Reprenez votre configuration.');
+            return $this->refus(
+                'Ce tarif n\'est plus disponible. Reprenez votre configuration.',
+                ReponseJson::statutAmont((int) $r['code'])
+            );
         }
 
         // On RELIT le prix du fournisseur au lieu de croire le navigateur. Un
@@ -443,7 +477,17 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
             }
         }
 
-        return implode(' · ', $morceaux);
+        // ⚠️ UN RETOUR À LA LIGNE, pas un séparateur en ligne. Huit critères
+        // enchaînés par des points médians donnaient une coulée illisible au
+        // panier — « Format : Carré 14,8 x 14,8 · Papier : 115G Recyclé · Recto
+        // Verso : Recto · … » — là où la fiche produit les présente
+        // proprement empilés.
+        //
+        // Le gabarit du panier rend cette valeur en `nofilter` : le retour à la
+        // ligne arrive donc intact dans le HTML, où `white-space: pre-line` le
+        // transforme en vraie rupture. C'est aussi PLUS COURT qu'un séparateur
+        // de trois caractères, ce qui compte : le champ est tronqué à 255.
+        return implode("\n", $morceaux);
     }
 
     /**
@@ -505,9 +549,49 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
      * Rend `null` quand le code ne dit pas de nombre : mieux vaut pas de délai
      * qu'un délai inventé, qui finirait sur une confirmation de commande.
      */
-    private function joursDe(string $delai): ?int
+    protected function joursDe(string $delai): ?int
     {
         return preg_match('/(\d+)/', $delai, $m) === 1 ? (int) $m[1] : null;
+    }
+
+    /**
+     * Les prestations, avec leur supplément DÉJÀ MIS EN FORME.
+     *
+     * ⚠️ Le montant est écrit ici, pas dans le navigateur. C'est la règle de
+     * tout ce module : le JavaScript ne sait ni la langue, ni la devise, ni le
+     * nombre de décimales de la boutique — il avait déjà affiché « 36.13 € »
+     * sur une boutique française. Et le régime suit l'affichage du groupe :
+     * un compte en hors taxes voit le supplément en hors taxes.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function prestations(int $idProduct): array
+    {
+        $horsTaxe = \Eko\SyncImprimerie\Configurateur\ReglesBoutique::afficheHorsTaxe();
+        $sortie = [];
+
+        foreach (\Eko\SyncImprimerie\Configurateur\ServicesProduit::services($idProduct) as $service) {
+            $options = [];
+
+            foreach ($service['options'] as $o) {
+                $ht = $o['centimes'] / 100;
+                $montant = $horsTaxe ? $ht : $this->avecTaxe($ht, $idProduct);
+
+                $options[] = [
+                    'nom' => $o['nom'],
+                    'texte' => $o['texte'],
+                    'centimes' => $o['centimes'],
+                    // Vide quand c'est gratuit : le gabarit porte le mot
+                    // « Gratuit », traduit, plutôt qu'un « 0,00 € » qui se lit
+                    // comme un prix oublié.
+                    'prix_texte' => $o['centimes'] > 0 ? $this->enLettres($montant) : '',
+                ];
+            }
+
+            $sortie[] = ['cle' => $service['cle'], 'label' => $service['label'], 'options' => $options];
+        }
+
+        return $sortie;
     }
 
     /**
@@ -636,7 +720,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
      *
      * @return array<string, string>
      */
-    private function choixServices(): array
+    protected function choixServices(): array
     {
         $brut = Tools::getValue('services');
 
@@ -683,7 +767,7 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
     }
 
     /** Le prix tel que ce visiteur doit le voir. */
-    private function avecTaxe(float $ht, int $idProduct): float
+    protected function avecTaxe(float $ht, int $idProduct): float
     {
         return \TaxManagerFactory::getManager(
             \Eko\SyncImprimerie\Configurateur\ReglesBoutique::adresseFiscale($this->context->cart),
@@ -703,51 +787,67 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
      * fournisseur en emploie d'autres formes, et inventer une date sur un
      * libellé qu'on ne sait pas lire serait pire que de n'en donner aucune.
      */
-    private function dateDeLivraison(string $delai): string
+    protected function dateDeLivraison(string $delai): string
     {
         if (!preg_match('/^[A-Za-z]\+(\d{1,3})$/', $delai, $m)) {
             return '';
         }
 
-        $jours = (int) $m[1];
-        $date = new \DateTimeImmutable('today');
+        // Le calcul vit dans `DateLivraison` : le panier en a besoin aussi,
+        // et deux règles de jours ouvrés qui divergent annonceraient deux dates
+        // différentes pour la même commande.
+        return \Eko\SyncImprimerie\Configurateur\DateLivraison::dans(
+            (int) $m[1],
+            (string) ($this->context->language->locale ?? 'fr-FR')
+        );
+    }
 
-        while ($jours > 0) {
-            $date = $date->modify('+1 day');
+    /**
+     * Ce que chaque délai coûte EN PLUS du moins cher, pour la même quantité.
+     *
+     * ─── ⚠️ CE QUE CE CALCUL RÉPARE ────────────────────────────────────────
+     *
+     * Les cartes de délai écrivaient « Supplément » suivi du PRIX TOTAL du
+     * lot. Un visiteur qui lisait « Standard : inclus » puis « Express :
+     * supplément 267,00 € » comprenait qu'aller plus vite lui coûtait deux
+     * cent soixante-sept euros de plus, quand l'écart réel était de vingt-sept.
+     * Le mot annonçait une différence, le nombre donnait un total.
+     *
+     * Le calcul vit ICI et pas dans le navigateur : celui-ci ne sait ni la
+     * langue ni la devise du visiteur, et cette règle vaut pour les deux
+     * sous-traitances.
+     *
+     * @param  list<array<string, mixed>>  $cases
+     * @return list<array<string, mixed>>
+     */
+    protected function poserSupplements(array $cases): array
+    {
+        $planchers = [];
 
-            if ((int) $date->format('N') <= 5) {
-                --$jours;
+        foreach ($cases as $c) {
+            $q = (int) ($c['quantity'] ?? 0);
+            $lot = (float) ($c['lot'] ?? 0);
+
+            if ($q > 0 && (!isset($planchers[$q]) || $lot < $planchers[$q])) {
+                $planchers[$q] = $lot;
             }
         }
 
-        // ⚠️ `getCurrentLocale()` de PrestaShop met en forme des NOMBRES et des
-        // prix, pas des dates : il n'a pas de `getDateTimeFormatter()`. L'appel
-        // levait donc systématiquement, et le repli « 19/08/2026 » s'affichait
-        // toujours — un repli qui marche trop bien cache le défaut qu'il couvre.
-        if (class_exists('\IntlDateFormatter')) {
-            $formateur = new \IntlDateFormatter(
-                (string) ($this->context->language->locale ?? 'fr-FR'),
-                \IntlDateFormatter::FULL,
-                \IntlDateFormatter::NONE,
-                null,
-                null,
-                'EEEE d MMMM'
-            );
+        foreach ($cases as $i => $c) {
+            $q = (int) ($c['quantity'] ?? 0);
+            $ecart = (float) ($c['lot'] ?? 0) - ($planchers[$q] ?? 0.0);
 
-            $texte = $formateur->format($date);
-
-            if (is_string($texte) && $texte !== '') {
-                return $texte;
-            }
+            // Vide quand il n'y a rien à payer de plus : le gabarit porte
+            // alors le mot « Inclus », traduit, plutôt qu'un « 0,00 € » qui se
+            // lit comme un prix oublié.
+            $cases[$i]['sup_texte'] = $ecart > 0.0001 ? '+ ' . $this->enLettres($ecart) : '';
         }
 
-        // Sans `intl`, une forme neutre plutôt que rien : la date reste juste,
-        // seule sa mise en forme est pauvre.
-        return $date->format('d/m/Y');
+        return $cases;
     }
 
     /** Un montant écrit comme la boutique l'écrit. */
-    private function enLettres(float $montant): string
+    protected function enLettres(float $montant): string
     {
         try {
             return (string) $this->context->getCurrentLocale()->formatPrice(
@@ -759,9 +859,16 @@ class EkosyncimprimerieCatalogueModuleFrontController extends ModuleFrontControl
         }
     }
 
-    /** @return array{ok: false, message: string} */
-    private function refus(string $message): array
+    /**
+     * Un refus — rendu au visiteur, ET dit à la supervision.
+     *
+     * 422 par défaut : une demande comprise mais inexploitable. Les appelants
+     * ne passent autre chose que lorsque l'échec n'appartient pas au visiteur.
+     *
+     * @return never
+     */
+    protected function refus(string $message, int $statut = ReponseJson::REFUS)
     {
-        return ['ok' => false, 'message' => $message];
+        ReponseJson::rendre(['ok' => false, 'message' => $message], $statut);
     }
 }

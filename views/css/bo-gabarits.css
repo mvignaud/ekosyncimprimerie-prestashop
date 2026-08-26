@@ -1,0 +1,92 @@
+/* Gabarits — panneau de la fiche produit. */
+
+.eko-gab__aide {
+    margin: 0 0 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #6c757d;
+}
+
+ul.eko-gab__liste {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid #e0e3e8;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.eko-gab__ligne {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    background: #fff;
+    border-top: 1px solid #eef0f4;
+}
+
+.eko-gab__ligne:first-child { border-top: 0; }
+
+.eko-gab__format {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+    color: #2b2b3a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.eko-gab__etat {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* La pastille dit d'un coup d'œil ce qui reste à faire : c'est la seule
+   information que le marchand cherche en ouvrant ce bloc. */
+.eko-gab__etat::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 7px;
+    border-radius: 50%;
+    vertical-align: baseline;
+    background: #c9ced6;
+}
+
+.eko-gab__ligne--calcule  .eko-gab__etat::before { background: #28a745; }
+.eko-gab__ligne--depose   .eko-gab__etat::before { background: #1e73be; }
+.eko-gab__ligne--manquant .eko-gab__etat::before { background: #f0ad4e; }
+.eko-gab__ligne--erreur   .eko-gab__etat { color: #c8102e; }
+.eko-gab__ligne--erreur   .eko-gab__etat::before { background: #c8102e; }
+.eko-gab__ligne--occupe   .eko-gab__etat::before { background: #6c757d; }
+
+.eko-gab__actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+}
+
+.eko-gab__deposer,
+.eko-gab__retirer {
+    margin: 0;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #2b2b3a;
+    background: #f6f7f9;
+    border: 1px solid #d6dae1;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.eko-gab__deposer:hover,
+.eko-gab__retirer:hover { background: #eceef2; border-color: #b9bfc9; }
+
+.eko-gab__retirer { color: #c8102e; }
+
+/* Une ligne en cours d'envoi ne doit pas accepter un second clic : deux dépôts
+   concurrents sur le même couple produit/format se marcheraient dessus. */
+.eko-gab__ligne--occupe .eko-gab__actions { pointer-events: none; opacity: .5; }

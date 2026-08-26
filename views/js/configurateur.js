@@ -1,44 +1,38 @@
 /**
- * EKO Sync — Imprimerie
+ * EKO Sync — Imprimerie · configurateur d'ATELIER
  *
- * Le configurateur ne calcule RIEN. Il rassemble les choix, demande le prix au
- * serveur, et affiche ce qu'on lui rend. Un calcul ici — même une simple
- * multiplication par la quantité — recréerait une seconde vérité et ferait
- * diverger la boutique des devis de l'ERP.
+ * ─── POURQUOI CE SCRIPT ÉMET LES CLASSES DU CONFIGURATEUR DE SOUS-TRAITANCE ─
  *
- * ─── LA QUANTITÉ EST CELLE DE PRESTASHOP ───────────────────────────────────
+ * La boutique vend deux natures de produits, et le visiteur n'a aucune raison
+ * de le savoir. Plutôt que d'écrire une seconde feuille de style qui
+ * ressemblerait à la première et divergerait à la première retouche, ce
+ * script bâtit LA MÊME STRUCTURE — `eko-poc__ligne`, `eko-poc__carte`,
+ * `eko-poc__resume` — et la feuille de l'autre est chargée ici aussi.
  *
- * Le module a longtemps rendu son PROPRE champ quantité. C'était un défaut
- * grave, et silencieux : le prix était mémorisé pour la quantité saisie dans
- * ce champ, tandis que le hook de prix lisait celle du thème. Un visiteur qui
- * demandait 500 exemplaires voyait le prix ERP pour 500 dans le bloc du
- * module, et PrestaShop lui facturait le prix CATALOGUE, parce qu'aucun prix
- * n'était mémorisé pour la quantité 1 restée dans le champ du thème.
+ * 1 350 lignes de style déjà éprouvées sur 84 fiches en production, acquises
+ * d'un coup. Toute retouche visuelle profite désormais aux deux.
  *
- * Deux champs, deux vérités — exactement ce que ce module existe pour éviter.
+ * ─── CE QUI DIFFÈRE, ET POURQUOI ────────────────────────────────────────────
  *
- * Il n'y a donc plus qu'une quantité : celle de PrestaShop. Les trois thèmes
- * livrés avec la boutique (classic, hummingbird, akira) l'exposent sous
- * `#quantity_wanted` / `name="qty"`. Faute de la trouver, le configurateur
- * refuse de chiffrer plutôt que d'annoncer un prix pour une quantité que le
- * panier n'emploiera pas.
+ * La sous-traitance descend un ARBRE de choix discrets ; l'atelier saisit des
+ * cotes CONTINUES. « Choisissez votre format » n'a pas d'équivalent quand on
+ * tape 1837 mm. Les dimensions sont donc des champs, groupés sur une ligne
+ * « Dimensions » ; tout le reste — matières, options oui/non — devient des
+ * cartes, exactement les mêmes.
+ *
+ * ⚠️ `em` et jamais `rem`, comme dans la feuille partagée.
  */
 (function () {
   'use strict';
 
-  /**
-   * Le champ quantité du thème. Jamais un champ à nous.
-   *
-   * `#quantity_wanted` est l'identifiant employé par les thèmes du cœur ;
-   * `name="qty"` est le repli, car c'est ce nom que le formulaire d'ajout au
-   * panier poste, quel que soit l'habillage.
-   */
-  function champQuantite() {
-    return (
-      document.querySelector('#quantity_wanted') ||
-      document.querySelector('.product-add-to-cart input[name="qty"]') ||
-      document.querySelector('input[name="qty"]')
-    );
+  /* ─── Outils ─────────────────────────────────────────────────────────── */
+
+  function racine() {
+    return document.querySelector('.eko-poc--atelier');
+  }
+
+  function txt(r, cle, defaut) {
+    return (r && r.dataset[cle]) || defaut;
   }
 
   function echapper(t) {
@@ -49,283 +43,1010 @@
   }
 
   /**
-   * TOUS les boutons d'ajout au panier du thème.
+   * Le dessin d'une prestation, choisi d'après SON LIBELLÉ.
    *
-   * `[data-button-action="add-to-cart"]` est une convention du cœur, respectée
-   * par les thèmes qui héritent du formulaire produit standard.
+   * ─── POURQUOI D'APRÈS LE LIBELLÉ, ET PAS D'APRÈS LE RANG ───────────────────
    *
-   * Au PLURIEL, et c'est le point : les thèmes modernes en posent DEUX —
-   * « Ajouter au panier » et « Acheter maintenant » — avec le même attribut.
-   * Un `querySelector` au singulier n'en verrouillait qu'un, et le second
-   * restait cliquable : le trou qu'on croyait fermé restait grand ouvert sur
-   * le bouton le plus direct, celui qui mène droit au paiement.
+   * Le marchand saisit ses prestations en texte libre, dans l'ordre qui lui
+   * plaît, et il en ajoute. Attribuer le premier dessin à la première ligne
+   * donnerait un crayon à « je fournis mon fichier » dès que quelqu'un
+   * réordonne sa liste — un dessin faux est pire qu'un dessin générique, il
+   * annonce autre chose que ce qu'on achète.
+   *
+   * On lit donc les mots. Les accents sont retirés avant la comparaison : le
+   * marchand écrit « créé » ou « cree » selon son clavier, et les deux doivent
+   * tomber sur le même dessin.
+   *
+   * Rien ne correspond → le dessin neutre. Jamais de dessin au hasard.
    */
+  function dessinPrestation(nom) {
+    var traits = {
+      // Un fichier qui monte : « je fournis mon fichier ».
+      depot: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="M12 18v-6"/><path d="m9.5 14.5 2.5-2.5 2.5 2.5"/>',
+      // Un crayon sur une page : « je crée mon fichier en ligne ».
+      crayon: '<path d="M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>'
+        + '<path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L14 13l-4 1 1-4 7.5-7.5Z"/>',
+      // Une palette : « je confie ma création à un graphiste ».
+      graphiste: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.7-.8 1.7-1.6 0-.5-.2-.8-.5-1.1'
+        + '-.3-.3-.5-.7-.5-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4-4-7.6-9-7.6Z"/>'
+        + '<circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/>'
+        + '<circle cx="15" cy="8.5" r="1"/>',
+      // Un œil sur une page : le bon à tirer, qu'on regarde avant d'imprimer.
+      relecture: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>'
+        + '<path d="M14 3v5h5"/>'
+        + '<path d="M8 15.5s1.6-2.5 4-2.5 4 2.5 4 2.5-1.6 2.5-4 2.5-4-2.5-4-2.5Z"/>'
+        + '<circle cx="12" cy="15.5" r="1"/>',
+      // Une page barrée : « sans BAT », « aucune création ».
+      sans: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="m9.5 17 5-5"/><path d="m9.5 12 5 5"/>',
+      // Le neutre : une page cochée. Il ne raconte rien de faux.
+      neutre: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/>'
+        + '<path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/>'
+    };
+
+    // Les mots sont cherchés DANS L'ORDRE : « sans » l'emporte sur tout, parce
+    // que « sans création graphique » contient « création ».
+    var regles = [
+      ['sans', ['sans ', 'aucun', 'pas de ', 'non ']],
+      ['depot', ['fourni', 'mon fichier', 'mes fichiers', 'upload', 'envoi', 'depot', 'pret a imprimer']],
+      ['graphiste', ['graphiste', 'confie', 'sur mesure', 'devis', 'accompagn', 'studio', 'avance', 'premium', 'complete']],
+      ['crayon', ['creation', 'cree', 'creer', 'en ligne', 'personnalis', 'maquette', 'design']],
+      ['relecture', ['bat', 'bon a tirer', 'epreuve', 'validation', 'verif', 'controle', 'relecture']]
+    ];
+
+    var plat = String(nom || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    var choisi = 'neutre';
+
+    regles.some(function (regle) {
+      return regle[1].some(function (mot) {
+        if (plat.indexOf(mot) === -1) {
+          return false;
+        }
+
+        choisi = regle[0];
+
+        return true;
+      });
+    });
+
+    return '<svg class="eko-poc__presta-icone" viewBox="0 0 24 24" fill="none"'
+      + ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
+      + ' stroke-linejoin="round" aria-hidden="true">' + traits[choisi] + '</svg>';
+  }
+
+  /**
+   * Le champ quantité du THÈME, jamais un second.
+   *
+   * Un champ de plus créerait deux vérités : le prix serait mémorisé pour la
+   * quantité de ce bloc, et le panier facturerait celle du thème.
+   */
+  function champQuantite() {
+    return document.querySelector('#quantity_wanted, input[name="qty"]');
+  }
+
   function boutonsPanier() {
     return document.querySelectorAll('[data-button-action="add-to-cart"]');
   }
 
-  /**
-   * Interdire la commande tant que le prix n'est pas connu.
-   *
-   * ─── Pourquoi c'est indispensable ──────────────────────────────────────
-   *
-   * Le prix est mémorisé pour le COUPLE (configuration, quantité). Changer la
-   * quantité invalide donc le prix connu jusqu'à ce que le nouveau chiffrage
-   * revienne — quelques centaines de millisecondes.
-   *
-   * Dans cette fenêtre, le hook de prix ne trouve rien, se retire, et
-   * PrestaShop applique son prix CATALOGUE. Un client qui saisit sa quantité
-   * puis clique aussitôt commande donc au mauvais prix, sans que rien ne le
-   * signale — ni à lui, ni au marchand.
-   *
-   * Se taire n'était pas suffisant : il faut aussi empêcher.
-   */
-  function commande(autorisee, motif) {
-    boutonsPanier().forEach(function (b) {
-      b.disabled = !autorisee;
-
-      if (autorisee) {
-        b.removeAttribute('aria-disabled');
-        b.removeAttribute('title');
-      } else {
-        b.setAttribute('aria-disabled', 'true');
-        b.setAttribute('title', motif || '');
-      }
-    });
+  function formulairePanier() {
+    return document.querySelector('#add-to-cart-or-refresh');
   }
 
+  /* ─── Le verrou d'achat ──────────────────────────────────────────────── */
+
   /**
-   * Masquer le prix que le thème affiche de son côté.
+   * Les boutons que NOUS avons fermés, et eux seuls.
    *
-   * Deux prix sur un écran, c'est un prix de trop : le bloc natif montre le
-   * prix catalogue tant que l'ERP n'a pas répondu, et le thème le re-rend à
-   * chaque changement de quantité — plus vite que notre chiffrage. Le visiteur
-   * voit alors deux montants qui se contredisent.
-   *
-   * `.product-prices` est le conteneur du formulaire produit du cœur. Sur un
-   * thème qui ne l'emploie pas, rien n'est masqué et rien ne casse : le
-   * configurateur reste la source du prix, le bloc natif redevient seulement
-   * bavard.
+   * Rouvrir tous les boutons d'achat de la page rouvrirait aussi ceux qu'une
+   * rupture de stock ou un autre module avait fermés pour de bonnes raisons.
    */
-  function masquerPrixNatif() {
-    var bloc = document.querySelector('.product-prices');
+  var fermesParNous = [];
 
-    if (!bloc) {
-      return;
-    }
+  function commande(autorisee, motif) {
+    if (!autorisee) {
+      boutonsPanier().forEach(function (b) {
+        if (b.disabled) {
+          return;
+        }
 
-    var racine = document.querySelector('.eko-configurateur');
+        b.disabled = true;
+        b.setAttribute('aria-disabled', 'true');
+        b.setAttribute('title', motif || '');
 
-    // Le configurateur est rendu DANS le bloc prix quand le thème expose le
-    // point d'accroche `after_price` — c'est justement le bon endroit, juste
-    // sous le prix et au-dessus du panier. Masquer le bloc entier masquerait
-    // donc AUSSI le configurateur : mesuré, hauteur zéro, invisible.
-    //
-    // On masque alors ses VOISINS, pas le bloc. Structurel plutôt que fondé
-    // sur des sélecteurs de thème : ça vaut pour n'importe quel habillage.
-    if (racine && bloc.contains(racine)) {
-      Array.prototype.forEach.call(bloc.children, function (enfant) {
-        if (!enfant.contains(racine)) {
-          enfant.style.display = 'none';
+        if (fermesParNous.indexOf(b) === -1) {
+          fermesParNous.push(b);
         }
       });
 
       return;
     }
 
-    bloc.style.display = 'none';
+    fermesParNous.forEach(function (b) {
+      b.disabled = false;
+      b.removeAttribute('aria-disabled');
+      b.removeAttribute('title');
+    });
+
+    fermesParNous = [];
   }
 
   /**
-   * Masquer le bloc de personnalisation natif.
+   * Poser la personnalisation dans le formulaire d'ajout au panier.
    *
-   * PrestaShop identifie une configuration par une « customization », et le
-   * module s'en sert comme support : il y range la configuration en clair, qui
-   * suit ensuite jusqu'au panier, à la commande et à la facture.
-   *
-   * Mais le thème rend AUSSI ce champ au client, avec sa zone de texte et son
-   * « N'oubliez pas de sauvegarder votre personnalisation ». Deux problèmes :
-   *
-   *   — c'est de la plomberie, pas une question à poser à un acheteur ;
-   *   — ce qu'il y écrirait ÉCRASERAIT la configuration que le module y a
-   *     rangée, donc le libellé qui part sur sa facture.
-   *
-   * Le champ n'est pas obligatoire (vérifié : `required = 0`), le masquer ne
-   * bloque donc aucun ajout au panier. Le configurateur est la seule saisie.
+   * ⚠️ SANS CECI, LE PRIX CONFIGURÉ NE SUIT PAS : PrestaShop ajoute la fiche
+   * NUE, donc au prix catalogue.
    */
-  function masquerPersonnalisationNative() {
-    var bloc =
-      document.querySelector('.product-customization') ||
-      document.querySelector('#product-customization');
+  function poserPersonnalisation(id) {
+    var f = formulairePanier();
 
-    if (bloc) {
-      bloc.style.display = 'none';
-    }
-  }
-
-  function demarrer() {
-    var racine = document.querySelector('.eko-configurateur');
-
-    if (!racine || racine.dataset.ekoPret === '1') {
+    if (!f || !id) {
       return;
     }
 
-    var resultat = racine.querySelector('.eko-configurateur__resultat');
+    var champ = f.querySelector('input[name="id_customization"]');
+
+    if (champ) {
+      champ.value = id;
+
+      return;
+    }
+
+    champ = document.createElement('input');
+    champ.type = 'hidden';
+    champ.name = 'id_customization';
+    champ.value = id;
+    f.appendChild(champ);
+  }
+
+  /* ─── Sortir de la colonne d'achat ───────────────────────────────────── */
+
+  /**
+   * Sort le configurateur de la colonne du prix et le pose SOUS la fiche.
+   *
+   * Le module rend son bloc dans une colonne de 447 px là où la page en offre
+   * 1 224. Changer de hook ne règle rien — les hooks produit d'un thème rendent
+   * tous DANS une colonne. Il faut sortir de la grille, ce que seul le
+   * navigateur peut faire une fois la page bâtie. C'est le geste du
+   * configurateur de sous-traitance, et donc la mise en page de référence.
+   */
+  function deplacerSousLaFiche(r) {
+    var fiche = document.querySelector('.product-container');
+    var deja = document.querySelector('.eko-conf-section');
+
+    if (deja) {
+      if (!deja.contains(r)) {
+        deja.appendChild(r);
+      }
+
+      return deja;
+    }
+
+    if (!fiche || !fiche.parentElement || !fiche.contains(r)) {
+      return null;
+    }
+
+    var section = document.createElement('section');
+    section.className = 'eko-conf-section';
+    section.id = 'eko-configurateur';
+
+    // ⚠️ Après la RANGÉE d'en-tête, pas après tout le conteneur : celui-ci
+    // porte aussi les onglets « Description / Détails ».
+    var entete = r.closest('.row') || fiche.firstElementChild;
+
+    if (entete && entete.parentElement) {
+      entete.parentElement.insertBefore(section, entete.nextSibling);
+    } else {
+      fiche.parentElement.insertBefore(section, fiche.nextSibling);
+    }
+
+    section.appendChild(r);
+
+    // La fiche technique voyage AVEC : rendue par le même hook, elle est dans
+    // le bloc prix, qu'on masque juste après.
+    var tech = document.querySelector('.eko-tech');
+
+    if (tech) {
+      section.appendChild(tech);
+    }
+
+    return section;
+  }
+
+  /**
+   * Le bouton qui descend vers le configurateur, à la place qu'il occupait.
+   *
+   * ⚠️ ENFANT DIRECT du conteneur. Glissé plus profond, il tombe dans un bloc
+   * que le thème neutralise et occupe zéro pixel sans que rien ne le signale.
+   */
+  function ancreVersConfigurateur(r, section) {
+    var hote = document.querySelector('.summary-container')
+      || document.querySelector('.product-prices');
+
+    if (!hote || !section || document.querySelector('.eko-poc-ancre')) {
+      return;
+    }
+
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'eko-poc-ancre';
+    b.textContent = txt(r, 'jeConfigure', 'Je configure mon produit');
+    b.addEventListener('click', function () {
+      section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+
+    var informations = hote.querySelector(':scope > .product-information');
+
+    if (informations) {
+      hote.insertBefore(b, informations);
+    } else {
+      hote.appendChild(b);
+    }
+  }
+
+  /**
+   * Masquer ce que le thème affiche de son côté.
+   *
+   * Le prix natif montre le prix d'appel — pas celui de la configuration — et
+   * le bloc de personnalisation expose la plomberie du module.
+   */
+  function masquerNatif() {
+    var r = racine();
+    var prix = document.querySelector('.product-prices');
+
+    if (prix) {
+      if (r && prix.contains(r)) {
+        Array.prototype.forEach.call(prix.children, function (enfant) {
+          if (!enfant.contains(r)) {
+            enfant.style.display = 'none';
+          }
+        });
+      } else {
+        prix.style.display = 'none';
+      }
+    }
+
+    var perso = document.querySelector('.product-customization');
+
+    if (perso) {
+      perso.style.display = 'none';
+    }
+
+    // Les boutons natifs et le sélecteur de quantité du thème sont masqués par
+    // la feuille partagée, sous `body.eko-poc-page` — au même endroit et de la
+    // même façon que sur les fiches de sous-traitance. Les masquer une seconde
+    // fois ici ferait deux vérités pour un même geste.
+  }
+
+  /* ─── Les lignes de critères ─────────────────────────────────────────── */
+
+  /**
+   * Une ligne de cartes — la même que celle du configurateur de sous-traitance.
+   */
+  function ligneCartes(titre, cartes, actifIndex, surChoix) {
+    var l = document.createElement('div');
+    l.className = 'eko-poc__ligne';
+
+    var tete = document.createElement('div');
+    tete.className = 'eko-poc__ligne-tete';
+
+    var t = document.createElement('h3');
+    t.className = 'eko-poc__critere';
+    t.textContent = titre;
+    tete.appendChild(t);
+    l.appendChild(tete);
+
+    var piste = document.createElement('div');
+    piste.className = 'eko-poc__cartes';
+
+    cartes.forEach(function (c, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'eko-poc__carte' + (i === actifIndex ? ' eko-poc__carte--actif' : '');
+      b.setAttribute('aria-pressed', i === actifIndex ? 'true' : 'false');
+
+      var nom = document.createElement('span');
+      nom.className = 'eko-poc__carte-nom';
+      nom.textContent = c.nom;
+      b.appendChild(nom);
+
+      if (c.note) {
+        var note = document.createElement('span');
+        note.className = 'eko-poc__carte-note';
+        note.textContent = c.note;
+        b.appendChild(note);
+      }
+
+      b.addEventListener('click', function () {
+        piste.querySelectorAll('.eko-poc__carte').forEach(function (autre) {
+          autre.classList.remove('eko-poc__carte--actif');
+          autre.setAttribute('aria-pressed', 'false');
+        });
+
+        b.classList.add('eko-poc__carte--actif');
+        b.setAttribute('aria-pressed', 'true');
+        surChoix(i, c);
+      });
+
+      piste.appendChild(b);
+    });
+
+    l.appendChild(piste);
+
+    return l;
+  }
+
+  /**
+   * Une ligne en liste déroulante — la même que celle de la sous-traitance.
+   *
+   * Une matière n'est pas un format : on ne la compare pas à l'œil, on la
+   * choisit par son nom. Dix vinyles en cartes occupent trois rangées et
+   * noient les critères suivants ; une liste tient sur une ligne.
+   */
+  function ligneListe(titre, options, choisi, surChoix) {
+    var l = document.createElement('div');
+    l.className = 'eko-poc__ligne eko-poc__ligne--liste';
+
+    var t = document.createElement('h3');
+    t.className = 'eko-poc__critere';
+    t.textContent = titre;
+    l.appendChild(t);
+
+    var sel = document.createElement('select');
+    sel.className = 'form-control eko-poc__liste';
+
+    options.forEach(function (o) {
+      var op = document.createElement('option');
+      op.value = o.valeur;
+      op.textContent = o.nom + (o.note ? ' — ' + o.note : '');
+      op.selected = String(o.valeur) === String(choisi);
+      sel.appendChild(op);
+    });
+
+    sel.addEventListener('change', function () {
+      surChoix(sel.value);
+    });
+
+    l.appendChild(sel);
+
+    return l;
+  }
+
+  /**
+   * La ligne des cotes : des champs, parce qu'une largeur est continue.
+   *
+   * Groupés sur UNE ligne : largeur et hauteur se lisent ensemble, et deux
+   * lignes séparées casseraient le rythme des critères qui suivent.
+   */
+  function ligneCotes(titre, champs, surSaisie) {
+    var l = document.createElement('div');
+    l.className = 'eko-poc__ligne eko-poc__ligne--cotes';
+
+    var tete = document.createElement('div');
+    tete.className = 'eko-poc__ligne-tete';
+
+    var t = document.createElement('h3');
+    t.className = 'eko-poc__critere';
+    t.textContent = titre;
+    tete.appendChild(t);
+    l.appendChild(tete);
+
+    var piste = document.createElement('div');
+    piste.className = 'eko-poc__cotes';
+
+    champs.forEach(function (v) {
+      var enveloppe = document.createElement('label');
+      enveloppe.className = 'eko-poc__cote';
+
+      var nom = document.createElement('span');
+      nom.className = 'eko-poc__cote-nom';
+      nom.textContent = v.label + (v.unit ? ' (' + v.unit + ')' : '');
+      enveloppe.appendChild(nom);
+
+      var i = document.createElement('input');
+      i.type = 'number';
+      i.className = 'eko-poc__cote-champ';
+      i.min = '1';
+      i.value = v['default'] != null ? String(v['default']) : '';
+      i.dataset.cle = v.key;
+      i.addEventListener('input', surSaisie);
+      i.addEventListener('change', surSaisie);
+      enveloppe.appendChild(i);
+
+      piste.appendChild(enveloppe);
+    });
+
+    l.appendChild(piste);
+
+    return l;
+  }
+
+  /* ─── Le récapitulatif ───────────────────────────────────────────────── */
+
+  function rendreResume(r, zone, d, choix, modele, prestations, choixPrestations) {
+    zone.innerHTML = '';
+
+    var h = document.createElement('h3');
+    h.className = 'eko-poc__resume-titre';
+    h.textContent = txt(r, 'recap', 'Votre commande');
+    zone.appendChild(h);
+
+    var p = document.createElement('p');
+    p.className = 'eko-poc__resume-prix';
+    p.innerHTML =
+      '<span class="eko-poc__resume-total">' + echapper(d.total_price_texte || '') + '</span>' +
+      '<span class="eko-poc__resume-regime">' + echapper(txt(r, d.hors_taxe ? 'ht' : 'ttc', '')) + '</span>';
+    zone.appendChild(p);
+
+    var u = document.createElement('p');
+    u.className = 'eko-poc__resume-unite';
+    u.textContent = (d.unit_price_texte || '') + ' ' + txt(r, 'unite', 'l’unité');
+    zone.appendChild(u);
+
+    if (d.public_texte) {
+      var pub = document.createElement('p');
+      pub.className = 'eko-poc__resume-public';
+      pub.textContent = txt(r, 'prixPublic', 'Prix public TTC') + ' : ' + d.public_texte;
+      zone.appendChild(pub);
+    }
+
+    if (d.mention_prix) {
+      var m = document.createElement('p');
+      m.className = 'eko-poc__resume-mention';
+      m.textContent = d.mention_prix;
+      zone.appendChild(m);
+    }
+
+    // Ce que le visiteur a choisi, en toutes lettres.
+    var ul = document.createElement('ul');
+    ul.className = 'eko-poc__resume-liste';
+
+    Object.keys(choix).forEach(function (cle) {
+      var def = modele[cle];
+
+      if (!def) {
+        return;
+      }
+
+      var valeur = choix[cle];
+
+      if (def.type === 'boolean') {
+        valeur = String(valeur) === '1' ? txt(r, 'oui', 'Oui') : txt(r, 'non', 'Non');
+      } else if (def.options) {
+        (def.options || []).forEach(function (o) {
+          if (String(o.value) === String(valeur)) {
+            valeur = o.label;
+          }
+        });
+      } else if (def.unit) {
+        valeur = valeur + ' ' + def.unit;
+      }
+
+      var li = document.createElement('li');
+      li.textContent = def.label + ' : ' + valeur;
+      ul.appendChild(li);
+    });
+
+    if (d.date_texte) {
+      var liD = document.createElement('li');
+      liD.className = 'eko-poc__resume-date';
+      liD.textContent = txt(r, 'livree', 'Livraison estimée') + ' : ' + d.date_texte;
+      ul.appendChild(liD);
+    }
+
+    if (d.note_delai) {
+      var liN = document.createElement('li');
+      liN.textContent = d.note_delai;
+      ul.appendChild(liN);
+    }
+
+    // ─── LES PRESTATIONS RETENUES, EN TOUTES LETTRES ────────────────────
+    //
+    // Elles étaient absentes de ce récapitulatif alors qu'elles sont FACTURÉES :
+    // choisir « BAT numérique » ajoutait 18 € au total sans qu'une seule ligne
+    // ne dise pourquoi. Le visiteur voyait un prix grimper de dix-huit euros
+    // entre deux clics, sans justification à l'écran.
+    //
+    // La sous-traitance les liste depuis toujours, après la date de livraison.
+    // On reprend le même endroit et la même forme — « critère : valeur » — pour
+    // que les deux configurateurs racontent la même commande.
+    (prestations || []).forEach(function (sv) {
+      var retenu = choixPrestations ? choixPrestations[sv.cle] : null;
+
+      if (!retenu) {
+        return;
+      }
+
+      var liP = document.createElement('li');
+      liP.textContent = sv.label + ' : ' + retenu;
+      ul.appendChild(liP);
+    });
+
+    zone.appendChild(ul);
+
+    // Les avertissements du moteur : contractuels, ils se lisent AVANT l'achat.
+    if (Array.isArray(d.warnings) && d.warnings.length) {
+      var av = document.createElement('ul');
+      av.className = 'eko-poc__resume-avertissements';
+      d.warnings.forEach(function (w) {
+        var li = document.createElement('li');
+        li.textContent = String(w);
+        av.appendChild(li);
+      });
+      zone.appendChild(av);
+    }
+
+    // Le bouton d'achat, DANS le récapitulatif — comme sur l'autre chemin.
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'eko-poc__resume-panier';
+    b.textContent = txt(r, 'ajouter', 'Ajouter au panier');
+    b.addEventListener('click', function () {
+      var natif = document.querySelector('[data-button-action="add-to-cart"]');
+
+      if (natif) {
+        natif.click();
+      }
+    });
+    zone.appendChild(b);
+
+    // ─── Le gabarit, aux cotes saisies ────────────────────────────────
+    //
+    // Un plan de travail ne se déduit d'aucune liste ici : il se calcule à
+    // partir de ce que le client vient de taper. Le lien porte donc les cotes,
+    // et le PDF est produit à la demande.
+    var lg = parseFloat(choix.width);
+    var ht = parseFloat(choix.height);
+
+    if (r.dataset.urlGabarit && lg > 0 && ht > 0) {
+      var g = document.createElement('a');
+      g.className = 'eko-poc__resume-gabarit';
+      g.href = r.dataset.urlGabarit
+        + '&id_product=' + encodeURIComponent(r.dataset.idProduct)
+        + '&largeur=' + encodeURIComponent(lg)
+        + '&hauteur=' + encodeURIComponent(ht);
+      g.rel = 'nofollow';
+      g.textContent = txt(r, 'gabarit', 'Télécharger le gabarit');
+      zone.appendChild(g);
+
+      var note = document.createElement('p');
+      note.className = 'eko-poc__resume-gabarit-note';
+      note.textContent = txt(r, 'gabaritNote', '');
+
+      // ⚠️ LE SEUIL SE DIT AVANT LE TÉLÉCHARGEMENT, pas seulement sur le PDF.
+      //
+      // Le format PDF plafonne à 200 pouces par côté : au-delà, le gabarit est
+      // réduit. L'écrire sur le document est nécessaire mais tardif — un client
+      // qui commande une bâche de six mètres doit le savoir en cliquant, pas en
+      // ouvrant le fichier.
+      var seuil = parseFloat(r.dataset.gabaritSeuil || '0');
+      var echelle = seuil > 0 ? echellePour(Math.max(lg, ht), seuil, r) : 1;
+
+      if (echelle > 1) {
+        note.className = 'eko-poc__resume-gabarit-note eko-poc__resume-gabarit-note--reduit';
+        note.textContent = (txt(r, 'gabaritReduit', '') || '')
+          .replace('%1$s', String(Math.round(seuil)))
+          .replace('%2$s', String(echelle));
+      } else if (seuil > 0) {
+        note.textContent += ' ' + txt(r, 'gabaritSeuilNote', '');
+      }
+
+      zone.appendChild(note);
+    }
+
+    if (Array.isArray(d.reassurances) && d.reassurances.length) {
+      var ur = document.createElement('ul');
+      ur.className = 'eko-poc__reassure';
+      d.reassurances.forEach(function (x) {
+        var li = document.createElement('li');
+        li.textContent = typeof x === 'string' ? x : (x && (x.nom || x.texte)) || '';
+
+        if (li.textContent) {
+          ur.appendChild(li);
+        }
+      });
+      zone.appendChild(ur);
+    }
+  }
+
+  /* ─── Le moteur ──────────────────────────────────────────────────────── */
+
+  /**
+   * La réduction qu'appliquera le serveur, calculée à l'identique.
+   *
+   * ⚠️ L'échelle est décidée par `Gabarit::echellePour()` en PHP. On ne la
+   * recopie pas : la liste des rapports voyage dans `data-gabarit-echelles`,
+   * et le seuil dans `data-gabarit-seuil`. Deux tables divergentes
+   * annonceraient au client une échelle que le document ne porterait pas.
+   */
+  function echellePour(max, seuil, r) {
+    if (!(max > seuil)) {
+      return 1;
+    }
+
+    var echelles;
+
+    try {
+      echelles = JSON.parse(r.dataset.gabaritEchelles || '[]');
+    } catch (e) {
+      echelles = [];
+    }
+
+    for (var i = 0; i < echelles.length; i++) {
+      if (max / echelles[i] <= seuil) {
+        return echelles[i];
+      }
+    }
+
+    return echelles.length ? echelles[echelles.length - 1] : 1;
+  }
+
+  var generation = 0;
+
+  function demarrer() {
+    var r = racine();
+
+    if (!r || r.dataset.ekoPret === '1') {
+      return;
+    }
+
+    r.dataset.ekoPret = '1';
+
+    // ⚠️ TOUTE LA MISE EN PAGE TIENT DANS CETTE CLASSE.
+    //
+    // La feuille partagée s'en sert pour masquer les deux rails latéraux — d'où
+    // une page qui passe de 924 à 1 224 px —, les blocs de réassurance du
+    // thème, ses mises en avant vides, son « Size Guide » générique et ses
+    // commandes natives. Un hook produit ne peut pas atteindre `<body>` ; le
+    // navigateur, si.
+    //
+    // Elle ne se pose QUE sur une fiche pilotée par le module : les autres
+    // gardent la mise en page du thème, intacte.
+    document.body.classList.add('eko-poc-page');
+
+    var section = deplacerSousLaFiche(r);
+
+    if (section) {
+      ancreVersConfigurateur(r, section);
+    }
+
+    masquerNatif();
+
+    var zoneEtapes = r.querySelector('.eko-poc__etapes');
+    var zoneResume = r.querySelector('.eko-poc__resume');
+
+    // Fiche liée dont le prix est indisponible : on verrouille et on s'arrête.
+    // Un formulaire sans champ obtiendrait sinon un prix pour les valeurs par
+    // défaut et rouvrirait les boutons.
+    if (r.dataset.indisponible === '1') {
+      zoneResume.innerHTML =
+        '<p class="eko-poc__erreur"><strong>' + echapper(txt(r, 'indispoTitre', '')) + '</strong> '
+        + echapper(txt(r, 'indispoTexte', '')) + '</p>';
+      commande(false, txt(r, 'echec', ''));
+
+      return;
+    }
+
     var quantite = champQuantite();
 
     if (!quantite) {
-      // Sans la quantité du thème, tout prix affiché ici serait un prix pour
-      // une quantité que le panier n'emploiera pas. Se taire est la seule
-      // réponse honnête.
-      resultat.innerHTML =
-        '<p class="eko-configurateur__erreur">' +
-        echapper(racine.dataset.sansQuantite || 'Configurateur indisponible sur ce thème.') +
-        '</p>';
-
-      // Sans quantité fiable, aucun prix ne peut être garanti : on ferme la
-      // commande plutôt que de laisser passer un prix catalogue.
-      commande(false, racine.dataset.sansQuantite || '');
+      zoneResume.innerHTML = '<p class="eko-poc__erreur">' + echapper(txt(r, 'sansQuantite', '')) + '</p>';
+      commande(false, txt(r, 'sansQuantite', ''));
 
       return;
     }
 
-    racine.dataset.ekoPret = '1';
+    var variables = [];
 
-    // Le thème vient peut-être de re-rendre son bloc : on le remasque, et on
-    // reverrouille la commande jusqu'au prochain prix connu.
-    masquerPrixNatif();
-    masquerPersonnalisationNative();
-    commande(false, racine.dataset.attendezPrix || '');
-
-    var enCours = null;
-    var minuteur = null;
-
-    /** Les choix du visiteur, tels qu'ils partent à l'ERP. */
-    function choix() {
-      var v = {};
-
-      racine.querySelectorAll('.eko-configurateur__saisie').forEach(function (champ) {
-        var valeur = champ.value;
-
-        // Un champ laissé vide n'est pas « zéro » : on ne l'envoie pas, et
-        // l'ERP appliquera son défaut ou dira ce qui manque.
-        if (valeur !== '' && valeur !== null) {
-          v[champ.dataset.cle] = valeur;
-        }
-      });
-
-      return v;
+    try {
+      variables = JSON.parse(r.dataset.variables || '[]') || [];
+    } catch (e) {
+      variables = [];
     }
 
-    function afficher(html) {
-      resultat.innerHTML = html;
+    // Les prestations de l'imprimeur. Elles ne viennent PAS de l'ERP : ce sont
+    // des propriétés du marchand, réglées produit par produit au back-office,
+    // et le chemin de sous-traitance les sert depuis toujours. Le configurateur
+    // d'atelier, lui, les ignorait — le client ne pouvait donc ni demander un
+    // bon à tirer ni commander une création graphique sur un grand format.
+    var prestations = [];
+    var choixPrestations = {};
+
+    try {
+      prestations = JSON.parse(r.dataset.services || '[]') || [];
+    } catch (e) {
+      prestations = [];
+    }
+
+    var modele = {};
+    variables.forEach(function (v) { modele[v.key] = v; });
+
+    // L'état courant : ce que le visiteur a choisi.
+    var choix = {};
+    variables.forEach(function (v) {
+      if (v['default'] != null) {
+        choix[v.key] = v.type === 'boolean' ? (v['default'] ? '1' : '0') : v['default'];
+      } else if (v.type === 'boolean') {
+        choix[v.key] = '0';
+      }
+    });
+
+    var minuteur = null;
+    var enCours = null;
+
+    /**
+     * Montrer ou cacher les lignes dépendantes d'une case à cocher.
+     *
+     * Une ligne cachée n'est pas seulement invisible : sa valeur est RETIRÉE
+     * de la configuration envoyée au chiffrage. La laisser partirait un choix
+     * que le visiteur n'a pas fait.
+     */
+    function appliquerCascade() {
+      zoneEtapes.querySelectorAll('[data-depend-de]').forEach(function (l) {
+        var maitre = l.dataset.dependDe;
+        var actif = String(choix[maitre]) === '1';
+
+        l.hidden = !actif;
+
+        // La ligne porte sa propre clé : la retrouver par le DOM serait fragile.
+        if (!actif && l.dataset.cle) {
+          delete choix[l.dataset.cle];
+        }
+      });
+    }
+
+    function differer() {
+      appliquerCascade();
+
+      // Le verrou tombe AU GESTE, pas au bout de l'attente : entre la frappe et
+      // l'appel, le prix affiché ne décrit plus la configuration.
+      commande(false, txt(r, 'attendezPrix', ''));
+
+      if (minuteur) {
+        clearTimeout(minuteur);
+      }
+
+      minuteur = setTimeout(chiffrer, 400);
     }
 
     function chiffrer() {
-      // Une requête chasse la précédente : sans cela, deux réponses arrivées
-      // dans le désordre afficheraient le prix de l'avant-dernier choix.
+      var moi = ++generation;
+
       if (enCours) {
         enCours.abort();
       }
 
-      afficher('<p class="eko-configurateur__attente">' + echapper(racine.dataset.attente || 'Calcul du prix…') + '</p>');
-
-      // Le prix mémorisé ne vaut plus pour la nouvelle quantité : on referme
-      // la commande AVANT de partir, et non au retour. L'inverse laisserait le
-      // bouton ouvert pendant tout l'aller-retour.
-      commande(false, racine.dataset.attendezPrix || '');
+      zoneResume.innerHTML = '<p class="eko-poc__attente">' + echapper(txt(r, 'attente', '')) + '</p>';
+      commande(false, txt(r, 'attendezPrix', ''));
 
       var params = new URLSearchParams();
       params.set('ajax', '1');
-      params.set('id_product', racine.dataset.idProduct);
+      params.set('id_product', r.dataset.idProduct);
       params.set('quantity', quantite.value || '1');
 
-      var v = choix();
-      Object.keys(v).forEach(function (cle) {
-        params.set('variables[' + cle + ']', v[cle]);
+      Object.keys(choix).forEach(function (cle) {
+        if (choix[cle] !== '' && choix[cle] != null) {
+          params.set('variables[' + cle + ']', choix[cle]);
+        }
+      });
+
+      // Le NOM de l'option seulement, jamais son prix : le supplément est
+      // relu des réglages et additionné côté serveur. Un montant venu du
+      // navigateur serait un montant que la boutique n'a pas vérifié.
+      Object.keys(choixPrestations).forEach(function (cle) {
+        if (choixPrestations[cle]) {
+          params.set('services[' + cle + ']', choixPrestations[cle]);
+        }
       });
 
       enCours = new AbortController();
 
-      fetch(racine.dataset.url + '&' + params.toString(), {
+      fetch(r.dataset.url + '&' + params.toString(), {
         signal: enCours.signal,
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       })
-        .then(function (r) { return r.json(); })
+        .then(function (rep) { return rep.json(); })
         .then(function (d) {
-          if (!d || d.ok !== true) {
-            // Le refus de l'ERP est une information : on le montre plutôt que
-            // de laisser le visiteur devant un prix figé qui ne le concerne plus.
-            afficher(
-              '<p class="eko-configurateur__erreur">' +
-              (d && d.message ? echapper(d.message) : echapper(racine.dataset.echec || 'Configuration impossible à chiffrer.')) +
-              '</p>'
-            );
+          // ⚠️ `abort()` ne peut rien contre une requête DÉJÀ RÉSOLUE : deux
+          // frappes rapprochées peuvent revenir dans le désordre.
+          if (moi !== generation) {
+            return;
+          }
 
-            commande(false, (d && d.message) ? d.message : '');
+          if (!d || d.ok !== true) {
+            zoneResume.innerHTML = '<p class="eko-poc__erreur">'
+              + echapper((d && d.message) || txt(r, 'echec', '')) + '</p>';
+            commande(false, (d && d.message) || '');
 
             return;
           }
 
-          // Le montant DÉJÀ ÉCRIT par PrestaShop — bonne langue, bonne devise,
-          // bon séparateur, symbole à sa place. Le nombre nu ne sert que de
-          // repli : le JavaScript ne sait pas quelle boutique il sert.
-          var total = d.total_price_texte || (String(d.total_price) + ' €');
-          var unitaire = d.unit_price_texte || (String(d.unit_price) + ' €');
-
-          var lignes =
-            '<p class="eko-configurateur__prix">' +
-            '<span class="eko-configurateur__total">' + echapper(total) + '</span>' +
-            '<span class="eko-configurateur__unitaire">' +
-            echapper(unitaire) + ' ' + echapper(racine.dataset.unite || 'l’unité') +
-            '</span></p>';
-
-          if (d.lead_days) {
-            lignes +=
-              '<p class="eko-configurateur__delai">' +
-              echapper(racine.dataset.delai || 'Délai indicatif') + ' : ' +
-              echapper(String(d.lead_days)) + ' ' + echapper(racine.dataset.jours || 'jour(s) ouvré(s)') +
-              '</p>';
-          }
-
-          afficher(lignes);
-
-          // Le seul endroit qui rouvre la commande : un prix vient d'être
-          // rendu ET mémorisé côté serveur pour ce couple exact.
+          rendreResume(r, zoneResume, d, choix, modele, prestations, choixPrestations);
+          poserPersonnalisation(d.id_customization);
           commande(true);
         })
         .catch(function (e) {
-          if (e.name === 'AbortError') {
+          if (e.name === 'AbortError' || moi !== generation) {
             return;
           }
 
-          afficher('<p class="eko-configurateur__erreur">' + echapper(racine.dataset.injoignable || 'Le prix n’a pas pu être obtenu.') + '</p>');
-          commande(false, racine.dataset.injoignable || '');
+          zoneResume.innerHTML = '<p class="eko-poc__erreur">' + echapper(txt(r, 'injoignable', '')) + '</p>';
+          commande(false, txt(r, 'injoignable', ''));
         });
     }
 
-    /**
-     * Le visiteur tape ; on attend qu'il s'arrête avant d'appeler.
-     *
-     * ⚠️ Le verrou tombe ICI, au geste, et NON dans `chiffrer()`.
-     *
-     * L'attente de 400 ms ne doit retarder que l'appel réseau. La poser aussi
-     * devant le verrou rouvrait le trou qu'on ferme : dès la première frappe,
-     * le prix mémorisé ne vaut plus pour la nouvelle quantité, et le bouton
-     * restait pourtant cliquable pendant ces 400 ms — plus le temps de
-     * l'aller-retour. Mesuré : le bouton était encore ouvert juste après le
-     * changement de quantité, avec l'ancien prix affiché à côté.
-     */
-    function differer() {
-      commande(false, racine.dataset.attendezPrix || '');
-      clearTimeout(minuteur);
-      minuteur = setTimeout(chiffrer, 400);
+    /* ─── Bâtir les lignes ─────────────────────────────────────────────── */
+
+    zoneEtapes.innerHTML = '';
+
+    var cotes = variables.filter(function (v) { return v.type === 'integer' || v.type === 'decimal'; });
+    var autres = variables.filter(function (v) { return v.type !== 'integer' && v.type !== 'decimal'; });
+
+    if (cotes.length) {
+      zoneEtapes.appendChild(ligneCotes(txt(r, 'dimensions', 'Dimensions'), cotes, function (ev) {
+        choix[ev.target.dataset.cle] = ev.target.value;
+        differer();
+      }));
     }
 
-    racine.querySelectorAll('.eko-configurateur__saisie').forEach(function (champ) {
-      champ.addEventListener('change', differer);
-      champ.addEventListener('input', differer);
+    autres.forEach(function (v) {
+      if (v.type === 'boolean') {
+        var actif = String(choix[v.key]) === '1' ? 0 : 1;
+
+        zoneEtapes.appendChild(ligneCartes(
+          v.label,
+          [{ nom: txt(r, 'oui', 'Oui') }, { nom: txt(r, 'non', 'Non') }],
+          actif,
+          function (i) {
+            choix[v.key] = i === 0 ? '1' : '0';
+            differer();
+          }
+        ));
+
+        return;
+      }
+
+      var options = v.options || [];
+
+      if (!options.length) {
+        return;
+      }
+
+      var entrees = options.map(function (o) {
+        // `weight_g_m2` et `thickness_um` viennent de l'ERP : ils disent au
+        // client ce qu'il choisit, là où un nom seul ne montre rien.
+        var notes = [];
+
+        if (o.weight_g_m2) {
+          notes.push(o.weight_g_m2 + ' g/m²');
+        }
+
+        if (o.thickness_um) {
+          notes.push(o.thickness_um + ' µm');
+        }
+
+        return { nom: o.label, note: notes.join(' · '), valeur: o.value };
+      });
+
+      var l = ligneListe(v.label, entrees, choix[v.key], function (valeur) {
+        choix[v.key] = valeur;
+        differer();
+      });
+
+      // ⚠️ LA CASCADE. Une liste `material_choice_<X>` ne concerne QUE le cas
+      // où l'option booléenne `<X>` est retenue : demander « quel film de
+      // lamination ? » à qui n'en veut pas est une question sans objet, et sa
+      // réponse partait au chiffrage.
+      //
+      // La dépendance n'est déclarée nulle part côté ERP — `conditional_display`
+      // vaut `null` sur toutes les variables, mesuré. Elle se lit donc dans le
+      // NOM, qui suit une convention : `material_choice_lamination` dépend de
+      // `lamination`. On ne l'applique QUE si le booléen existe vraiment.
+      var prefixe = 'material_choice_';
+
+      if (v.key.indexOf(prefixe) === 0) {
+        var maitre = v.key.slice(prefixe.length);
+
+        if (modele[maitre] && modele[maitre].type === 'boolean') {
+          l.dataset.dependDe = maitre;
+          l.dataset.cle = v.key;
+        }
+      }
+
+      zoneEtapes.appendChild(l);
+    });
+
+    appliquerCascade();
+
+    // ─── Les prestations, après les critères de fabrication ─────────────
+    //
+    // Elles viennent en dernier parce qu'elles portent sur la commande, pas
+    // sur la pièce : on choisit d'abord ce qu'on fait fabriquer, ensuite ce
+    // qu'on demande à l'imprimeur par-dessus.
+    prestations.forEach(function (sv) {
+      if (!sv || !sv.options || !sv.options.length) {
+        return;
+      }
+
+      // La PREMIÈRE option fait foi, et elle est gratuite par convention du
+      // module : démarrer sur une option payante gonflerait le prix d'appel
+      // sans que le visiteur l'ait demandé.
+      choixPrestations[sv.cle] = sv.options[0].nom;
+
+      // ⚠️ LA MÊME STRUCTURE QUE LA SOUS-TRAITANCE, PAS DES CARTES GÉNÉRIQUES.
+      //
+      // `ligneCartes()` rendait ici une piste de cartes `.eko-poc__carte` : la
+      // description et le prix se retrouvaient concaténés dans une seule ligne
+      // de note, et la feuille — qui connaît pourtant `.eko-poc__ligne--prestations`
+      // et ses tuiles — n'avait aucune prise. Les deux configurateurs montraient
+      // donc deux habillages différents pour le MÊME choix, sur la même boutique.
+      //
+      // On émet la structure des tuiles, à l'identique : ligne modifiée, grille
+      // qui lit `data-combien`, et une tuile par option portant son icône, son
+      // nom, sa description et son prix.
+      var ligne = document.createElement('div');
+      ligne.className = 'eko-poc__ligne eko-poc__ligne--prestations';
+
+      var titre = document.createElement('h3');
+      titre.className = 'eko-poc__critere';
+      titre.textContent = sv.label + ' :';
+      ligne.appendChild(titre);
+
+      var grille = document.createElement('div');
+      grille.className = 'eko-poc__prestations';
+      // Le CSS lit le NOMBRE d'options plutôt qu'une classe par cas : deux
+      // prestations s'étalent, cinq se replient, une sixième ne casse rien.
+      grille.dataset.combien = String(sv.options.length);
+
+      sv.options.forEach(function (o, i) {
+        var actif = i === 0;
+
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'eko-poc__presta' + (actif ? ' eko-poc__presta--actif' : '');
+        b.setAttribute('aria-pressed', actif ? 'true' : 'false');
+
+        var corps = dessinPrestation(o.nom)
+          + '<span class="eko-poc__presta-nom">' + echapper(o.nom) + '</span>';
+
+        if (o.texte) {
+          corps += '<span class="eko-poc__presta-texte">' + echapper(o.texte) + '</span>';
+        }
+
+        // « Gratuit » plutôt qu'un « 0,00 € » : un montant nul se lit comme un
+        // prix que le site aurait oublié de calculer.
+        corps += '<span class="eko-poc__presta-prix">'
+          + echapper(o.prix_texte || txt(r, 'gratuit', 'Gratuit'))
+          + '</span>';
+
+        b.innerHTML = corps;
+
+        b.addEventListener('click', function () {
+          if (choixPrestations[sv.cle] === o.nom) {
+            return;
+          }
+
+          // La sélection se repeint TOUT DE SUITE, avant l'aller-retour au
+          // serveur : sinon la tuile reste éteinte le temps du chiffrage et le
+          // visiteur reclique, croyant avoir manqué la cible.
+          grille.querySelectorAll('.eko-poc__presta').forEach(function (autre) {
+            autre.classList.remove('eko-poc__presta--actif');
+            autre.setAttribute('aria-pressed', 'false');
+          });
+
+          b.classList.add('eko-poc__presta--actif');
+          b.setAttribute('aria-pressed', 'true');
+
+          choixPrestations[sv.cle] = o.nom;
+          differer();
+        });
+
+        grille.appendChild(b);
+      });
+
+      ligne.appendChild(grille);
+      zoneEtapes.appendChild(ligne);
     });
 
     quantite.addEventListener('change', differer);
@@ -342,90 +1063,22 @@
     demarrer();
   }
 
-  // ── Le dépôt du fichier d'impression ─────────────────────────────────
-  //
-  // L'envoi part vers la BOUTIQUE, jamais vers l'ERP : le jeton d'API ne doit
-  // pas exister dans cette page. Le contrôleur relaie.
-  //
-  // Le fichier ne part qu'après le premier chiffrage : la référence qui le
-  // reliera à la commande n'existe pas avant qu'une configuration ait été
-  // retenue. Envoyer plus tôt donnerait un refus incompréhensible.
-  function brancherDepot() {
-    var bloc = document.querySelector('.eko-depot');
-
-    if (!bloc || bloc.dataset.branche === '1') {
-      return;
-    }
-
-    bloc.dataset.branche = '1';
-
-    var champ = bloc.querySelector('.eko-depot__champ');
-    var etat = bloc.querySelector('.eko-depot__etat');
-
-    if (!champ || !etat) {
-      return;
-    }
-
-    champ.addEventListener('change', function () {
-      var fichier = champ.files && champ.files[0];
-
-      if (!fichier) {
-        return;
-      }
-
-      etat.textContent = 'Envoi en cours…';
-      etat.className = 'eko-depot__etat eko-depot__etat--attente';
-      champ.disabled = true;
-
-      var corps = new FormData();
-      corps.append('fichier', fichier);
-      corps.append('id_product', bloc.dataset.produit || '');
-
-      fetch(bloc.dataset.url, { method: 'POST', body: corps, credentials: 'same-origin' })
-        .then(function (r) { return r.json(); })
-        .then(function (j) {
-          if (j && j.ok) {
-            etat.textContent = j.message || 'Fichier reçu.';
-            etat.className = 'eko-depot__etat eko-depot__etat--ok';
-
-            return;
-          }
-
-          // Le message vient du serveur : « type non accepté », « fichier trop
-          // lourd ». Le remplacer par une formule générique priverait le
-          // client de ce qui lui permet de corriger.
-          etat.textContent = (j && j.erreur) || 'Envoi refusé.';
-          etat.className = 'eko-depot__etat eko-depot__etat--refus';
-        })
-        .catch(function () {
-          etat.textContent = 'Envoi interrompu, merci de réessayer.';
-          etat.className = 'eko-depot__etat eko-depot__etat--refus';
-        })
-        .finally(function () {
-          champ.disabled = false;
-          // On vide le champ : sans cela, redéposer LE MÊME fichier ne
-          // déclenche aucun évènement, et le client croit que rien ne marche.
-          champ.value = '';
-        });
-    });
-  }
-
-  brancherDepot();
-
   // Changer la quantité fait re-rendre le bloc produit par PrestaShop : notre
-  // bloc est alors remplacé par un neuf, sans ses écouteurs. Sans cette
-  // reprise, le configurateur meurt au premier changement de quantité — et
-  // c'est précisément le geste qui compte.
+  // bloc est alors remplacé, sans ses écouteurs. Sans cette reprise, le
+  // configurateur meurt au premier changement de quantité.
   if (window.prestashop && typeof window.prestashop.on === 'function') {
     window.prestashop.on('updatedProduct', function () {
-      // Le thème peut remplacer SON bloc prix sans toucher au nôtre. Le garde
-      // d'initialisation sortirait alors aussitôt, et le prix natif
-      // réapparaîtrait — avec le prix catalogue. On remasque d'abord, on
-      // réinitialise ensuite.
-      masquerPrixNatif();
-      masquerPersonnalisationNative();
+      var r = racine();
+
+      // Repartir de zéro : le thème vient de remplacer son champ quantité, et
+      // nos écouteurs sont partis avec lui.
+      if (r) {
+        delete r.dataset.ekoPret;
+      }
+
+      fermesParNous = [];
+      masquerNatif();
       demarrer();
-      brancherDepot();
     });
   }
 })();

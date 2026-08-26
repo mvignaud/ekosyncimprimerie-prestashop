@@ -95,24 +95,80 @@ final class Personnalisation
     }
 
     /**
+     * Le nom du champ qui porte la CONFIGURATION de la ligne.
+     *
+     * ⚠️ CE NOM EST LA SEULE VÉRITÉ QUI DÉSIGNE LE CHAMP, et il le restera.
+     *
+     * Le module a longtemps élu son champ par `ORDER BY id_customization_field
+     * ASC` — « le plus ancien des champs texte de ce produit ». Tant qu'il n'y
+     * en avait qu'un, cela marchait par accident. Dès qu'un second existe
+     * (le commentaire du client), le tri décide seul lequel des deux reçoit
+     * quoi, et rien ne le signale : la configuration s'écrit dans le
+     * commentaire, ou l'inverse, selon l'ordre de création — qui change si un
+     * champ est recréé sur un produit.
+     *
+     * Le nom, lui, ne dépend d'aucun ordre.
+     *
+     * Il est aussi vu par le client : au panier, sur la confirmation et sur la
+     * FACTURE. « Configuration » est le mot du développeur ; celui de
+     * l'acheteur est « votre configuration ».
+     */
+    public const CHAMP_CONFIGURATION = 'Votre configuration';
+
+    /** Le nom du champ qui porte le COMMENTAIRE libre du client. */
+    public const CHAMP_COMMENTAIRE = 'Commentaire';
+
+    /**
+     * L'identifiant d'un champ texte de ce produit, désigné par son NOM.
+     *
+     * Rend `0` si aucun champ de ce nom n'existe — sans en créer. C'est la
+     * lecture ; la création passe par `champTexte()`.
+     *
+     * ⚠️ La jointure porte sur `customization_field_lang`, où le nom vit. Le
+     * `id_lang` n'est PAS filtré à dessein : le nom est le même dans toutes
+     * les langues (il est posé identique à la création), et filtrer sur la
+     * langue du contexte ferait échouer la recherche depuis un contexte sans
+     * langue — une tâche planifiée, une ligne de commande.
+     */
+    public static function champNomme(int $idProduct, string $nom): int
+    {
+        if ($idProduct <= 0 || $nom === '') {
+            return 0;
+        }
+
+        return (int) \Db::getInstance()->getValue(
+            'SELECT cf.`id_customization_field`'
+            . ' FROM `' . _DB_PREFIX_ . 'customization_field` cf'
+            . ' JOIN `' . _DB_PREFIX_ . 'customization_field_lang` cfl'
+            . ' ON cfl.`id_customization_field` = cf.`id_customization_field`'
+            . ' WHERE cf.`id_product` = ' . (int) $idProduct
+            . ' AND cf.`type` = ' . (int) \Product::CUSTOMIZE_TEXTFIELD
+            // ⚠️ Un champ supprimé au back-office n'est pas effacé, il est
+            // marqué. L'oublier fait réécrire dans un champ que PrestaShop
+            // n'affiche plus nulle part — la donnée part, l'écran reste vide.
+            . ' AND cf.`is_deleted` = 0'
+            . " AND cfl.`name` = '" . pSQL($nom) . "'"
+            . ' ORDER BY cf.`id_customization_field` ASC'
+        );
+    }
+
+    /**
      * Le champ texte de personnalisation du produit, créé s'il n'existe pas.
      *
      * Rend `0` si le champ n'a pas pu être créé — l'appelant doit alors
      * refuser plutôt que de laisser croire qu'une configuration a été retenue.
+     *
+     * ⚠️ LE NOM EST UN PARAMÈTRE, et non plus une chaîne enfouie. C'est ce qui
+     * permet au commentaire d'être un SECOND champ de ce produit sans que les
+     * deux se confondent jamais.
      */
-    public static function champTexte(int $idProduct): int
+    public static function champTexte(int $idProduct, string $nom = self::CHAMP_CONFIGURATION): int
     {
-        if ($idProduct <= 0) {
+        if ($idProduct <= 0 || $nom === '') {
             return 0;
         }
 
-        $existant = (int) \Db::getInstance()->getValue(
-            'SELECT `id_customization_field` FROM `' . _DB_PREFIX_ . 'customization_field`'
-            . ' WHERE `id_product` = ' . (int) $idProduct
-            . ' AND `type` = ' . (int) \Product::CUSTOMIZE_TEXTFIELD
-            . ' AND `is_deleted` = 0'
-            . ' ORDER BY `id_customization_field` ASC'
-        );
+        $existant = self::champNomme($idProduct, $nom);
 
         if ($existant > 0) {
             return $existant;
@@ -127,13 +183,17 @@ final class Personnalisation
         // par le configurateur, pas par une zone de texte libre.
         $champ->is_module = true;
 
-        $nom = [];
+        $noms = [];
 
         foreach (\Language::getLanguages(false) as $langue) {
-            $nom[(int) $langue['id_lang']] = 'Configuration';
+            // ⚠️ LE MÊME NOM DANS TOUTES LES LANGUES. C'est un identifiant
+            // autant qu'un libellé : le traduire ici rendrait le champ
+            // introuvable depuis une autre langue que celle de sa création.
+            // La traduction visible se fait à l'affichage, pas en base.
+            $noms[(int) $langue['id_lang']] = $nom;
         }
 
-        $champ->name = $nom;
+        $champ->name = $noms;
 
         if (!$champ->add()) {
             return 0;
@@ -158,9 +218,27 @@ final class Personnalisation
      */
     private static function rendreConfigurable(int $idProduct): void
     {
+        // ⚠️ `text_fields` EST UN COMPTEUR, PAS UN DRAPEAU. Il valait `1` en
+        // dur, ce qui était juste tant que le module ne posait qu'un champ.
+        // Depuis qu'une ligne peut porter la configuration ET un commentaire,
+        // écrire 1 laisse le cœur croire qu'il n'y a qu'un champ texte alors
+        // qu'il y en a deux — MESURÉ en production : produit 45, compteur 1,
+        // réel 2.
+        //
+        // On le compte, on ne le suppose pas.
+        $combien = (int) \Db::getInstance()->getValue(
+            'SELECT COUNT(*) FROM `' . _DB_PREFIX_ . 'customization_field`'
+            . ' WHERE `id_product` = ' . (int) $idProduct
+            . ' AND `type` = ' . (int) \Product::CUSTOMIZE_TEXTFIELD
+            . ' AND `is_deleted` = 0'
+        );
+
+        $combien = max(1, $combien);
+
         foreach (['product', 'product_shop'] as $table) {
             \Db::getInstance()->execute(
-                'UPDATE `' . _DB_PREFIX_ . $table . '` SET `customizable` = 1, `text_fields` = 1'
+                'UPDATE `' . _DB_PREFIX_ . $table . '` SET `customizable` = 1,'
+                . ' `text_fields` = ' . $combien
                 . ' WHERE `id_product` = ' . (int) $idProduct
             );
         }
@@ -193,19 +271,35 @@ final class Personnalisation
     }
 
     /**
-     * 255 caractères : la colonne `customized_data.value` n'en prend pas plus.
+     * La longueur RÉELLE de `customized_data.value`, mesurée en base.
      *
+     * ⚠️ CE FICHIER ANNONÇAIT 255 ET `prix.php` 1024, dans le même dépôt.
+     * `DESCRIBE pre5616_customized_data` le 2026-08-13 : `varchar(1024)`.
+     *
+     * Le chiffre bas n'était pas seulement faux, il COÛTAIT : une
+     * configuration longue — grand format, papier détaillé, plusieurs
+     * façonnages — perdait les trois quarts de ce qui tenait, sans erreur ni
+     * avertissement, et la ligne partait ainsi jusqu'à la facture.
+     *
+     * La constante est ici parce que c'est ici que vit le champ. `prix.php`,
+     * qui portait sa propre copie, s'y réfère désormais : deux limites pour
+     * une même colonne finissent toujours par diverger, et c'est la plus
+     * basse qui décide en silence.
+     */
+    public const LONGUEUR_VALEUR = 1024;
+
+    /**
      * On coupe sur un séparateur plutôt qu'au caractère près : une
      * configuration qui se termine par « Finition : Bri » se lit plus mal
      * qu'une configuration à qui il manque visiblement la fin.
      */
     private static function tronquer(string $texte): string
     {
-        if (mb_strlen($texte) <= 255) {
+        if (mb_strlen($texte) <= self::LONGUEUR_VALEUR) {
             return $texte;
         }
 
-        $coupe = mb_substr($texte, 0, 255);
+        $coupe = mb_substr($texte, 0, self::LONGUEUR_VALEUR);
         $dernier = mb_strrpos($coupe, ' · ');
 
         return $dernier === false ? $coupe : mb_substr($coupe, 0, $dernier) . ' …';

@@ -184,4 +184,87 @@ class PrixConfigure
             . ') ENGINE=' . _MYSQL_ENGINE_ . ' DEFAULT CHARSET=utf8mb4'
         );
     }
+
+    /**
+     * Pourquoi ce panier ne peut pas être commandé — ou null s'il le peut.
+     *
+     * ─── L'INVARIANT, ET LES TROIS FAÇONS DE LE VIOLER ────────────────────
+     *
+     * Un produit LIÉ à E-KO ne doit jamais être commandé à un prix qui ne
+     * vient pas de E-KO. Trois routes y menaient, et le contrôle précédent
+     * n'en voyait qu'une :
+     *
+     *   1. le prix mémorisé a vieilli au-delà du seuil ;
+     *   2. la ligne n'a AUCUN prix pour sa quantité actuelle ;
+     *   3. la ligne n'a aucune personnalisation — ajoutée sans passer par le
+     *      configurateur.
+     *
+     * ⚠️ Le cas 2 échappait au contrôle PAR CONSTRUCTION. Son ancienne
+     * requête joignait `cart_product` à `ekosync_prix` sur le couple
+     * (id_customization, quantity) :
+     *
+     *     ON cp.id_customization = ep.id_customization
+     *    AND cp.quantity        = ep.quantity
+     *
+     * Une ligne dont le client a changé la quantité au panier ne rejoint donc
+     * plus rien — elle devient INVISIBLE au garde, alors que c'est exactement
+     * celle qu'il faut retenir. `MAX()` sur les lignes restantes rendait un âge
+     * rassurant, le garde laissait passer, et
+     * `hookActionProductPriceCalculation()` renonçait de son côté faute de
+     * prix mémorisé : PrestaShop facturait alors son prix de fiche. Sur une
+     * fiche créée par le pont, ce prix vaut 0,00 €.
+     *
+     * La jointure est donc devenue une LEFT JOIN, et l'absence de
+     * correspondance n'est plus un silence mais un motif.
+     *
+     * Mesuré sur la production le 2026-08-19 avant déploiement : 12 lignes de
+     * panier portent un produit lié, 9 ont un prix frais, 0 en manquait pour
+     * sa quantité, 3 étaient sans personnalisation (paniers invités
+     * abandonnés). Ce garde ne retient donc aucun client réel aujourd'hui —
+     * il ferme la porte avant que quelqu'un ne la pousse.
+     *
+     * @return null|'perime'|'sans_prix'
+     */
+    public function motifDeRefus(int $idCart, int $joursValidite): ?string
+    {
+        if ($idCart <= 0) {
+            return null;
+        }
+
+        $lignes = \Db::getInstance()->executeS(
+            'SELECT cp.`id_customization`, ep.`price_ht_cents`,'
+            . ' TIMESTAMPDIFF(DAY, ep.`date_upd`, NOW()) AS `age`'
+            . ' FROM `' . _DB_PREFIX_ . 'cart_product` cp'
+            // La jointure sur ekosync_produit borne le contrôle aux fiches
+            // LIÉES : un article ordinaire de la boutique n'a rien à voir ici.
+            . ' JOIN `' . _DB_PREFIX_ . 'ekosync_produit` epr'
+            . ' ON epr.`id_product` = cp.`id_product`'
+            . ' LEFT JOIN `' . _DB_PREFIX_ . 'ekosync_prix` ep'
+            . ' ON ep.`id_customization` = cp.`id_customization`'
+            . ' AND ep.`quantity` = cp.`quantity`'
+            . ' WHERE cp.`id_cart` = ' . (int) $idCart
+        );
+
+        if (!is_array($lignes) || $lignes === []) {
+            return null;
+        }
+
+        $ageMax = null;
+
+        foreach ($lignes as $l) {
+            // Sans personnalisation, ou sans prix pour cette quantité : dans
+            // les deux cas, rien ne relie cette ligne à un chiffrage de l'ERP.
+            if ((int) $l['id_customization'] <= 0 || $l['price_ht_cents'] === null) {
+                return 'sans_prix';
+            }
+
+            $age = (int) $l['age'];
+
+            if ($ageMax === null || $age > $ageMax) {
+                $ageMax = $age;
+            }
+        }
+
+        return ($ageMax !== null && $ageMax >= $joursValidite) ? 'perime' : null;
+    }
 }

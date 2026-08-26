@@ -126,13 +126,19 @@ final class ServicesProduit
      * Les prestations d'un produit, prêtes à afficher.
      *
      * Le format de saisie est une ligne par option : `Libellé|supplément en
-     * euros`. C'est ce qu'un marchand tape le plus vite, et ça se relit à l'œil
-     * — un tableau de saisie coûterait dix fois plus d'écran pour trois lignes.
+     * euros|description`. C'est ce qu'un marchand tape le plus vite, et ça se
+     * relit à l'œil — un tableau de saisie coûterait dix fois plus d'écran pour
+     * trois lignes.
+     *
+     * La description est FACULTATIVE, et pour une bonne raison : les saisies
+     * faites avant qu'elle n'existe n'en ont pas, et devaient continuer de
+     * fonctionner sans que personne ne les rouvre. Elle est lue en dernier, donc
+     * elle peut contenir des barres verticales sans être coupée en deux.
      *
      * Une prestation sans aucune option n'est pas proposée : mieux vaut ne rien
      * demander que de demander de choisir entre rien.
      *
-     * @return list<array{cle: string, label: string, options: list<array{nom: string, centimes: int}>}>
+     * @return list<array{cle: string, label: string, options: list<array{nom: string, centimes: int, texte: string}>}>
      */
     public static function services(int $idProduct): array
     {
@@ -320,7 +326,10 @@ final class ServicesProduit
                 continue;
             }
 
-            $parts = explode('|', $ligne, 2);
+            // Trois champs au plus : libellé, prix, description. La description
+            // vient en dernier, elle peut donc contenir des barres verticales
+            // sans être coupée en deux.
+            $parts = explode('|', $ligne, 3);
             $nom = trim($parts[0]);
 
             if ($nom === '') {
@@ -332,6 +341,9 @@ final class ServicesProduit
             $sortie[] = [
                 'nom' => $nom,
                 'centimes' => is_numeric($prix) ? (int) round(((float) $prix) * 100) : 0,
+                // FACULTATIVE : les saisies d'avant n'en ont pas, et elles
+                // doivent continuer de fonctionner sans être retouchées.
+                'texte' => trim($parts[2] ?? ''),
             ];
         }
 

@@ -624,6 +624,119 @@ class ImportTiers
         ))));
     }
 
+    /**
+     * Le tiers E-KO d'un client — retrouvé, ou créé s'il n'en a pas.
+     *
+     * ─── POURQUOI CETTE MÉTHODE EXISTE ────────────────────────────────────
+     *
+     * `tierDe()` ne lit qu'une table de correspondance locale, alimentée par
+     * l'import descendant. Un client qui commande en ligne sans exister au
+     * préalable dans l'ERP n'y figure donc pas, et sa commande s'arrêtait sur
+     * « Client sans tiers E-KO » — mesuré le 2026-08-20, commande #11. La
+     * boutique encaissait, l'atelier ne voyait rien.
+     *
+     * Trois temps, du moins coûteux au plus engageant :
+     *
+     *   1. la correspondance locale ;
+     *   2. une recherche par ADRESSE dans l'ERP — le client a pu commander au
+     *      comptoir avant de créer un compte en ligne, et créer un doublon
+     *      couperait son historique en deux ;
+     *   3. la création, en dernier recours.
+     *
+     * ⚠️ `code` est INTERDIT au POST — mesuré dans `TiersController::store()`,
+     * règle `prohibited`. L'ERP l'attribue par son compteur et le rend dans
+     * `data.code`. L'envoyer produit un 422 ; ne pas l'envoyer et supposer
+     * l'avoir choisi produit pire — un 201 suivi de 404 sur toutes les URL
+     * bâties avec la valeur qu'on croyait posée.
+     *
+     * En cas d'ambiguïté — plusieurs tiers sur la même adresse — on REFUSE.
+     * Rattacher un client au mauvais tiers lui montrerait les documents d'un
+     * autre.
+     *
+     * @return array{ok: bool, tier_id?: int, origine?: string, message?: string}
+     */
+    public function tierPour(\Customer $client): array
+    {
+        $idCustomer = (int) $client->id;
+
+        if ($idCustomer <= 0) {
+            return ['ok' => false, 'message' => 'Client sans identifiant.'];
+        }
+
+        $connu = $this->tierDe($idCustomer);
+
+        if ($connu !== null) {
+            return ['ok' => true, 'tier_id' => $connu, 'origine' => 'correspondance'];
+        }
+
+        $email = trim((string) $client->email);
+
+        // ── 2. Déjà dans l'ERP sous cette adresse ? ──
+        // `$this->depot` est déjà injecté : inutile d'en fabriquer un second.
+        $recherche = $this->depot->tierParEmail($email);
+
+        if (($recherche['ambigu'] ?? false) === true) {
+            return ['ok' => false, 'message' => $recherche['erreur']];
+        }
+
+        if (($recherche['trouve'] ?? false) === true) {
+            $id = (int) (($recherche['tier']['id'] ?? 0));
+
+            if ($id > 0) {
+                $this->lier($idCustomer, $id);
+
+                return ['ok' => true, 'tier_id' => $id, 'origine' => 'retrouvé par e-mail'];
+            }
+        }
+
+        // ── 3. Le créer ──
+        $nom = trim((string) $client->company);
+
+        if ($nom === '') {
+            $nom = trim($client->firstname . ' ' . $client->lastname);
+        }
+
+        if ($nom === '') {
+            $nom = $email !== '' ? $email : ('Client boutique #' . $idCustomer);
+        }
+
+        $charge = [
+            'name' => mb_substr($nom, 0, 255),
+            'is_customer' => true,
+            'is_active' => true,
+        ];
+
+        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $charge['email'] = $email;
+        }
+
+        $r = $this->client->appeler('POST', '/api/v1/tiers', $charge);
+
+        if (!$r['ok']) {
+            return ['ok' => false, 'message' => 'Création du tiers refusée : ' . $r['erreur']];
+        }
+
+        $donnees = $r['donnees']['data'] ?? [];
+        $id = (int) ($donnees['id'] ?? 0);
+
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'Tiers créé sans identifiant exploitable.'];
+        }
+
+        $this->lier($idCustomer, $id);
+
+        \PrestaShopLogger::addLog(
+            'ekosyncimprimerie — tiers E-KO créé pour le client ' . $idCustomer
+            . ' : #' . $id . ' (' . (string) ($donnees['code'] ?? 'sans code') . ')',
+            1,
+            null,
+            'Customer',
+            $idCustomer
+        );
+
+        return ['ok' => true, 'tier_id' => $id, 'origine' => 'créé'];
+    }
+
     /** Identifiant du tiers E-KO rattaché à un client, s'il existe. */
     public function tierDe(int $idCustomer): ?int
     {
