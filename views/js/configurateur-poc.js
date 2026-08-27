@@ -1618,6 +1618,43 @@
         rendreChamps();
       }
 
+      // ─── ⚠️ UNE COTE TAPÉE À LA MAIN PÉRIME L'ÉTIQUETTE DU RACCOURCI ────
+      //
+      // `ligneFormat()` sait déjà afficher « Dimensions sur mesure » quand les
+      // deux cotes ne désignent plus aucun format — mais elle ne le sait qu'au
+      // moment où on la redessine, et une saisie libre ne redessinait rien.
+      // Mesuré le 2026-08-26 en production : le menu annonçait « 20 × 30 cm »
+      // pendant que la commande portait 17 × 30. Le visiteur lit un format
+      // qu'il n'a pas commandé, et le récapitulatif qu'il relit avant de payer
+      // le répète.
+      //
+      // On redessine LA SEULE LIGNE DU FORMAT, jamais le formulaire entier :
+      // le curseur du visiteur est dans la cote voisine, et le lui prendre au
+      // milieu d'une saisie est exactement ce que ce service évite depuis
+      // toujours.
+      champs.forEach(function (ch, rang) {
+        if (ch.type !== 'format') {
+          return;
+        }
+
+        if (id !== ch.cle_hauteur && id !== ch.cle_largeur) {
+          return;
+        }
+
+        var ancienne = zoneEtapes.querySelector(
+          '.eko-poc__ligne--champ[data-rang="' + rang + '"]'
+        );
+
+        if (!ancienne) {
+          return;
+        }
+
+        var neuve = ligneFormat(ch);
+        neuve.classList.add('eko-poc__ligne--champ');
+        neuve.dataset.rang = String(rang);
+        zoneEtapes.replaceChild(neuve, ancienne);
+      });
+
       // Les lignes qui dépendent de la grille sont CADUQUES le temps du
       // recalcul. Sans ce retrait, elles restaient affichées et cliquables :
       // un clic sur une quantité pendant le recalcul tombait sur une grille
