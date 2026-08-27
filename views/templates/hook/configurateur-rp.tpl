@@ -51,6 +51,10 @@
         PREMIER et ignore le second, sans rien signaler. Le récapitulatif se
         serait mis à annoncer des dimensions. *}
      data-autre-dimension="{l s='Dimensions sur mesure' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
+     {* Le gabarit se calcule aux cotes saisies : on passe l'adresse nue, le
+        script y ajoute la hauteur et la largeur du moment. *}
+     data-url-gabarit="{$eko.url_gabarit|escape:'html':'UTF-8'}"
+     data-gabarit="{l s='Télécharger le gabarit' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-non="{l s='Non' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-attente="{l s='Chargement des options…' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"
      data-calcul="{l s='Calcul des tarifs…' d='Modules.Ekosyncimprimerie.Shop'|escape:'html':'UTF-8'}"

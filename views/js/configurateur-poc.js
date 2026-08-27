@@ -2612,6 +2612,52 @@
 
       zoneResume.appendChild(ul);
 
+      // ─── ⚠️ LE GABARIT SE CALCULE AUX COTES SAISIES ────────────────────
+      //
+      // Le bloc technique listait un gabarit par « format » du produit, lus
+      // dans ses caractéristiques. Ces valeurs sont des PHRASES — « 1753
+      // formats, de 20 × 30 à 200 × 300 cm » — et l'extracteur de cotes y
+      // attrapait une des deux bornes : le client repartait avec un plan de
+      // travail à une taille arbitraire, sans rapport avec sa commande.
+      //
+      // Un seul lien, ici, portant ce qu'il vient de taper. Le contrôleur sait
+      // déjà recevoir `hauteur` et `largeur`.
+      //
+      // Rien n'est affiché quand ce produit n'a pas de cotes libres : un
+      // gabarit sans dimension n'existe pas, et un lien mort vaut moins que
+      // rien.
+      var lienG = txt(r, 'urlGabarit', '');
+      var coteH = null;
+      var coteL = null;
+
+      champs.forEach(function (ch) {
+        if (ch.type !== 'cote') {
+          return;
+        }
+
+        var v = config[ch.id];
+
+        if (v === undefined || v === null || v === '') {
+          return;
+        }
+
+        if (coteH === null) { coteH = v; } else if (coteL === null) { coteL = v; }
+      });
+
+      if (lienG && coteH !== null && coteL !== null) {
+        var aG = document.createElement('a');
+        aG.className = 'eko-poc__gabarit';
+        aG.rel = 'nofollow';
+        aG.target = '_blank';
+        aG.href = lienG
+          + (lienG.indexOf('?') === -1 ? '?' : '&')
+          + 'id_product=' + encodeURIComponent(txt(r, 'idProduct', ''))
+          + '&hauteur=' + encodeURIComponent(coteH)
+          + '&largeur=' + encodeURIComponent(coteL);
+        aG.textContent = txt(r, 'gabarit', '');
+        zoneResume.appendChild(aG);
+      }
+
       if (grille.stale) {
         zoneResume.appendChild(message('perime', txt(r, 'perime', '')));
       }

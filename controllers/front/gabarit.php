@@ -66,13 +66,27 @@ class EkosyncimprimerieGabaritModuleFrontController extends ModuleFrontControlle
         }
 
         if ($parCotes) {
-            // La garde des cotes : la fiche doit être liée à l'ATELIER. Sans
-            // elle, l'URL deviendrait un générateur de PDF à la demande sur
-            // n'importe quel produit de la boutique — et le mutualisé paierait
-            // chaque appel.
+            // La garde des cotes : la fiche doit être liée à une source qui
+            // vend AU CENTIMÈTRE. Sans elle, l'URL deviendrait un générateur
+            // de PDF à la demande sur n'importe quel produit de la boutique —
+            // et le mutualisé paierait chaque appel.
+            //
+            // ⚠️ Élargie le 2026-08-27 au second sous-traitant. Ses bâches,
+            // panneaux et adhésifs se commandent à la cote exacte, et aucune
+            // liste ne contient « 17 × 43 ». Le bloc des gabarits ne pouvait
+            // donc offrir que les formats courants, alors que le client
+            // reparte sans plan de travail dès qu'il tape sa propre dimension.
+            //
+            // Le risque ne grandit pas : la garde reste une LISTE FERMÉE de
+            // sources, la fiche doit être liée et visible, et c'est la
+            // spécification qui borne ce qu'elle accepte de dessiner.
             $liaison = (new LiaisonProduit())->pour($idProduct);
+            $auCentimetre = [
+                LiaisonProduit::SOURCE_ATELIER,
+                LiaisonProduit::SOURCE_REALISAPRINT,
+            ];
 
-            if ($liaison === null || $liaison['source'] !== LiaisonProduit::SOURCE_ATELIER) {
+            if ($liaison === null || !in_array($liaison['source'], $auCentimetre, true)) {
                 $this->rendre404();
             }
 

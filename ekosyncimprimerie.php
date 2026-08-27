@@ -921,6 +921,21 @@ class Ekosyncimprimerie extends Module
             . '   ON fvl.id_feature_value = fp.id_feature_value'
             . '  AND fvl.id_lang = ' . (int) $this->context->language->id
             . ' WHERE fp.id_product = ' . $idProduct
+            // ⚠️ SEULES LES CARACTÉRISTIQUES « EKO … » PORTENT UN VRAI FORMAT.
+            //
+            // Le filtre ne retenait que « ormat / imension / aille », et il
+            // attrapait donc aussi « Formats disponibles » et « Dimensions sur
+            // mesure » — deux caractéristiques écrites par le script
+            // d'injection, dont la valeur est une PHRASE de synthèse :
+            // « 1753 formats, de 20 × 30 à 200 × 300 cm ». L'extracteur de
+            // cotes y attrapait une des deux bornes, et la fiche offrait un
+            // gabarit à une taille arbitraire.
+            //
+            // Les formats véritables viennent de l'import du catalogue, qui
+            // les nomme « EKO Format », « EKO Format (cm) », « EKO Taille »…
+            // Un produit vendu au sur-mesure n'en a pas : son gabarit se
+            // calcule aux cotes saisies, dans le configurateur.
+            . " AND fl.name LIKE 'EKO %'"
             . " AND (fl.name LIKE '%ormat%' OR fl.name LIKE '%imension%' OR fl.name LIKE '%aille%')"
             . ' ORDER BY fvl.value'
         );
@@ -3033,6 +3048,24 @@ class Ekosyncimprimerie extends Module
                 // ne vient d'aucun fournisseur, et l'omettre ici faisait
                 // disparaître un réglage qu'il avait pris la peine de saisir.
                 'technique' => $this->ficheTechnique($idProduct),
+                // ⚠️ LE GABARIT SE CALCULE AUX COTES SAISIES, pas d'avance.
+                //
+                // Le bloc technique listait un gabarit par « format » du
+                // produit, lus dans ses caractéristiques. Or ces valeurs sont
+                // des PHRASES — « 1753 formats, de 20 × 30 à 200 × 300 cm » —
+                // et l'extracteur de cotes y attrapait une des deux bornes :
+                // le client téléchargeait un plan de travail à une taille
+                // arbitraire, sans rapport avec sa commande.
+                //
+                // Le contrôleur sait déjà recevoir `hauteur` et `largeur`. On
+                // lui passe donc son adresse nue, et le configurateur la
+                // complète avec ce que le client vient de taper.
+                'url_gabarit' => $this->context->link->getModuleLink(
+                    $this->name,
+                    'gabarit',
+                    [],
+                    true
+                ),
             ]);
 
             return $this->fetch('module:' . $this->name . '/views/templates/hook/configurateur-rp.tpl');
