@@ -195,258 +195,254 @@
         <target>Width (cm)</target>
       </trans-unit>
       <trans-unit id="49">
-        <source>Formats courants</source>
-        <target>Common sizes</target>
-      </trans-unit>
-      <trans-unit id="50">
         <source>Expédition estimée</source>
         <target>Estimated dispatch</target>
       </trans-unit>
-      <trans-unit id="51">
+      <trans-unit id="50">
         <source>Urgence</source>
         <target>Rush</target>
       </trans-unit>
-      <trans-unit id="52">
+      <trans-unit id="51">
         <source>Express</source>
         <target>Express</target>
       </trans-unit>
-      <trans-unit id="53">
+      <trans-unit id="52">
         <source>Standard</source>
         <target>Standard</target>
       </trans-unit>
-      <trans-unit id="54">
+      <trans-unit id="53">
         <source>Mes fichiers</source>
         <target>My files</target>
       </trans-unit>
-      <trans-unit id="55">
+      <trans-unit id="54">
         <source>Déposez ici les fichiers d’impression de vos commandes. Chaque fichier est contrôlé automatiquement dès son arrivée — format, fonds perdus, résolution, polices — et vous en voyez le verdict aussitôt.</source>
         <target>Upload the print files for your orders here. Every file is checked automatically as soon as it arrives — size, bleed, resolution, fonts — and you see the verdict straight away.</target>
       </trans-unit>
-      <trans-unit id="56">
+      <trans-unit id="55">
         <source>Vous n’avez pas encore de commande à laquelle rattacher un fichier.</source>
         <target>You do not have an order to attach a file to yet.</target>
       </trans-unit>
-      <trans-unit id="57">
+      <trans-unit id="56">
         <source>Voir le catalogue</source>
         <target>Browse the catalogue</target>
       </trans-unit>
-      <trans-unit id="58">
+      <trans-unit id="57">
         <source>Commande</source>
         <target>Order</target>
       </trans-unit>
-      <trans-unit id="59">
+      <trans-unit id="58">
         <source>1 ligne attend son fichier</source>
         <target>1 line is waiting for its file</target>
       </trans-unit>
-      <trans-unit id="60">
+      <trans-unit id="59">
         <source>%d lignes attendent leur fichier</source>
         <target>%d lines are waiting for their files</target>
       </trans-unit>
-      <trans-unit id="61">
+      <trans-unit id="60">
         <source>Envoi en cours…</source>
         <target>Uploading…</target>
       </trans-unit>
-      <trans-unit id="62">
+      <trans-unit id="61">
         <source>Envoi impossible — réessayez.</source>
         <target>Upload failed — please try again.</target>
       </trans-unit>
-      <trans-unit id="63">
+      <trans-unit id="62">
         <source>Gabarits &amp; instructions</source>
         <target>Templates &amp; instructions</target>
       </trans-unit>
-      <trans-unit id="64">
+      <trans-unit id="63">
         <source>Fiche technique</source>
         <target>Technical sheet</target>
       </trans-unit>
-      <trans-unit id="65">
+      <trans-unit id="64">
         <source>Gabarits</source>
         <target>Templates</target>
       </trans-unit>
-      <trans-unit id="66">
+      <trans-unit id="65">
         <source>Voir les %n% autres gabarits</source>
         <target>See the %n% other templates</target>
       </trans-unit>
-      <trans-unit id="67">
+      <trans-unit id="66">
         <source>Télécharger mon document de commande (PDF)</source>
         <target>Download my order summary (PDF)</target>
       </trans-unit>
-      <trans-unit id="68">
+      <trans-unit id="67">
         <source>Il détaille votre configuration ligne par ligne. C’est le document que notre atelier a sous les yeux. Ce n’est pas une facture.</source>
         <target>It sets out your configuration line by line. It is the document our workshop works from. It is not an invoice.</target>
       </trans-unit>
-      <trans-unit id="69">
+      <trans-unit id="68">
         <source>Chargement des options…</source>
         <target>Loading options…</target>
       </trans-unit>
-      <trans-unit id="70">
+      <trans-unit id="69">
         <source>Calcul des tarifs…</source>
         <target>Calculating prices…</target>
       </trans-unit>
-      <trans-unit id="71">
+      <trans-unit id="70">
         <source>Je choisis mon délai</source>
         <target>Choose your lead time</target>
       </trans-unit>
-      <trans-unit id="72">
+      <trans-unit id="71">
         <source>Inclus</source>
         <target>Included</target>
       </trans-unit>
-      <trans-unit id="73">
+      <trans-unit id="72">
         <source>Supplément</source>
         <target>Extra</target>
       </trans-unit>
-      <trans-unit id="74">
+      <trans-unit id="73">
         <source>Meilleure offre</source>
         <target>Best value</target>
       </trans-unit>
-      <trans-unit id="75">
+      <trans-unit id="74">
         <source>Bon plan</source>
         <target>Good deal</target>
       </trans-unit>
-      <trans-unit id="76">
+      <trans-unit id="75">
         <source>ex.</source>
         <target>units</target>
       </trans-unit>
-      <trans-unit id="77">
+      <trans-unit id="76">
         <source>Détail de ma commande</source>
         <target>Order summary</target>
       </trans-unit>
-      <trans-unit id="78">
+      <trans-unit id="77">
         <source>l’unité</source>
         <target>each</target>
       </trans-unit>
-      <trans-unit id="79">
+      <trans-unit id="78">
         <source>Ces tarifs n’ont pas été rafraîchis récemment. Confirmez avant de commander.</source>
         <target>These prices have not been refreshed recently. Please confirm before ordering.</target>
       </trans-unit>
-      <trans-unit id="80">
+      <trans-unit id="79">
         <source>Options indisponibles pour le moment.</source>
         <target>Options unavailable right now.</target>
       </trans-unit>
-      <trans-unit id="81">
+      <trans-unit id="80">
         <source>Choisissez vos options pour obtenir un prix.</source>
         <target>Choose your options to get a price.</target>
       </trans-unit>
-      <trans-unit id="82">
+      <trans-unit id="81">
         <source>Livraison estimée</source>
         <target>Estimated delivery</target>
       </trans-unit>
-      <trans-unit id="83">
+      <trans-unit id="82">
         <source>dont prestations</source>
         <target>incl. services</target>
       </trans-unit>
-      <trans-unit id="84">
+      <trans-unit id="83">
         <source>Ajouter au panier</source>
         <target>Add to cart</target>
       </trans-unit>
-      <trans-unit id="85">
+      <trans-unit id="84">
         <source>L’ajout au panier n’a pas abouti. Vérifiez votre configuration et réessayez.</source>
         <target>Adding to the cart did not go through. Check your configuration and try again.</target>
       </trans-unit>
-      <trans-unit id="86">
+      <trans-unit id="85">
         <source>Tout voir</source>
         <target>See all</target>
       </trans-unit>
-      <trans-unit id="87">
+      <trans-unit id="86">
         <source>Formats précédents</source>
         <target>Previous formats</target>
       </trans-unit>
-      <trans-unit id="88">
+      <trans-unit id="87">
         <source>Formats suivants</source>
         <target>Next formats</target>
       </trans-unit>
-      <trans-unit id="89">
+      <trans-unit id="88">
         <source>Quantités supérieures</source>
         <target>Larger quantities</target>
       </trans-unit>
-      <trans-unit id="90">
+      <trans-unit id="89">
         <source>Je configure mon produit</source>
         <target>Configure my product</target>
       </trans-unit>
-      <trans-unit id="91">
+      <trans-unit id="90">
         <source>Configuration personnalisée</source>
         <target>Custom configuration</target>
       </trans-unit>
-      <trans-unit id="92">
+      <trans-unit id="91">
         <source>Soyez livré plus rapidement</source>
         <target>Get it faster</target>
       </trans-unit>
-      <trans-unit id="93">
+      <trans-unit id="92">
         <source>Prix public TTC</source>
         <target>Retail price incl. VAT</target>
       </trans-unit>
-      <trans-unit id="94">
+      <trans-unit id="93">
         <source>Gratuit</source>
         <target>Free</target>
       </trans-unit>
-      <trans-unit id="95">
+      <trans-unit id="94">
         <source>Oui</source>
         <target>Yes</target>
       </trans-unit>
-      <trans-unit id="96">
+      <trans-unit id="95">
         <source>Nous calculons votre tarif sur mesure…</source>
         <target>We are working out your custom price…</target>
       </trans-unit>
-      <trans-unit id="97">
+      <trans-unit id="96">
         <source>Le calcul est plus long que prévu. Rechargez la page ou demandez-nous un devis.</source>
         <target>This is taking longer than expected. Reload the page or ask us for a quote.</target>
       </trans-unit>
-      <trans-unit id="98">
+      <trans-unit id="97">
         <source>Dimensions sur mesure</source>
         <target>Custom dimensions</target>
       </trans-unit>
-      <trans-unit id="99">
+      <trans-unit id="98">
         <source>Non</source>
         <target>No</target>
       </trans-unit>
-      <trans-unit id="100">
+      <trans-unit id="99">
         <source>Plan de travail aux cotes que vous avez saisies, fond perdu et zone de sécurité compris.</source>
         <target>Artboard at the dimensions you entered, bleed and safety area included.</target>
       </trans-unit>
-      <trans-unit id="101">
+      <trans-unit id="100">
         <source>Au-delà de %s mm, le gabarit est fourni à l’échelle — elle est écrite sur le document.</source>
         <target>Beyond %s mm, the template is supplied at a reduced scale — the scale is written on the document.</target>
       </trans-unit>
-      <trans-unit id="102">
+      <trans-unit id="101">
         <source>Vos cotes dépassent %1$s mm : ce gabarit sera fourni à l’échelle 1:%2$s.</source>
         <target>Your dimensions exceed %1$s mm: this template will be supplied at 1:%2$s scale.</target>
       </trans-unit>
-      <trans-unit id="103">
+      <trans-unit id="102">
         <source>Dimensions</source>
         <target>Dimensions</target>
       </trans-unit>
-      <trans-unit id="104">
+      <trans-unit id="103">
         <source>Votre commande</source>
         <target>Your order summary</target>
       </trans-unit>
-      <trans-unit id="105">
+      <trans-unit id="104">
         <source>Calcul du prix…</source>
         <target>Calculating the price…</target>
       </trans-unit>
-      <trans-unit id="106">
+      <trans-unit id="105">
         <source>Configuration impossible à chiffrer.</source>
         <target>This configuration cannot be priced.</target>
       </trans-unit>
-      <trans-unit id="107">
+      <trans-unit id="106">
         <source>Le prix n’a pas pu être obtenu.</source>
         <target>The price could not be retrieved.</target>
       </trans-unit>
-      <trans-unit id="108">
+      <trans-unit id="107">
         <source>Ce thème n’expose pas de champ quantité : le prix ne peut pas être garanti.</source>
         <target>This theme exposes no quantity field: the price cannot be guaranteed.</target>
       </trans-unit>
-      <trans-unit id="109">
+      <trans-unit id="108">
         <source>Le prix de cette configuration est en cours de calcul.</source>
         <target>The price for this configuration is being calculated.</target>
       </trans-unit>
-      <trans-unit id="110">
+      <trans-unit id="109">
         <source>Ce produit se chiffre sur mesure.</source>
         <target>This product is quoted to order.</target>
       </trans-unit>
-      <trans-unit id="111">
+      <trans-unit id="110">
         <source>Son configurateur est momentanément indisponible : nous ne pouvons pas afficher de prix fiable pour l’instant. Contactez-nous pour un devis, ou revenez dans quelques minutes.</source>
         <target>Its configurator is temporarily unavailable: we cannot display a reliable price at the moment. Contact us for a quote, or come back in a few minutes.</target>
       </trans-unit>
-      <trans-unit id="112">
+      <trans-unit id="111">
         <source>Déposer les fichiers d’impression de vos commandes</source>
         <target>Upload the print files for your orders</target>
       </trans-unit>

@@ -279,29 +279,33 @@ class EkosyncimprimerieConfigrpModuleFrontController extends EkosyncimprimerieCa
             ];
         }
 
-        $formats = $this->formats($r['donnees']['formats'] ?? [], $cleHauteur, $cleLargeur);
+        $cotesConstruites = $this->cotesConstruites($r['donnees']['formats'] ?? [], $cleHauteur, $cleLargeur);
 
         if ($cleHauteur !== '' && $cleLargeur !== '') {
-            // Juste après la matière : on choisit sa matière, puis sa taille.
-            // Les raccourcis d'abord, les deux cotes libres ensuite — un
-            // visiteur qui a son format en tête le trouve sans taper, et
-            // celui qui a une contrainte précise la saisit.
+            // ─── ⚠️ PAS DE LISTE DE FORMATS PRÉDÉFINIS, ET C'EST VOULU ─────
+            //
+            // Cette fiche proposait un menu « Formats courants » À CÔTÉ des
+            // deux cotes libres : deux façons de dire la même chose, l'une
+            // remplissant l'autre. Ces produits se vendent au sur-mesure, et
+            // le menu n'ajoutait qu'une occasion de se contredire — il a
+            // d'ailleurs affiché « 20 × 30 » sur une commande de 17 × 30
+            // jusqu'au 2026-08-26.
+            //
+            // Les cotes construites servent encore, mais seulement à POSER la
+            // valeur de départ des deux champs : sans elle, le configurateur
+            // ouvrirait sur du vide, donc sans prix.
             $rang = $cleSupport !== '' ? 1 : 0;
             $ajouts = [];
-
-            if ($formats !== []) {
-                $ajouts[] = $formats;
-            }
 
             $ajouts[] = $this->champCote(
                 $cleHauteur,
                 $this->trans('Hauteur (cm)', [], 'Modules.Ekosyncimprimerie.Shop'),
-                $formats
+                $cotesConstruites
             );
             $ajouts[] = $this->champCote(
                 $cleLargeur,
                 $this->trans('Largeur (cm)', [], 'Modules.Ekosyncimprimerie.Shop'),
-                $formats,
+                $cotesConstruites,
                 false
             );
 
@@ -344,9 +348,9 @@ class EkosyncimprimerieConfigrpModuleFrontController extends EkosyncimprimerieCa
      * @param  array<string, mixed>  $formats
      * @return array<string, mixed>
      */
-    private function champCote(string $id, string $nom, array $formats, bool $hauteur = true): array
+    private function champCote(string $id, string $nom, array $cotes, bool $hauteur = true): array
     {
-        $premier = $formats['valeurs'][0] ?? null;
+        $premier = $cotes[0] ?? null;
 
         return [
             'id' => $id,
@@ -360,23 +364,26 @@ class EkosyncimprimerieConfigrpModuleFrontController extends EkosyncimprimerieCa
     }
 
     /**
-     * Les formats construits, en un seul champ de choix.
+     * Les cotes déjà construites pour ce produit, dans l'ordre du fournisseur.
      *
-     * Chaque valeur porte SA matière : sur une fiche qui n'en impose aucune,
-     * la liste se restreint dans le navigateur au fur et à mesure que le
-     * visiteur choisit — deux matières n'ont pas forcément été construites sur
-     * les mêmes cotes.
+     * Elles ne sont plus proposées en menu — ces produits se vendent au
+     * sur-mesure. Elles servent uniquement à POSER la valeur de départ des
+     * deux champs de cote : sans elle, la fiche ouvrirait sur du vide, donc
+     * sans prix, et le visiteur devrait deviner ce qu'on sait fabriquer.
+     *
+     * Chaque cote porte SA matière : deux matières n'ont pas forcément été
+     * construites sur les mêmes dimensions.
      *
      * @param  mixed  $brut
-     * @return array<string, mixed>
+     * @return list<array{support: string, hauteur: string, largeur: string}>
      */
-    private function formats($brut, string $cleHauteur, string $cleLargeur): array
+    private function cotesConstruites($brut, string $cleHauteur, string $cleLargeur): array
     {
         if (!is_array($brut) || $brut === [] || $cleHauteur === '' || $cleLargeur === '') {
             return [];
         }
 
-        $valeurs = [];
+        $cotes = [];
 
         foreach ($brut as $f) {
             if (!is_array($f)) {
@@ -390,35 +397,14 @@ class EkosyncimprimerieConfigrpModuleFrontController extends EkosyncimprimerieCa
                 continue;
             }
 
-            $valeurs[] = [
-                'id' => $h . 'x' . $l,
-                // « × » et non « x » : c'est le signe multiplié, et il se lit
-                // comme une dimension partout où cette boutique est traduite.
-                'label' => $h . ' × ' . $l . ' cm',
+            $cotes[] = [
                 'support' => (string) ($f['support'] ?? ''),
                 'hauteur' => $h,
                 'largeur' => $l,
             ];
         }
 
-        if ($valeurs === []) {
-            return [];
-        }
-
-        return [
-            // ⚠️ Cet identifiant n'a PAS la forme d'une clé du fournisseur, et
-            // c'est voulu : le nettoyage de la configuration le rejetterait.
-            // Ce champ ne voyage pas — il pose les deux cotes, qui voyagent.
-            'id' => 'FORMAT',
-            'nom' => $this->trans('Formats courants', [], 'Modules.Ekosyncimprimerie.Shop'),
-            'type' => 'format',
-            'cle_hauteur' => $cleHauteur,
-            'cle_largeur' => $cleLargeur,
-            'defaut' => '',
-            'verrouille' => false,
-            'secondaire' => false,
-            'valeurs' => $valeurs,
-        ];
+        return $cotes;
     }
 
     /**
