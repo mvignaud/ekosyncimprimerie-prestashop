@@ -25,7 +25,20 @@ mkdir -p "$DIST"
   | tar -xf - -C "$DIST" || { echo "impossible de lire la production"; exit 1; }
 
 echo "── $MODULE : dépôt local ←→ production"
-if diff -rq --exclude=.git --exclude=bin --exclude=.gitignore "$RACINE" "$DIST" 2>/dev/null; then
+# ⚠️ CE QUI N'EST PAS UNE DÉRIVE. Un outil qui signale toujours quelque chose
+# ne se lit plus. Le mobilier de dépôt — README, licence, workflows, logo,
+# journal — n'a jamais vocation à être déployé ; les fichiers que PrestaShop
+# écrit lui-même n'ont jamais vocation à être versionnés. Les taire, c'est
+# faire que le reste compte.
+IGNORER=(--exclude=.git --exclude=bin --exclude=.gitignore --exclude=.github
+         --exclude=LICENSE --exclude=README.md --exclude=CHANGELOG.md
+         --exclude=logo.png --exclude='config*.xml' --exclude=index.php
+         # `dev/` est de l'outillage de construction : il vit au dépôt, jamais
+         # sur une boutique. Ce qui y traîne encore en production est inerte —
+         # le `.htaccess` des modules le rend en 403 — mais n'a rien à y faire.
+         --exclude=dev)
+
+if diff -rq "${IGNORER[@]}" "$RACINE" "$DIST" 2>/dev/null; then
   echo "   identiques"
 else
   echo
