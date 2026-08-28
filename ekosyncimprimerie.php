@@ -64,6 +64,7 @@ require_once __DIR__ . '/src/Configurateur/DebitDevis.php';
 // la panne au dépôt.
 require_once __DIR__ . '/src/Configurateur/ReponseJson.php';
 require_once __DIR__ . '/src/Client/PousseeCommande.php';
+require_once __DIR__ . '/src/Client/StockStricker.php';
 
 use Eko\SyncImprimerie\Client\ClientEko;
 use Eko\SyncImprimerie\Client\DepotEko;
@@ -2383,7 +2384,46 @@ class Ekosyncimprimerie extends Module
             return '';
         }
 
-        return $this->zoneDeDepot((int) $this->valeur($produit, 'id_customization'));
+        $idCustomization = (int) $this->valeur($produit, 'id_customization');
+
+        // ⚠️ LA ZONE S'OUVRE AUSSI AUX LIGNES DES AUTRES MODULES.
+        //
+        // `zoneDeDepot()` porte un paramètre `$forcer` écrit pour cela — « un
+        // objet publicitaire marqué attend lui aussi un logo » — mais il n'a
+        // jamais été appelé nulle part. Résultat : sur une commande textile ou
+        // objets, le panier affichait un bloc « Fichiers » VIDE. Le client
+        // voyait le titre, aucun champ, et n'avait aucun moyen de fournir son
+        // visuel depuis là.
+        //
+        // Le discriminant est le champ lui-même : nos configurateurs posent
+        // leur personnalisation en `is_module = 1`, ce qu'aucune note libre de
+        // client ne fait. Une ligne qui en porte une, remplie, est une ligne
+        // configurée par un module — donc une ligne qui attend un fichier.
+        return $this->zoneDeDepot($idCustomization, $this->ligneConfigureeParUnModule($idCustomization));
+    }
+
+    /**
+     * Cette ligne porte-t-elle une personnalisation posée par un module ?
+     *
+     * ⚠️ `is_module = 1` est la seule marque fiable. Le contenu du libellé
+     * varie d'un configurateur à l'autre — « DTF — Cœur… » ici, « Dessus —
+     * Tampographie… » là — et le lire pour deviner reviendrait à recopier trois
+     * formats dans un module qui n'a pas à les connaître.
+     */
+    private function ligneConfigureeParUnModule(int $idCustomization): bool
+    {
+        if ($idCustomization <= 0) {
+            return false;
+        }
+
+        return (bool) Db::getInstance()->getValue(
+            'SELECT 1 FROM `'._DB_PREFIX_.'customized_data` cd'
+            .' JOIN `'._DB_PREFIX_.'customization_field` cf ON cf.id_customization_field = cd.`index`'
+            .' WHERE cd.id_customization = '.$idCustomization
+            .' AND cd.type = '.(int) Product::CUSTOMIZE_TEXTFIELD
+            .' AND cf.is_module = 1'
+            .' AND TRIM(cd.value) <> ""'
+        );
     }
 
     /**
