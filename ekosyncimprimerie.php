@@ -2399,7 +2399,48 @@ class Ekosyncimprimerie extends Module
         // leur personnalisation en `is_module = 1`, ce qu'aucune note libre de
         // client ne fait. Une ligne qui en porte une, remplie, est une ligne
         // configurée par un module — donc une ligne qui attend un fichier.
-        return $this->zoneDeDepot($idCustomization, $this->ligneConfigureeParUnModule($idCustomization));
+        return $this->zoneDeDepot($idCustomization, $this->ligneQuiPorteLeFichier($idCustomization));
+    }
+
+    /**
+     * Cette ligne est-elle celle qui porte le fichier de sa série ?
+     */
+    private function ligneQuiPorteLeFichier(int $idCustomization): bool
+    {
+        if ($idCustomization <= 0 || !$this->ligneConfigureeParUnModule($idCustomization)) {
+            return false;
+        }
+
+        // ⚠️ UNE SEULE ZONE DE DÉPÔT PAR SÉRIE, PAS UNE PAR LIGNE.
+        //
+        // Un client qui commande cinq tailles du même vêtement passe UNE
+        // commande, avec UN marquage : les tailles font des lignes de panier
+        // séparées parce que PrestaShop l'impose, pas parce que ce sont cinq
+        // travaux. Ouvrir la zone sur chacune laisserait déposer cinq visuels
+        // différents pour un seul pressage — et l'atelier ne saurait pas
+        // lequel appliquer.
+        //
+        // C'est la même règle que pour le tarif, où le palier se calcule déjà
+        // sur la série et non sur la ligne.
+        //
+        // La série se reconnaît au LIBELLÉ de la configuration : deux lignes
+        // qui portent le même texte sont le même travail. On n'ouvre la zone
+        // que sur la première — celle dont l'identifiant est le plus petit.
+        $premiere = (int) Db::getInstance()->getValue(
+            'SELECT MIN(autre.id_customization)'
+            .' FROM `'._DB_PREFIX_.'customization` moi'
+            .' JOIN `'._DB_PREFIX_.'customized_data` mesdonnees'
+            .'   ON mesdonnees.id_customization = moi.id_customization AND mesdonnees.type = '.(int) Product::CUSTOMIZE_TEXTFIELD
+            .' JOIN `'._DB_PREFIX_.'customization` autre'
+            .'   ON autre.id_cart = moi.id_cart AND autre.id_product = moi.id_product'
+            .' JOIN `'._DB_PREFIX_.'customized_data` sesdonnees'
+            .'   ON sesdonnees.id_customization = autre.id_customization'
+            .'   AND sesdonnees.type = '.(int) Product::CUSTOMIZE_TEXTFIELD
+            .'   AND sesdonnees.value = mesdonnees.value'
+            .' WHERE moi.id_customization = '.$idCustomization
+        );
+
+        return $premiere === 0 || $premiere === $idCustomization;
     }
 
     /**
@@ -2412,10 +2453,6 @@ class Ekosyncimprimerie extends Module
      */
     private function ligneConfigureeParUnModule(int $idCustomization): bool
     {
-        if ($idCustomization <= 0) {
-            return false;
-        }
-
         return (bool) Db::getInstance()->getValue(
             'SELECT 1 FROM `'._DB_PREFIX_.'customized_data` cd'
             .' JOIN `'._DB_PREFIX_.'customization_field` cf ON cf.id_customization_field = cd.`index`'
