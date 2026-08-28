@@ -31,6 +31,51 @@ class ClientEko
     public const DELAI_CONNEXION = 5;
     public const DELAI_TOTAL = 15;
 
+    /**
+     * Combien de fois rejouer un appel tué par le TRANSPORT — pas par une
+     * réponse du serveur.
+     *
+     * ⚠️ Un déploiement de l'ERP arrête FrankenPHP puis le relance : mesuré le
+     * 2026-08-28, la coupure dure de 2 à 16 secondes, et il y a eu cinq
+     * déploiements dans la journée. Pendant cette fenêtre le port 443 refuse
+     * NET — « Couldn't connect to server » en 2 ms. Sans reprise, la tâche en
+     * cours meurt sur place, et le client voit une panne pour une coupure de
+     * quelques secondes.
+     *
+     * Trois reprises à six secondes couvrent vingt-quatre secondes. Au-delà,
+     * ce n'est plus un redémarrage mais une panne, et elle doit remonter.
+     */
+    private const RETENTATIVES_RESEAU = 3;
+
+    /** L'attente entre deux reprises de transport, en secondes. */
+    private const ATTENTE_RESEAU = 6;
+
+    /**
+     * Les échecs de TRANSPORT qui méritent une reprise.
+     *
+     * ⚠️ Uniquement ceux-là. Un 4xx ou un 5xx est une RÉPONSE : la rejouer ne
+     * la changerait pas, et masquerait une erreur qui doit se voir.
+     *
+     * ⚠️ `CURLE_OPERATION_TIMEDOUT` est ABSENT volontairement. Un délai dépassé
+     * ne veut pas dire « service absent » mais « service lent » : le rejouer
+     * ajoute de la charge à un serveur qui en manque déjà, et transforme un
+     * appel long en trois. Le redémarrage, lui, refuse en 2 ms — c'est le cas
+     * 7, et c'est celui qu'on rattrape.
+     *
+     * `CURLE_HTTP2_STREAM` (92) est ce que rend un appel coupé EN COURS par
+     * l'arrêt du serveur ; `CURLE_SSL_CONNECT_ERROR` (35) ce que rend un appel
+     * arrivé pendant que le service remonte, écouteur ouvert mais TLS pas prêt.
+     */
+    private const ERREURS_REJOUABLES = [
+        6,  // CURLE_COULDNT_RESOLVE_HOST
+        7,  // CURLE_COULDNT_CONNECT
+        35, // CURLE_SSL_CONNECT_ERROR
+        52, // CURLE_GOT_NOTHING
+        55, // CURLE_SEND_ERROR
+        56, // CURLE_RECV_ERROR
+        92, // CURLE_HTTP2_STREAM
+    ];
+
     /** Préfixe des clés de cache, pour pouvoir toutes les retrouver. */
     private const PREFIXE_CACHE = 'ekosync_c_';
 
@@ -178,31 +223,100 @@ class ClientEko
      *
      * @return array{ok: bool, code: int, contenu: string, type: string, erreur: string}
      */
+    /**
+     * Lancer un appel préparé, et le rejouer si le TRANSPORT a échoué.
+     *
+     * Les deux points d'appel de cette classe passent par ici : sans quoi la
+     * reprise n'aurait couvert que l'un des deux, et le défaut serait revenu
+     * par la porte laissée ouverte.
+     *
+     * ⚠️ La préparation est REFAITE à chaque essai : une ressource cURL est
+     * consommée par son exécution, et la rejouer telle quelle ne repart pas.
+     *
+     * @param callable(): (\CurlHandle|false) $preparer
+     *
+     * @return array{reponse: string|false, code: int, type: string, erreur: string, reprises: int}
+     */
+    private function executerAvecReprise(callable $preparer): array
+    {
+        $reprises = 0;
+
+        while (true) {
+            $ch = $preparer();
+
+            if ($ch === false) {
+                return ['reponse' => false, 'code' => 0, 'type' => '', 'erreur' => 'cURL indisponible', 'reprises' => $reprises];
+            }
+
+            $reponse = curl_exec($ch);
+            $resultat = [
+                'reponse' => $reponse,
+                'code' => (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE),
+                'type' => (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE),
+                'erreur' => curl_error($ch),
+                'reprises' => $reprises,
+            ];
+            $numero = curl_errno($ch);
+            curl_close($ch);
+
+            if ($reponse !== false
+                || !in_array($numero, self::ERREURS_REJOUABLES, true)
+                || $reprises >= self::RETENTATIVES_RESEAU
+            ) {
+                return $resultat;
+            }
+
+            sleep(self::ATTENTE_RESEAU);
+            $reprises++;
+        }
+    }
+
+    /**
+     * Le nombre de reprises, dit dans le message d'erreur.
+     *
+     * « après 3 reprises » désigne une indisponibilité durable ; un refus sans
+     * reprise désigne un incident bref. Les confondre fait chercher au mauvais
+     * endroit — c'est ce qui m'a fait accuser ma propre cadence là où l'ERP
+     * était simplement en cours de redéploiement.
+     */
+    private static function mention(string $erreur, int $reprises): string
+    {
+        return $reprises > 0 ? $erreur . sprintf(' (après %d reprise(s))', $reprises) : $erreur;
+    }
+
     public function telecharger(string $chemin): array
     {
-        $ch = curl_init($this->base . $chemin);
+        $tentative = $this->executerAvecReprise(function () use ($chemin) {
+            $ch = curl_init($this->base . $chemin);
 
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
-            // ⚠️ Plus long que pour un appel ordinaire : l'ERP FABRIQUE le PDF
-            // à la demande la première fois, en démarrant un navigateur sans
-            // écran. Le délai des appels JSON couperait juste avant la fin, et
-            // le client verrait une panne pour un document qui arrivait.
-            CURLOPT_TIMEOUT => 60,
-            CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_HTTPHEADER => [
-                'Accept: application/pdf',
-                'Authorization: Bearer ' . $this->jeton,
-            ],
-        ]);
+            if ($ch === false) {
+                return false;
+            }
 
-        $reponse = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $type = (string) curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-        $erreur = curl_error($ch);
-        curl_close($ch);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
+                // ⚠️ Plus long que pour un appel ordinaire : l'ERP FABRIQUE le
+                // PDF à la demande la première fois, en démarrant un navigateur
+                // sans écran. Le délai des appels JSON couperait juste avant la
+                // fin, et le client verrait une panne pour un document qui
+                // arrivait.
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_HTTPHEADER => [
+                    'Accept: application/pdf',
+                    'Authorization: Bearer ' . $this->jeton,
+                ],
+            ]);
+
+            return $ch;
+        });
+
+        $reponse = $tentative['reponse'];
+        $code = $tentative['code'];
+        $type = $tentative['type'];
+        $erreur = $tentative['erreur'];
 
         if (!is_string($reponse) || $reponse === '') {
             return [
@@ -210,7 +324,7 @@ class ClientEko
                 'code' => $code,
                 'contenu' => '',
                 'type' => $type,
-                'erreur' => $erreur !== '' ? $erreur : 'réponse vide',
+                'erreur' => self::mention($erreur !== '' ? $erreur : 'réponse vide', $tentative['reprises']),
             ];
         }
 
@@ -259,38 +373,45 @@ class ClientEko
 
         $debut = microtime(true);
 
-        $ch = curl_init($this->base . $chemin);
+        $tentative = $this->executerAvecReprise(function () use ($methode, $chemin, $corps) {
+            $ch = curl_init($this->base . $chemin);
 
-        $entetes = [
-            'Accept: application/json',
-            'Authorization: Bearer ' . $this->jeton,
-        ];
+            if ($ch === false) {
+                return false;
+            }
 
-        $options = [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => $methode,
-            CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
-            CURLOPT_TIMEOUT => self::DELAI_TOTAL,
-            CURLOPT_FOLLOWLOCATION => false,
-        ];
+            $entetes = [
+                'Accept: application/json',
+                'Authorization: Bearer ' . $this->jeton,
+            ];
 
-        if ($corps !== null) {
-            $options[CURLOPT_POSTFIELDS] = json_encode($corps, JSON_UNESCAPED_UNICODE);
-            $entetes[] = 'Content-Type: application/json';
-        }
+            $options = [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => $methode,
+                CURLOPT_CONNECTTIMEOUT => self::DELAI_CONNEXION,
+                CURLOPT_TIMEOUT => self::DELAI_TOTAL,
+                CURLOPT_FOLLOWLOCATION => false,
+            ];
 
-        $options[CURLOPT_HTTPHEADER] = $entetes;
-        curl_setopt_array($ch, $options);
+            if ($corps !== null) {
+                $options[CURLOPT_POSTFIELDS] = json_encode($corps, JSON_UNESCAPED_UNICODE);
+                $entetes[] = 'Content-Type: application/json';
+            }
 
-        $reponse = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $erreurCurl = curl_error($ch);
-        curl_close($ch);
+            $options[CURLOPT_HTTPHEADER] = $entetes;
+            curl_setopt_array($ch, $options);
+
+            return $ch;
+        });
+
+        $reponse = $tentative['reponse'];
+        $code = $tentative['code'];
+        $erreurCurl = $tentative['erreur'];
 
         $duree = (int) round((microtime(true) - $debut) * 1000);
 
         if ($reponse === false) {
-            return $this->echec($code, $erreurCurl ?: 'aucune réponse', $duree);
+            return $this->echec($code, self::mention($erreurCurl ?: 'aucune réponse', $tentative['reprises']), $duree);
         }
 
         $donnees = json_decode((string) $reponse, true);

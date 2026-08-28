@@ -53,6 +53,29 @@ la commande à l'ERP.
 
 ### Corrigé
 
+- **Un déploiement de l'ERP tuait la tâche en cours et faisait échouer les
+  dépôts.** FrankenPHP est arrêté puis relancé : mesuré le 28/08, la coupure
+  dure de 2 à 16 secondes, avec cinq déploiements dans la journée. Pendant
+  cette fenêtre le port 443 refuse **net** — « Couldn't connect to server » en
+  2 ms, pas un délai d'attente — et rien ne rejouait. Un client qui déposait son
+  fichier à cet instant voyait une panne.
+  Les **deux** points d'appel du client passent désormais par un même exécuteur
+  qui rejoue trois fois à six secondes. Le passage par un exécuteur unique n'est
+  pas de l'élégance : il y avait deux `curl_exec`, et n'en corriger qu'un aurait
+  laissé l'autre nu. Un contrôle exécutable vérifie qu'il n'en reste **qu'un**.
+- **Le dépôt de fichier rejoue lui aussi, mais jamais à l'aveugle.** La
+  déclaration — premier pas de tout dépôt, un peu de JSON — est rejouée sans
+  précaution. L'envoi, lui, n'est rejoué que si le flux se **rembobine** :
+  la fonction de lecture en a déjà consommé une partie, et repartir sans revenir
+  au début enverrait un fichier tronqué que le serveur accepterait. Un flux non
+  rembobinable échoue franchement — mieux vaut cela que la moitié d'un visuel
+  rangée sous le nom du bon. Le compteur d'octets déjà en place garde la
+  reprise : elle ne peut pas passer pour une réussite.
+- **Le délai dépassé n'est volontairement PAS rejoué.** Un appel lent dit
+  « service en peine », pas « service absent » : le rejouer ajoute de la charge
+  là où elle manque, et ferait d'un appel long trois appels longs. Le
+  redémarrage, lui, refuse en 2 ms — c'est ce cas-là qu'on rattrape.
+
 - **Quarante-trois textes destinés au client étaient rangés dans le catalogue du
   marchand.** L'extracteur de traductions déduisait le domaine du FICHIER : tout
   ce qui sortait de `ekosyncimprimerie.php` partait en `Admin`. Or ce fichier

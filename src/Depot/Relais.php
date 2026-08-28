@@ -34,6 +34,26 @@ namespace Eko\Depot;
  */
 class Relais
 {
+    /**
+     * La reprise d'un appel tué par le TRANSPORT.
+     *
+     * ⚠️ Un déploiement de l'ERP arrête FrankenPHP puis le relance : de 2 à
+     * 16 secondes pendant lesquelles le 443 refuse net. Un client qui dépose
+     * son fichier à cet instant voyait une panne.
+     *
+     * ⚠️ Ces valeurs sont RECOPIÉES de `ClientEko` et non importées : ce
+     * fichier est partagé tel quel entre les modules, et le faire dépendre
+     * d'une classe propre à l'un d'eux le rendrait incopiable dans les autres.
+     *
+     * `CURLE_OPERATION_TIMEDOUT` reste dehors : un délai dépassé dit « lent »,
+     * pas « absent », et le rejouer charge un serveur qui en manque déjà.
+     */
+    private const RETENTATIVES_RESEAU = 3;
+
+    private const ATTENTE_RESEAU = 6;
+
+    private const ERREURS_REJOUABLES = [6, 7, 35, 52, 55, 56, 92];
+
     /** Au-delà, le transfert est trop long pour une requête web. */
     private const DELAI_ENVOI = 900;
 
@@ -81,8 +101,16 @@ class Relais
      *
      * @return array{ok: bool, envoyes: int, erreur: string}
      */
-    public function pousser(int $idDepot, $flux, int $taille): array
+    public function pousser(int $idDepot, $flux, int $taille, int $reprises = 0): array
     {
+        // La borne est vérifiée à l'ENTRÉE : une reprise de plus ne partirait
+        // pas, mais elle aurait déjà dormi six secondes pour rien.
+        if ($reprises > self::RETENTATIVES_RESEAU) {
+            return ['ok' => false, 'envoyes' => 0, 'erreur' => sprintf(
+                'ERP injoignable après %d reprises', self::RETENTATIVES_RESEAU
+            )];
+        }
+
         $ch = curl_init($this->base . '/api/v1/printing/uploads/' . $idDepot . '/content');
 
         if ($ch === false) {
@@ -122,7 +150,28 @@ class Relais
         $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $envoyes = (int) curl_getinfo($ch, CURLINFO_SIZE_UPLOAD);
         $erreurCurl = curl_error($ch);
+        $numeroCurl = curl_errno($ch);
         curl_close($ch);
+
+        // ⚠️ REJOUER UN ENVOI EXIGE DE REMBOBINER LA SOURCE. La fonction de
+        // lecture a déjà consommé une partie du flux ; repartir sans revenir
+        // au début enverrait un fichier TRONQUÉ — et le serveur l'accepterait.
+        // Un flux non rembobinable n'est donc jamais rejoué : mieux vaut un
+        // échec que la moitié d'un visuel rangée sous le nom du bon.
+        //
+        // Le garde qui suit compte les octets partis : si une reprise se passe
+        // mal, elle ne peut pas passer pour une réussite.
+        $rembobinable = (bool) (stream_get_meta_data($flux)['seekable'] ?? false);
+
+        if ($corps === false
+            && in_array($numeroCurl, self::ERREURS_REJOUABLES, true)
+            && $rembobinable
+            && rewind($flux)
+        ) {
+            sleep(self::ATTENTE_RESEAU);
+
+            return $this->pousser($idDepot, $flux, $taille, $reprises + 1);
+        }
 
         // ⚠️ ON COMPTE LES OCTETS, ON NE SE FIE PAS AU CODE. Un envoi coupé en
         // route a déjà rendu 200 avec un corps vide ; seul le compteur disait
@@ -202,7 +251,7 @@ class Relais
      *
      * @return array<string, mixed>
      */
-    private function appeler(string $chemin, array $charge): array
+    private function appeler(string $chemin, array $charge, int $reprises = 0): array
     {
         $ch = curl_init($this->base . $chemin);
 
@@ -223,7 +272,19 @@ class Relais
         ]);
 
         $corps = curl_exec($ch);
+        $numeroCurl = curl_errno($ch);
         curl_close($ch);
+
+        // La déclaration est le PREMIER pas d'un dépôt : ratée, rien ne part.
+        // Elle ne porte qu'un peu de JSON, la rejouer ne coûte rien.
+        if ($corps === false
+            && in_array($numeroCurl, self::ERREURS_REJOUABLES, true)
+            && $reprises < self::RETENTATIVES_RESEAU
+        ) {
+            sleep(self::ATTENTE_RESEAU);
+
+            return $this->appeler($chemin, $charge, $reprises + 1);
+        }
 
         $decode = json_decode((string) $corps, true);
 
